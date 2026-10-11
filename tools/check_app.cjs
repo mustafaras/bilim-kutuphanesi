@@ -1,11 +1,12 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const root=require('node:path').join(__dirname,'..');const data=JSON.parse(fs.readFileSync(root+'/site/data/catalog.json','utf8'));const elements=new Map();
 const el=id=>{if(!elements.has(id))elements.set(id,{value:id==='sort'?'title':'',checked:false,style:{},attributes:{},setAttribute(k,v){this.attributes[k]=v},addEventListener(){},scrollIntoView(){},textContent:'',innerHTML:''});return elements.get(id)};
-const store=new Map(),context=vm.createContext({document:{documentElement:{},querySelectorAll(){return []},addEventListener(){},getElementById:el,createElement(){return {click(){}}}},fetch:async()=>({ok:true,json:async()=>data}),navigator:{},localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v)},location:{search:'',pathname:'/bilim-kutuphanesi/'},history:{replaceState(){}},URL,URLSearchParams,Blob,Intl,setTimeout,clearTimeout,console});
+const store=new Map(),context=vm.createContext({document:{documentElement:{},querySelectorAll(){return []},dispatchEvent(){},addEventListener(){},getElementById:el,createElement(){return {click(){}}}},fetch:async()=>({ok:true,json:async()=>data}),navigator:{},localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v)},location:{search:'',pathname:'/bilim-kutuphanesi/'},history:{replaceState(){}},URL,URLSearchParams,Blob,Intl,Event,setTimeout,clearTimeout,console});
 vm.runInContext(fs.readFileSync(root+'/site/i18n.js','utf8'),context);
+vm.runInContext(fs.readFileSync(root+'/site/visuals.js','utf8'),context);
 vm.runInContext(fs.readFileSync(root+'/site/app.js','utf8'),context);
 (async()=>{await vm.runInContext('start()',context);const run=s=>vm.runInContext(s,context);
-assert.equal(run('records.length'),data.records.length);assert.equal(run('filtered().length'),data.records.length);
+assert.equal(run('SUBJECT_ART.length'),8);assert.equal((el('collectionGrid').innerHTML.match(/<svg /g)||[]).length,8);assert.equal(run('records.length'),data.records.length);assert.equal(run('filtered().length'),data.records.length);
 el('collection').value='books';assert.equal(run('filtered().length'),758);
 el('query').value='istatistik';assert(run('filtered().length')>0);assert.equal(run("norm('İSTATİSTİK ı')"),'istatistik i');
 run('reset()');el('collection').value='nobel';el('year').value='1906';assert(run('filtered().length')>0);assert(run("filtered().every(r=>r.year==='1906')"));

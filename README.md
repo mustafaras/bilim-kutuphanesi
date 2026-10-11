@@ -48,3 +48,9 @@ node --check site/sw.js
 ```
 
 Künye ve dosya denetimleri metinlerin bilimsel doğruluğunun baştan sona incelenmesi anlamına gelmez. Okuma sıraları editoryal önerilerdir.
+
+## Görsel keşif ve hareket
+
+Sekiz özgün vektör çizimi, yıldız bağlantı ağı, yörünge ve ışık animasyonları, kart vurguları ve sayfa ilerleme çizgisi arayüze dahildir. Sağ alttaki hareket düğmesi efektleri durdurur; seçim bu cihazda saklanır. İşletim sisteminin azaltılmış hareket tercihi otomatik uygulanır. Canvas animasyonu sekme gizlendiğinde veya kapak alanı görünümden çıktığında durur; çizimler ve efektler dış hizmet kullanmaz.
+
+Görsel bileşenler `site/visuals.js`, hareket denetimi `site/effects.js`, stiller `site/style.css` içindedir. Dekoratif çizimler ekran okuyuculardan gizlenir; katalog ve filtreler hareket durdurulduğunda da kullanılabilir.

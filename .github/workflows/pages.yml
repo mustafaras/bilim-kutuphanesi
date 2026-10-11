@@ -24,6 +24,8 @@ jobs:
         run: |
           node --check site/app.js
           node --check site/sw.js
+          node --check site/visuals.js
+          node --check site/effects.js
           node tools/check_app.cjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4

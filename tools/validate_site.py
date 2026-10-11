@@ -14,7 +14,7 @@ for x in r:
 for route in d['routes']:
  assert len(route['steps'])>0
  assert all(s['id'] in ids for s in route['steps'])
-for file in ['index.html','style.css','i18n.js','app.js','sw.js','manifest.webmanifest','icon.svg']:
+for file in ['index.html','style.css','i18n.js','app.js','visuals.js','effects.js','sw.js','manifest.webmanifest','icon.svg']:
  assert (S/file).is_file()
 assert not list(S.rglob('*.pdf')) and not list(S.rglob('*.epub'))
 assert sum(p.stat().st_size for p in S.rglob('*') if p.is_file())<10_000_000
