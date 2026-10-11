@@ -28,6 +28,7 @@ jobs:
           node --check site/effects.js
           node --check site/discovery.js
           node tools/check_app.cjs
+          node tools/check_app.cjs --missing-art
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
