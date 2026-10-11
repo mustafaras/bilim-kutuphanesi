@@ -20,4 +20,7 @@ assert not list(S.rglob('*.pdf')) and not list(S.rglob('*.epub'))
 assert sum(p.stat().st_size for p in S.rglob('*') if p.is_file())<10_000_000
 html=(S/'index.html').read_text(encoding='utf-8');js=(S/'app.js').read_text(encoding='utf-8');known=set(re.findall(r'\bid="([^"]+)"',html))
 assert set(re.findall(r"\$\('([^']+)'\)",js))<=known
+worker=(S/'sw.js').read_text(encoding='utf-8')
+for asset in re.findall(r'(?:src|href)="([^"?#]+\.(?:js|css)\?v=\d+)"',html):
+ assert "'"+asset+"'" in worker,'Offline cache asset version differs: '+asset
 print('OK:',len(r),'records;',len(d['routes']),'routes;',d['stats']['uploaded'],'Drive links; no PDFs or credentials in public site.')
