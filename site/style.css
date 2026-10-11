@@ -36,3 +36,14 @@ body{isolation:isolate}.ambient-light{position:fixed;inset:0;overflow:hidden;poi
 .catalog-jumpbar{scroll-margin-top:30px}
 #cards{scroll-margin-top:92px}
 .search-match{color:inherit;background:#e9d8b1;border-radius:2px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.filter-panel>summary{display:none}
+@media(max-width:760px){
+ .filter-panel{margin:17px 0;background:var(--soft);border:1px solid var(--line);border-radius:5px}
+ .filter-panel>summary{display:flex;align-items:center;gap:12px;min-height:54px;padding:13px 14px;cursor:pointer;list-style:none;font-size:12px;font-weight:650}
+ .filter-panel>summary::-webkit-details-marker{display:none}
+ #filterPanelStatus{font-size:10px;font-weight:450;color:var(--muted);margin-left:auto}
+ .filter-chevron{font-size:20px;font-weight:400;color:var(--accent);transition:transform .2s}
+ .filter-panel[open] .filter-chevron{transform:rotate(45deg)}
+ .filter-panel .filters{margin:0;border-top:1px solid var(--line);border-radius:0 0 5px 5px}
+ .effects-paused .filter-chevron{transition:none}
+}
