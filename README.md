@@ -61,6 +61,8 @@ Masaüstünde ana çizimin üzerine gelen imleç yıldız ağına dört yakın b
 
 Dört başlangıç kaynağı, katalog için hazırlanan özgün görsellerle sunulur. Kart başlığı ve vitrin düğmesi ayrıntı panelini açar. Panel kaynak künyesini, açıklamayı, doğrulanmış erişim durumunu, okuma listesi ve bağlantı kopyalama kontrollerini içerir. `?record=<katalog kimliği>&ui=tr` bağlantısı aynı kaynağı doğrudan açar. Escape paneli kapatır; klavye odağı panel içinde tutulur ve kapanınca önceki kontrole döner.
 
+Panelin **Keşfe devam et** bölümünde aynı kategori ve koleksiyondan en fazla üç kaynak gösterilir. Aynı kaynak dili, bilinen aynı seviye ve farklı yazarlar önceliklidir; Nobel belgelerinde yakın ödül yılı da dikkate alınır. Bu, künye alanlarına dayanan keşif seçkisidir. Bir kaynaktan diğerine geçiş paneli yeniler, başlığı klavye odağına alır ve paylaşılabilir kaynak bağlantısını günceller. Panel kapanınca ilk açan katalog/vitrin düğmesine dönülür.
+
 Geliştirme referansları: [V&A Collections](https://www.vam.ac.uk/collections) tematik keşif ve koleksiyon vitrini; [NYPL Research Catalog](https://www.nypl.org/research/research-catalog/search/advanced) ayrıntılı arama ve kaynak künyesi; [Awwwards Art gallery](https://www.awwwards.com/websites/art/) tipografi, boşluk ve görsel hiyerarşi araştırması. Bu sitelerin varlıkları veya tasarımları kopyalanmadı.
 
 ## Katalog görünümleri ve görsel rotalar
