@@ -51,11 +51,11 @@ Künye ve dosya denetimleri metinlerin bilimsel doğruluğunun baştan sona ince
 
 ## Görsel keşif ve hareket
 
-Sekiz özgün vektör çizimi, yıldız bağlantı ağı, yörünge ve ışık animasyonları, kart vurguları ve sayfa ilerleme çizgisi arayüze dahildir. Sağ alttaki hareket düğmesi efektleri durdurur; seçim bu cihazda saklanır. İşletim sisteminin azaltılmış hareket tercihi otomatik uygulanır. Canvas animasyonu sekme gizlendiğinde veya kapak alanı görünümden çıktığında durur; çizimler ve efektler dış hizmet kullanmaz.
+Sekiz özgün vektör çizimi, perspektifli bilgi küresi, altın yörüngeler, yıldız ışıkları, kart vurguları ve sayfa ilerleme çizgisi arayüze dahildir. Koyu göksel ana ekran ile fildişi katalog tek bir görsel kimlik kullanır. Sağ alttaki hareket düğmesi efektleri durdurur; seçim bu cihazda saklanır. İşletim sisteminin azaltılmış hareket tercihi otomatik uygulanır. Canvas animasyonu sekme gizlendiğinde veya kapak alanı görünümden çıktığında durur; çizimler ve efektler dış hizmet kullanmaz.
 
 Görsel bileşenler `site/visuals.js`, hareket denetimi `site/effects.js`, stiller `site/style.css` içindedir. Dekoratif çizimler ekran okuyuculardan gizlenir; katalog ve filtreler hareket durdurulduğunda da kullanılabilir.
 
-Masaüstünde ana çizimin üzerine gelen imleç yıldız ağına dört yakın bağlantı ve yumuşak bir ışık ekler. Dokunmatik cihazlarda bu etki uygulanmaz. Aynı canvas ve görünürlük denetimi kullanılır; ek animasyon döngüsü veya dış bağımlılık yoktur.
+Masaüstünde ana çizimin üzerine gelen imleç kürenin bakış açısını hafifçe değiştirir. Enlem, boylam, yörüngeler ve yıldızlar tek bir Canvas 2D üzerinde üç boyutlu nokta izdüşümleriyle çizilir. Dokunmatik cihazlarda imleç etkisi uygulanmaz. Aynı görünürlük ve hareket denetimi kullanılır; dış grafik kütüphanesi veya yeni bir animasyon döngüsü yoktur.
 
 ## Kaynak vitrini ve ayrıntı paneli
 
