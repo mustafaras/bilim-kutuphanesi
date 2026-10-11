@@ -54,3 +54,9 @@ Künye ve dosya denetimleri metinlerin bilimsel doğruluğunun baştan sona ince
 Sekiz özgün vektör çizimi, yıldız bağlantı ağı, yörünge ve ışık animasyonları, kart vurguları ve sayfa ilerleme çizgisi arayüze dahildir. Sağ alttaki hareket düğmesi efektleri durdurur; seçim bu cihazda saklanır. İşletim sisteminin azaltılmış hareket tercihi otomatik uygulanır. Canvas animasyonu sekme gizlendiğinde veya kapak alanı görünümden çıktığında durur; çizimler ve efektler dış hizmet kullanmaz.
 
 Görsel bileşenler `site/visuals.js`, hareket denetimi `site/effects.js`, stiller `site/style.css` içindedir. Dekoratif çizimler ekran okuyuculardan gizlenir; katalog ve filtreler hareket durdurulduğunda da kullanılabilir.
+
+## Kaynak vitrini ve ayrıntı paneli
+
+Dört başlangıç kaynağı, katalog için hazırlanan özgün görsellerle sunulur. Kart başlığı ve vitrin düğmesi ayrıntı panelini açar. Panel kaynak künyesini, açıklamayı, doğrulanmış erişim durumunu, okuma listesi ve bağlantı kopyalama kontrollerini içerir. `?record=<katalog kimliği>&ui=tr` bağlantısı aynı kaynağı doğrudan açar. Escape paneli kapatır; klavye odağı panel içinde tutulur ve kapanınca önceki kontrole döner.
+
+Geliştirme referansları: [V&A Collections](https://www.vam.ac.uk/collections) tematik keşif ve koleksiyon vitrini; [NYPL Research Catalog](https://www.nypl.org/research/research-catalog/search/advanced) ayrıntılı arama ve kaynak künyesi; [Awwwards Art gallery](https://www.awwwards.com/websites/art/) tipografi, boşluk ve görsel hiyerarşi araştırması. Bu sitelerin varlıkları veya tasarımları kopyalanmadı.

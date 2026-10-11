@@ -26,6 +26,7 @@ jobs:
           node --check site/sw.js
           node --check site/visuals.js
           node --check site/effects.js
+          node --check site/discovery.js
           node tools/check_app.cjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
