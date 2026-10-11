@@ -1,7 +1,8 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const root=require('node:path').join(__dirname,'..');const data=JSON.parse(fs.readFileSync(root+'/site/data/catalog.json','utf8'));const elements=new Map();
-const el=id=>{if(!elements.has(id))elements.set(id,{value:id==='sort'?'title':'',checked:false,style:{},addEventListener(){},scrollIntoView(){},textContent:'',innerHTML:''});return elements.get(id)};
-const store=new Map(),context=vm.createContext({document:{getElementById:el,createElement(){return {click(){}}}},fetch:async()=>({ok:true,json:async()=>data}),navigator:{},localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v)},location:{search:'',pathname:'/bilim-kutuphanesi/'},history:{replaceState(){}},URL,URLSearchParams,Blob,setTimeout,clearTimeout,console});
+const el=id=>{if(!elements.has(id))elements.set(id,{value:id==='sort'?'title':'',checked:false,style:{},attributes:{},setAttribute(k,v){this.attributes[k]=v},addEventListener(){},scrollIntoView(){},textContent:'',innerHTML:''});return elements.get(id)};
+const store=new Map(),context=vm.createContext({document:{documentElement:{},querySelectorAll(){return []},addEventListener(){},getElementById:el,createElement(){return {click(){}}}},fetch:async()=>({ok:true,json:async()=>data}),navigator:{},localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v)},location:{search:'',pathname:'/bilim-kutuphanesi/'},history:{replaceState(){}},URL,URLSearchParams,Blob,Intl,setTimeout,clearTimeout,console});
+vm.runInContext(fs.readFileSync(root+'/site/i18n.js','utf8'),context);
 vm.runInContext(fs.readFileSync(root+'/site/app.js','utf8'),context);
 (async()=>{await vm.runInContext('start()',context);const run=s=>vm.runInContext(s,context);
 assert.equal(run('records.length'),data.records.length);assert.equal(run('filtered().length'),data.records.length);
@@ -14,4 +15,9 @@ assert.equal(run("safeUrl('javascript:alert(1)')"),'');assert.equal(run("esc('<s
 assert.equal(data.driveRoots.length,2);for(const r of data.driveRoots)assert(el('driveFolders').innerHTML.includes(r.url));
 run("catalog.driveRoots.push({label:'unsafe',url:'javascript:alert(1)'});renderDriveFolders()");assert(!el('driveFolders').innerHTML.includes('javascript:'));assert(!el('driveFolders').innerHTML.includes('unsafe'));
 run('reset()');el('query').value='no-such-source-1234567';run('render()');assert(el('cards').innerHTML.includes('eşleşen kaynak yok'));
+run("reset();setLanguage('en')");assert(el('collection').innerHTML.includes('Books &amp; resources'));assert(el('cards').innerHTML.includes('Visit source'));assert(el('routeList').innerHTML.includes('History of science'));assert.equal(run('document.documentElement.lang'),'en');
+el('availability').value='ready';assert.equal(run('filtered().length'),data.stats.uploaded);el('availability').value='pending';assert.equal(run('filtered().length'),data.stats.documents-data.stats.uploaded);
+run('reset();discoveryIndex=3');assert(run("filtered().every(r=>r.collection==='books'&&['12 - Türkçe Edebiyat','13 - Dünya Klasikleri'].includes(r.category))"));
+run('reset()');el('category').value='01 - Fizik';const before=run('filtered().length');run("setLanguage('tr')");assert.equal(el('category').value,'01 - Fizik');assert.equal(run('filtered().length'),before);assert.equal(store.get('bk-ui-language'),'tr');
+const html=fs.readFileSync(root+'/site/index.html','utf8');for(const match of html.matchAll(/data-i18n(?:-html|-aria|-placeholder)?="([^"]+)"/g)){assert(run(`Object.hasOwn(UI.tr,${JSON.stringify(match[1])})&&Object.hasOwn(UI.en,${JSON.stringify(match[1])})`),match[1]);}
 console.log('OK: search, Turkish normalization, collection/year filters, favorites, pagination, routes, URL and HTML safety.');})().catch(e=>{console.error(e);process.exitCode=1});

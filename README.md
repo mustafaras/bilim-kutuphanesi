@@ -18,6 +18,10 @@ Tarayıcı aktarımını kontrol ettikten sonra özel `.local/second-readback.js
 
 ## Geliştirme ve yayın
 
+Arayüz Türkçe ve İngilizce olarak kullanılabilir; üst menüdeki TR / EN seçimi tarayıcıda saklanır ve `?ui=tr` / `?ui=en` bağlantılarıyla paylaşılabilir. Kaynak başlıkları, eserler ve mevcut editoryal açıklamalar özgün dillerinde korunur. Arayüz metinleri `site/i18n.js` içindedir; yeni bir arayüz öğesi eklerken iki dilde de karşılığını ekle.
+
+Sekiz keşif alanı kataloğu konu gruplarına ayırır. Alan seçimi kaynak dili, belge türü ve erişim filtreleriyle birleşir; aktif alan etiketi kaldırılabilir. Arama için `/` kısayolu kullanılabilir. Mobil düzende kartlar ve okuma yolları tek sütuna iner. Arayüzün görünümü `site/style.css`, davranışı `site/app.js` dosyasında geliştirilir.
+
 `site/` içindeki HTML, CSS ve JavaScript dosyaları uygulamadır. `site/data/catalog.json` kamuya açık katalog metadatasıdır. `main` dalına gönderilen değişiklikler `.github/workflows/pages.yml` ile doğrulanıp GitHub Pages'te yayımlanır. GitHub Actions üzerinden **Publish library → Run workflow** ile elle yeniden yayın yapılabilir.
 
 Başka bir bilgisayarda da bu depoyu klonlayıp arayüzü geliştirebilirsin. Arayüz ve mevcut katalog üzerinde çalışmak için masaüstündeki PDF klasörleri gerekmez. Yeni dosyaların özel Drive bağlantılarını eşlemek ve yerel CSV kataloglarını yeniden üretmek için aşağıdaki güncelleme adımlarını kullan.

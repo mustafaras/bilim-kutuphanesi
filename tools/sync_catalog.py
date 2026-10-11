@@ -43,6 +43,6 @@ stats=dict(books=sum(r['collection']=='books' for r in records),nobelDocuments=s
 today=datetime.now(timezone(timedelta(hours=3)))
 months=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık']
 drive_roots=[dict(label=r['label'],url=url(r['url'])) for r in state.get('drive_roots',[dict(label='Kişisel arşiv',url=state['root_url'])]) if url(r.get('url',''))]
-data=dict(version=1,updated=f'{today.day} {months[today.month-1]} {today.year}',repository='https://github.com/mustafaras/bilim-kutuphanesi',driveRoot=state['root_url'],driveRoots=drive_roots,stats=stats,records=records,routes=routes,unavailable=unavailable)
+data=dict(version=1,updatedISO=today.isoformat(),updated=f'{today.day} {months[today.month-1]} {today.year}',repository='https://github.com/mustafaras/bilim-kutuphanesi',driveRoot=state['root_url'],driveRoots=drive_roots,stats=stats,records=records,routes=routes,unavailable=unavailable)
 target=P/'site/data';target.mkdir(exist_ok=True);(target/'catalog.json').write_text(json.dumps(data,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
 print(json.dumps(stats,ensure_ascii=False))
