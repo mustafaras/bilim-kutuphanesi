@@ -16,3 +16,15 @@ body{isolation:isolate}.ambient-light{position:fixed;inset:0;overflow:hidden;poi
 /* Decorative covers stay proportional; bibliographic headings retain the full title. */
 .catalog-cover .cover-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;line-clamp:4;overflow:hidden;max-height:4.88em;flex-shrink:0}
 @media(max-width:760px){.detail-art-panel .cover-title{-webkit-line-clamp:3;line-clamp:3;max-height:3.66em}}
+/* Comfortable touch targets and readable catalog metadata on narrow screens. */
+@media(max-width:760px){
+ .filters label{font-size:11px;line-height:1.5}
+ .filters select{min-height:44px;font-size:13px}
+ .card .star{width:44px;height:44px;min-height:44px;flex-shrink:0}
+ .card .chip{font-size:11px;line-height:1.5}
+ .card .author,.card .description{font-size:13px;line-height:1.75}
+ .card .links{gap:10px 16px}
+ .card .links a{display:inline-flex;align-items:center;min-height:44px;font-size:12px}
+ .language-switch button{min-width:44px;min-height:44px}
+ .motion-toggle{min-height:44px;bottom:calc(10px + env(safe-area-inset-bottom));right:calc(10px + env(safe-area-inset-right))}
+}
