@@ -13,6 +13,13 @@ run('reset()');el('collection').value='nobel';el('year').value='1906';assert(run
 run('reset()');run('favorites.add(records[0].id)');el('favoritesOnly').checked=true;assert.equal(run('filtered().length'),1);run('saveFavorites()');assert(store.get('bk-reading-list').includes(data.records[0].id));
 run('reset();page=999;render()');assert(run('page')<Math.ceil(data.records.length/24));assert(el('cards').innerHTML.includes('<article'));assert.equal(el('catalogJumpbar').hidden,false);assert(el('catalogPosition').textContent.endsWith(Math.ceil(data.records.length/24)+' / '+Math.ceil(data.records.length/24)));assert(el('routeList').innerHTML.includes('<details class="route-card">'));
 run('reset();render()');el('next').onclick();assert.equal(run('page'),1);assert.equal(el('cards').lastScroll.block,'start');assert.equal(el('firstResult').focused,true);assert.equal(el('firstResult').focusOptions.preventScroll,true);el('previous').onclick();assert.equal(run('page'),0);
+assert.equal(run("highlight('Café quantum', 'cafe')"),'<mark class="search-match">Café</mark> quantum');
+assert.equal(run("highlight('İstatistik ve Işık', 'istatistik isik')"),'<mark class="search-match">İstatistik</mark> ve <mark class="search-match">Işık</mark>');
+assert.equal(run("highlight('abcabc', 'abc bc')"),'<mark class="search-match">abcabc</mark>');
+assert.equal(run("highlight('A+B <script>', 'a+b <script>')"),'<mark class="search-match">A+B</mark> <mark class="search-match">&lt;script&gt;</mark>');
+assert.equal(run("highlight('🙂 Café', 'cafe')"),'🙂 <mark class="search-match">Café</mark>');
+assert.equal(run("highlight('Cafe\\u0301', 'cafe')"),'<mark class="search-match">Cafe\u0301</mark>');
+assert.equal(run("highlight('<b>safe</b>', '')"),'&lt;b&gt;safe&lt;/b&gt;');
 assert.equal(run("safeUrl('javascript:alert(1)')"),'');assert.equal(run("esc('<script>')"),'&lt;script&gt;');
 assert.equal(data.driveRoots.length,2);for(const r of data.driveRoots)assert(el('driveFolders').innerHTML.includes(r.url));
 run("catalog.driveRoots.push({label:'unsafe',url:'javascript:alert(1)'});renderDriveFolders()");assert(!el('driveFolders').innerHTML.includes('javascript:'));assert(!el('driveFolders').innerHTML.includes('unsafe'));
