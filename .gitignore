@@ -1,0 +1,8 @@
+.local/
+__pycache__/
+*.pdf
+*.epub
+*.zip
+*.log
+.env*
+dist/
