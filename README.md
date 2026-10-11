@@ -14,7 +14,7 @@ PDF bağlantıları Drive'ın kendi oturum ve izin denetimini kullanır. Gizli P
 
 Katalogdaki **Kişisel arşivler** bağlantısı iki Drive klasörünü gösterir: **Nobel ve ilk aktarım arşivi**, **Kitap arşivi**. Dosyalar yalnızca kendi Google hesaplarının erişimine açıktır. Yükleme kuyruğuna eklenmiş olmak tamamlanmış aktarım anlamına gelmez; katalogda Drive bağlantısı yalnızca doğrulanan dosyalarda görünür. Tarayıcıdan yapılan büyük aktarımlar sürerken yükleme sekmesi ve bilgisayar açık kalmalıdır.
 
-Tarayıcı aktarımını kontrol ettikten sonra özel `.local/second-readback.json` dosyasındaki klasör listesini `python tools/import_browser_readback.py` ile içeri alabilirsin. Araç, kategori ve dosya adı tekil eşleşen, boyutu yerel dosyayla aynı ve indirilebilir dosyalar için aktarım kaydı oluşturur; sırada bekleyen dosyaları tamamlanmış saymaz.
+Tarayıcı aktarımını kontrol ettikten sonra özel klasör listesini `python tools/import_browser_readback.py .local/full-archive-readback.json` ile içeri alabilirsin. Araç kategori, dosya adı, bayt boyutu ve indirilebilir durumu doğrular; aynı ad veya önceden yeniden adlandırılmış dosyalarda mevcut Drive kimliğini kullanır. Her klasörün hesap bilgisi aktarım kaydına korunarak yazılır. `.local/full-readback-audit.json` eksikleri ve eski eşlemeleri kaydeder. Uzaktan içerik özeti mevcut olmadığı için bu kontrol içerik hash karşılaştırması değildir; sırada bekleyen dosyaları tamamlanmış saymaz.
 
 ## Geliştirme ve yayın
 
@@ -60,3 +60,9 @@ Görsel bileşenler `site/visuals.js`, hareket denetimi `site/effects.js`, still
 Dört başlangıç kaynağı, katalog için hazırlanan özgün görsellerle sunulur. Kart başlığı ve vitrin düğmesi ayrıntı panelini açar. Panel kaynak künyesini, açıklamayı, doğrulanmış erişim durumunu, okuma listesi ve bağlantı kopyalama kontrollerini içerir. `?record=<katalog kimliği>&ui=tr` bağlantısı aynı kaynağı doğrudan açar. Escape paneli kapatır; klavye odağı panel içinde tutulur ve kapanınca önceki kontrole döner.
 
 Geliştirme referansları: [V&A Collections](https://www.vam.ac.uk/collections) tematik keşif ve koleksiyon vitrini; [NYPL Research Catalog](https://www.nypl.org/research/research-catalog/search/advanced) ayrıntılı arama ve kaynak künyesi; [Awwwards Art gallery](https://www.awwwards.com/websites/art/) tipografi, boşluk ve görsel hiyerarşi araştırması. Bu sitelerin varlıkları veya tasarımları kopyalanmadı.
+
+## Katalog görünümleri ve görsel rotalar
+
+Kartlar ve Liste düğmeleri aynı arama sonuçlarını iki düzende gösterir. Görünüm bu cihazda saklanır; `?view=list` bağlantısı listeyi doğrudan açar. Seçili filtre etiketindeki çarpı yalnızca o filtreyi kaldırır. Türkçe/İngilizce geçişi sorguyu, filtreleri ve görünümü korur. Kaynak ayrıntılarına her iki görünümde de başlıktan erişilir.
+
+Okuma yollarında özgün vektör simgeleri ve sıralı adımları gösteren bir çizgi bulunur. Rotalar yerel HTML açılır panelleriyle klavyeden kullanılabilir. [Rijksmuseum tematik keşif](https://www.rijksmuseum.nl/en/collection/discover) ve [Europeana'nın koleksiyon arayüzü](https://pro.europeana.eu/post/introducing-the-new-europeana-collections-website) konu keşfi ve sayfayı yenilemeden filtreleme araştırmasına kaynak oldu.
