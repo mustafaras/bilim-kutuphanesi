@@ -11,5 +11,7 @@ run('reset()');el('collection').value='nobel';el('year').value='1906';assert(run
 run('reset()');run('favorites.add(records[0].id)');el('favoritesOnly').checked=true;assert.equal(run('filtered().length'),1);run('saveFavorites()');assert(store.get('bk-reading-list').includes(data.records[0].id));
 run('reset();page=999;render()');assert(run('page')<Math.ceil(data.records.length/24));assert(el('cards').innerHTML.includes('<article'));assert(el('routeList').innerHTML.includes('<details>'));
 assert.equal(run("safeUrl('javascript:alert(1)')"),'');assert.equal(run("esc('<script>')"),'&lt;script&gt;');
+assert.equal(data.driveRoots.length,2);for(const r of data.driveRoots)assert(el('driveFolders').innerHTML.includes(r.url));
+run("catalog.driveRoots.push({label:'unsafe',url:'javascript:alert(1)'});renderDriveFolders()");assert(!el('driveFolders').innerHTML.includes('javascript:'));assert(!el('driveFolders').innerHTML.includes('unsafe'));
 run('reset()');el('query').value='no-such-source-1234567';run('render()');assert(el('cards').innerHTML.includes('eşleşen kaynak yok'));
 console.log('OK: search, Turkish normalization, collection/year filters, favorites, pagination, routes, URL and HTML safety.');})().catch(e=>{console.error(e);process.exitCode=1});

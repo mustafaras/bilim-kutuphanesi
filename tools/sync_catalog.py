@@ -42,6 +42,7 @@ for name in ['OKUMA ROTALARI.json','ALAN REHBERI.json']:
 stats=dict(books=sum(r['collection']=='books' for r in records),nobelDocuments=sum(r['collection']=='nobel' for r in records),awards=sum(r['collection']=='awards' for r in records),pdfs=sum(r['format']=='pdf' for r in records),documents=len(files_by_key),uploaded=sum(bool(r['drive']) for r in records),languages=len(set(r['language'] for r in records if r['language'] not in ['', 'Belirtilmedi','Belirsiz'])))
 today=datetime.now(timezone(timedelta(hours=3)))
 months=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık']
-data=dict(version=1,updated=f'{today.day} {months[today.month-1]} {today.year}',repository='https://github.com/mustafaras/bilim-kutuphanesi',driveRoot=state['root_url'],stats=stats,records=records,routes=routes,unavailable=unavailable)
+drive_roots=[dict(label=r['label'],url=url(r['url'])) for r in state.get('drive_roots',[dict(label='Kişisel arşiv',url=state['root_url'])]) if url(r.get('url',''))]
+data=dict(version=1,updated=f'{today.day} {months[today.month-1]} {today.year}',repository='https://github.com/mustafaras/bilim-kutuphanesi',driveRoot=state['root_url'],driveRoots=drive_roots,stats=stats,records=records,routes=routes,unavailable=unavailable)
 target=P/'site/data';target.mkdir(exist_ok=True);(target/'catalog.json').write_text(json.dumps(data,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
 print(json.dumps(stats,ensure_ascii=False))

@@ -2,15 +2,25 @@
 
 Kitap seçkisi, Nobel belgeleri ve ödül kayıtları için çok dilli kişisel katalog. GitHub Pages yalnızca web uygulaması ve katalog künyelerini yayımlar; PDF arşivi kişisel Google Drive hesabındadır.
 
+- [Kataloğu aç](https://mustafaras.github.io/bilim-kutuphanesi/)
+- [Kişisel Drive arşivi](https://drive.google.com/drive/folders/1Lai0EFsOnBe7fj9iisipCBe0QHJSvhP5)
+- [Yayın geçmişi](https://github.com/mustafaras/bilim-kutuphanesi/actions/workflows/pages.yml)
+
 ## Kullanım
 
 Başlık, yazar veya konu ara; kategori, koleksiyon, dil, yıl, tür ve seviye filtrelerini birlikte kullan. Yıldız ile okuma listesi oluştur. Liste bu tarayıcıda tutulur; farklı cihaza taşımak için JSON dışa/içe aktarımını kullan.
 
 PDF bağlantıları Drive'ın kendi oturum ve izin denetimini kullanır. Gizli PDFler siteye yüklenmez. Kaynak bağlantıları yayıncı/yazar/kurum sayfalarını açar; bazıları kurumsal erişim isteyebilir. Çevrimdışı önbellek katalog içindir, PDF arşivi için değildir.
 
+Katalogdaki **Kişisel arşivler** bağlantısı iki Drive klasörünü gösterir: **Nobel ve ilk aktarım arşivi**, **Kitap arşivi**. Dosyalar yalnızca kendi Google hesaplarının erişimine açıktır. Yükleme kuyruğuna eklenmiş olmak tamamlanmış aktarım anlamına gelmez; katalogda Drive bağlantısı yalnızca doğrulanan dosyalarda görünür. Tarayıcıdan yapılan büyük aktarımlar sürerken yükleme sekmesi ve bilgisayar açık kalmalıdır.
+
+Tarayıcı aktarımını kontrol ettikten sonra özel `.local/second-readback.json` dosyasındaki klasör listesini `python tools/import_browser_readback.py` ile içeri alabilirsin. Araç, kategori ve dosya adı tekil eşleşen, boyutu yerel dosyayla aynı ve indirilebilir dosyalar için aktarım kaydı oluşturur; sırada bekleyen dosyaları tamamlanmış saymaz.
+
 ## Geliştirme ve yayın
 
 `site/` içindeki HTML, CSS ve JavaScript dosyaları uygulamadır. `site/data/catalog.json` kamuya açık katalog metadatasıdır. `main` dalına gönderilen değişiklikler `.github/workflows/pages.yml` ile doğrulanıp GitHub Pages'te yayımlanır. GitHub Actions üzerinden **Publish library → Run workflow** ile elle yeniden yayın yapılabilir.
+
+Başka bir bilgisayarda da bu depoyu klonlayıp arayüzü geliştirebilirsin. Arayüz ve mevcut katalog üzerinde çalışmak için masaüstündeki PDF klasörleri gerekmez. Yeni dosyaların özel Drive bağlantılarını eşlemek ve yerel CSV kataloglarını yeniden üretmek için aşağıdaki güncelleme adımlarını kullan.
 
 ## Yerel katalog güncellemesi
 
