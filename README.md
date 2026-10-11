@@ -55,6 +55,8 @@ Sekiz özgün vektör çizimi, yıldız bağlantı ağı, yörünge ve ışık a
 
 Görsel bileşenler `site/visuals.js`, hareket denetimi `site/effects.js`, stiller `site/style.css` içindedir. Dekoratif çizimler ekran okuyuculardan gizlenir; katalog ve filtreler hareket durdurulduğunda da kullanılabilir.
 
+Masaüstünde ana çizimin üzerine gelen imleç yıldız ağına dört yakın bağlantı ve yumuşak bir ışık ekler. Dokunmatik cihazlarda bu etki uygulanmaz. Aynı canvas ve görünürlük denetimi kullanılır; ek animasyon döngüsü veya dış bağımlılık yoktur.
+
 ## Kaynak vitrini ve ayrıntı paneli
 
 Dört başlangıç kaynağı, katalog için hazırlanan özgün görsellerle sunulur. Kart başlığı ve vitrin düğmesi ayrıntı panelini açar. Panel kaynak künyesini, açıklamayı, doğrulanmış erişim durumunu, okuma listesi ve bağlantı kopyalama kontrollerini içerir. `?record=<katalog kimliği>&ui=tr` bağlantısı aynı kaynağı doğrudan açar. Escape paneli kapatır; klavye odağı panel içinde tutulur ve kapanınca önceki kontrole döner.
