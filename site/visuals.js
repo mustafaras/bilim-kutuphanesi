@@ -10,4 +10,4 @@ const SUBJECT_ART=[
 '<path d="M37 86V34l33-18 33 18v52M25 86h90M49 42v29M70 42v29M91 42v29M33 34h74"/><circle cx="70" cy="28" r="3"/><path d="M23 18v10M18 23h10M117 68v10M112 73h10"/>',
 '<circle cx="70" cy="47" r="24"/><path d="M58 69l-5 29 17-9 17 9-5-29M64 41l6-10 6 10 11 2-8 8 2 12-11-6-11 6 2-12-8-8Z"/><path d="M32 42c-15 20-2 42 14 47M108 42c15 20 2 42-14 47"/>'
 ];
-const subjectArt=i=>`<div class="subject-art art-${i}" aria-hidden="true"><svg viewBox="0 0 140 110" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">${SUBJECT_ART[i]}</svg><span class="art-grid"></span></div>`;
+const subjectArt=i=>`<div class="subject-art art-${i}" aria-hidden="true"><svg viewBox="0 0 140 110" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><g class="atlas-symbol">${SUBJECT_ART[i]}</g><g class="atlas-orbit" opacity=".25"><circle cx="70" cy="55" r="48" stroke-dasharray="1 9"/><path d="M18 55h7M115 55h7M70 3v7M70 100v7"/><circle cx="70" cy="7" r="2" fill="currentColor"/></g></svg><span class="art-grid"></span></div>`;
