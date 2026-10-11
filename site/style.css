@@ -33,3 +33,4 @@ body{isolation:isolate}.ambient-light{position:fixed;inset:0;overflow:hidden;poi
 .detail-art-panel .detail-links a{min-height:44px;display:inline-flex;align-items:center;line-height:1.5}
 .detail-art-panel .detail-links .primary{justify-content:center;width:100%}
 @media(max-width:760px){.detail-art-panel .detail-links{justify-content:center;margin:20px 0 12px}.detail-art-panel .detail-links a:not(.primary){text-align:center}.detail-art-panel>.visual-note{margin-top:12px}}
+.catalog-jumpbar{scroll-margin-top:30px}
