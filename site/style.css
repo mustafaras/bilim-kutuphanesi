@@ -28,3 +28,8 @@ body{isolation:isolate}.ambient-light{position:fixed;inset:0;overflow:hidden;poi
  .language-switch button{min-width:44px;min-height:44px}
  .motion-toggle{min-height:44px;bottom:calc(10px + env(safe-area-inset-bottom));right:calc(10px + env(safe-area-inset-right))}
 }
+/* Keep document access beside the cover, including very long bibliographic titles. */
+.detail-art-panel .detail-links{margin:24px 0 16px;gap:12px;font-size:12px}
+.detail-art-panel .detail-links a{min-height:44px;display:inline-flex;align-items:center;line-height:1.5}
+.detail-art-panel .detail-links .primary{justify-content:center;width:100%}
+@media(max-width:760px){.detail-art-panel .detail-links{justify-content:center;margin:20px 0 12px}.detail-art-panel .detail-links a:not(.primary){text-align:center}.detail-art-panel>.visual-note{margin-top:12px}}
