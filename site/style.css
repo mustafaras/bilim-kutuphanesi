@@ -77,3 +77,8 @@ body{isolation:isolate}.ambient-light{position:fixed;inset:0;overflow:hidden;poi
 @media(prefers-reduced-motion:reduce){.card:hover .card-illustration .subject-art svg{transform:none}}
 
 .math-art{color:#56758d}.catalog-cover .math-art{color:#eadbc0}
+
+.detail-explore{display:flex;gap:10px;margin:20px 0;padding-top:18px;border-top:1px solid var(--line);font-size:12px}
+.detail-explore a{display:flex;align-items:center;justify-content:space-between;gap:15px;flex:1;min-width:0;min-height:56px;padding:12px 14px;border:1px solid #d3c7b2;border-radius:5px;text-decoration:none;background:linear-gradient(125deg,#efe9dc66,transparent);transition:background .2s,border-color .2s}
+.detail-explore a:hover{background:#eae2d3;border-color:#a58e6c}.detail-explore a>span:first-child{min-width:0;overflow-wrap:anywhere}.detail-explore a>span:last-child{color:var(--accent);font-size:20px}.detail-explore small{display:block;font-size:10px;color:var(--muted);margin-top:5px}
+@media(max-width:760px){.detail-explore{gap:8px}.detail-explore a{padding:12px 10px;gap:6px;font-size:11px}}

@@ -76,3 +76,9 @@ Sonuçların üzerindeki kompakt katalog şeridi yalnızca katalog bölümünde 
 Keşif kartları kendi konu grubunun kaynak/kayıt sayısını ve bilinen kaynak dili sayısını gösterir. Nobel grubunda belge ve ödül kayıtları birlikte sayılır; bu sayılar Drive yükleme durumunu ifade etmez. Koleksiyon seçimi alan, dil, yıl, tür ve seviye seçeneklerini o koleksiyona sınırlar. Ortak bir seçim korunur; yeni koleksiyonda bulunmayan seçim temizlenir. Doğrudan paylaşılan koleksiyon bağlantıları da aynı kuralla açılır.
 
 Katalog kartları konu grubuna göre özgün çizimler taşır; matematik kaynaklarında ayrı geometrik çizim, Fields/Abel/Turing kaynaklarında ödül simgesi kullanılır. Aynı alan çizimi vitrin, ayrıntı ve ilgili kaynaklarda tutarlıdır. Dekoratif çizimler ekran okuyuculardan gizlenir. Kompakt Liste görünümü ve tam kaynak başlıkları korunur.
+
+## Yazardan ve alandan keşif
+
+Kaynak ayrıntısındaki **Yazarın kaynakları** bağlantısı katalogdaki tam yazar künyesine göre, büyük/küçük harf ve aksan farklarını normalleştirerek filtreler. Yazar filtresi kaldırılabilir bir etikette görünür, dil değiştirince korunur ve `?author=...` ile paylaşılır. **Bu alanda keşfet** aynı koleksiyon ve kategoriye geçer. Bağlantı sayıları erişim durumundan bağımsız katalog kayıtlarını gösterir. Normal tıklama sayfayı yenilemeden sonuçlara geçer; Ctrl/Cmd ile yeni sekmede açma korunur.
+
+[NYPL katalog arama rehberi](https://libguides.nypl.org/researchcatalog/searching) kaynak künyesinden yazar ve konu bağlantılarıyla keşif örneği olarak incelendi. Arayüz, çizimler ve filtre uygulaması bu proje için hazırlanmıştır.

@@ -21,3 +21,6 @@ Object.assign(UI.tr,{activeFilters:'Seçili filtreler',removeFilter:'Filtreyi ka
 Object.assign(UI.en,{activeFilters:'Active filters',removeFilter:'Remove filter',viewLabel:'Catalog view',gridView:'Cards',listView:'List'});
 Object.assign(UI.tr,{filterPanelTitle:'Filtreler',filterPanelHint:'Alan, dil, yıl ve erişim',activeFilterSingular:'etkin filtre',activeFilterPlural:'etkin filtre'});
 Object.assign(UI.en,{filterPanelTitle:'Filters',filterPanelHint:'Subject, language, year & access',activeFilterSingular:'active filter',activeFilterPlural:'active filters'});
+
+Object.assign(UI.tr,{browseRelated:'Katalogda keşfe devam et',browseAuthor:'Yazarın kaynakları',browseField:'Bu alanda keşfet'});
+Object.assign(UI.en,{browseRelated:'Continue exploring the catalog',browseAuthor:'Sources by this author',browseField:'Explore this subject'});
