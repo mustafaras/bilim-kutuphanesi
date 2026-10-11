@@ -24,3 +24,6 @@ Object.assign(UI.en,{filterPanelTitle:'Filters',filterPanelHint:'Subject, langua
 
 Object.assign(UI.tr,{browseRelated:'Katalogda keşfe devam et',browseAuthor:'Yazarın kaynakları',browseField:'Bu alanda keşfet'});
 Object.assign(UI.en,{browseRelated:'Continue exploring the catalog',browseAuthor:'Sources by this author',browseField:'Explore this subject'});
+
+Object.assign(UI.tr,{archiveStatus:"Arşiv erişim durumu",archiveStatusNote:"Erişim durumu son katalog güncellemesine aittir.",browseReady:"Hazır kaynakları göster"});
+Object.assign(UI.en,{archiveStatus:"Archive availability",archiveStatusNote:"Availability reflects the latest catalog update.",browseReady:"Browse available sources"});
