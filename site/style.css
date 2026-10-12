@@ -108,3 +108,6 @@ body{isolation:isolate}.ambient-light{position:fixed;inset:0;overflow:hidden;poi
 @media(prefers-reduced-motion:reduce){.archive-sync-footer a:hover span{transform:none}}
 
 .hero a:focus-visible,.archive-section a:focus-visible{outline-color:#ead3a8}
+
+/* Pause consistently overrides the more specific hover engravings. */
+.effects-paused .collection-tile:hover .subject-art svg{transform:none}.effects-paused *, .effects-paused *::before,.effects-paused *::after{transition:none!important}
