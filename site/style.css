@@ -111,3 +111,7 @@ body{isolation:isolate}.ambient-light{position:fixed;inset:0;overflow:hidden;poi
 
 /* Pause consistently overrides the more specific hover engravings. */
 .effects-paused .collection-tile:hover .subject-art svg{transform:none}.effects-paused *, .effects-paused *::before,.effects-paused *::after{transition:none!important}
+
+/* Category-coded spines mirror the discovery atlas palette. */.card{border-left:4px solid var(--spine,var(--line))}
+.spine-0{--spine:#528584}.spine-1{--spine:#729c7d}.spine-2{--spine:#6b8aab}.spine-3{--spine:#967b9b}.spine-4{--spine:#729c7d}.spine-5{--spine:#6b8aab}.spine-6{--spine:#967b9b}.spine-7{--spine:#b49767}
+.spine-0 .category{color:#2f6360}.spine-1 .category,.spine-4 .category{color:#47715b}.spine-2 .category,.spine-5 .category{color:#4c678c}.spine-3 .category,.spine-6 .category{color:#71566f}.spine-7 .category{color:#94702f}
