@@ -8,7 +8,7 @@ Kitap seçkisi, Nobel belgeleri ve ödül kayıtları için çok dilli kişisel 
 
 ## Kullanım
 
-Başlık, yazar veya konu ara; kategori, koleksiyon, dil, yıl, tür ve seviye filtrelerini birlikte kullan. Yıldız ile okuma listesi oluştur. Liste bu tarayıcıda tutulur; farklı cihaza taşımak için JSON dışa/içe aktarımını kullan.
+Başlık, yazar veya konu ara; kategori, koleksiyon, dil, yıl, tür ve seviye filtrelerini birlikte kullan. Yıl filtresi ilk/son yıl aralığı olarak çalışır. Arama kutusu yazarken öneri listesi açar (ok tuşları ve Enter ile seçilebilir); katalog altındaki numaralı sayfalama ile doğrudan sayfaya atlanabilir. Kartlardaki renkli omurga kaydın disiplin ailesini gösterir. Nobel yılları şeridinde bir yıla dokunarak katalog o yıla filtrelenir. Aydınlık/karanlık tema tarayıcı tercihini izler; başlıktaki ☾/☀ düğmesi ile elle değiştirilir. Yıldız ile okuma listesi oluştur. Liste bu tarayıcıda tutulur; farklı cihaza taşımak için JSON dışa/içe aktarımını kullan.
 
 PDF bağlantıları Drive'ın kendi oturum ve izin denetimini kullanır. Gizli PDFler siteye yüklenmez. Kaynak bağlantıları yayıncı/yazar/kurum sayfalarını açar; bazıları kurumsal erişim isteyebilir. Çevrimdışı önbellek katalog içindir, PDF arşivi için değildir.
 
