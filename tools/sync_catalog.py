@@ -38,7 +38,7 @@ for r in read(N/'ODUL KATALOGU.csv'):
 routes=[]
 for name in ['OKUMA ROTALARI.json','ALAN REHBERI.json']:
  for route in json.loads((B/name).read_text(encoding='utf-8')):
-  routes.append(dict(title=route['title'],description=route['description'],steps=[dict(id=book_ids[s['file']],note=s['note']) for s in route['steps'] if s['file'] in book_ids]))
+  routes.append(dict(title=route['title'],description=route['description'],steps=[dict(id=book_ids[s['file']],note=s['note'],**({'note_en':s['note_en']} if s.get('note_en') else {})) for s in route['steps'] if s['file'] in book_ids]))
 stats=dict(books=sum(r['collection']=='books' for r in records),nobelDocuments=sum(r['collection']=='nobel' for r in records),awards=sum(r['collection']=='awards' for r in records),pdfs=sum(r['format']=='pdf' for r in records),documents=len(files_by_key),uploaded=sum(bool(r['drive']) for r in records),languages=len(set(r['language'] for r in records if r['language'] not in ['', 'Belirtilmedi','Belirsiz'])))
 today=datetime.now(timezone(timedelta(hours=3)))
 months=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık']

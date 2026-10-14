@@ -22,10 +22,14 @@ jobs:
         run: python tools/validate_site.py
       - name: Validate fonts
         run: python tools/validate_fonts.py
+      - name: Validate i18n
+        run: python tools/validate_i18n.py
       - name: Verify catalog interactions
         run: |
           node --check site/app.js
           node --check site/sw.js
+          node --check site/i18n.js
+          node --check site/i18n-data.js
           node --check site/visuals.js
           node --check site/effects.js
           node --check site/discovery.js

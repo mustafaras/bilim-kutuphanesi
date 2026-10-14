@@ -23,12 +23,12 @@ EN dil modunda bazı alanların Türkçe kalması sorununu **kanıtıyla tespit 
 ## 3. Hedef Mimari
 
 1. **UI dizeleri** `site/i18n.js`'te kalır (tek kaynak). `t()` geliştirme modunda eksik anahtarda `console.warn` üretir (üretimde sessiz).
-2. **Veri etiketleri** yeni `site/data/i18n-data.json`'a taşınır: `{ "labels": { "Fizik": "Physics", ... }, "routes": { "<route-id>": { "title": "...", "description": "...", "steps": { "<step-id>": "..." } } } }`. ID-anhtarlı; sıra bağımsız (i2 düzelir).
-3. **Rota adım notları** için EN çevirileri: katalog üretim hattı (`Guncelle.ps1` / `tools/`) `catalog.json` içine `note_en` alanı yazacak şekilde güncellenir; öncesinde mevcut 75 notun EN çevirileri elle hazırlanır ve `i18n-data.json`'a `steps` bölümü olarak eklenir. Runtime: `renderRoutes()` EN modda önce `note_en`, yoksa `i18n-data.json` steps, yoksa `originalNote` işaretiyle özgün dil (asla sessiz Türkçe değil — EN modda özgün dilde kalan not görünür şekilde etiketlenir).
+2. **Veri etiketleri** yeni `site/i18n-data.js`'e'a taşınır: `{ "labels": { "Fizik": "Physics", ... }, "routes": { "<route-id>": { "title": "...", "description": "...", "steps": { "<step-id>": "..." } } } }`. ID-anhtarlı; sıra bağımsız (i2 düzelir).
+3. **Rota adım notları** için EN çevirileri: katalog üretim hattı (`Guncelle.ps1` / `tools/`) `catalog.json` içine `note_en` alanı yazacak şekilde güncellenir; öncesinde mevcut 75 notun EN çevirileri elle hazırlanır ve `i18n-data.js`'a `steps` bölümü olarak eklenir. Runtime: `renderRoutes()` EN modda önce `note_en`, yoksa `i18n-data.js` steps, yoksa `originalNote` işaretiyle özgün dil (asla sessiz Türkçe değil — EN modda özgün dilde kalan not görünür şekilde etiketlenir).
 4. **Çoğul API:** `plural(key,n)` — TR: tek biçim; EN: `key`/`key_plural`. Yeni dizelerde kullanılır; mevcut `*Singular/*Plural` çiftleri bu API'ye göçer.
 5. **Doğrulayıcı** `tools/validate_i18n.py`:
    - (a) `UI.tr` ve `UI.en` anahtar paritesi (eksik/fazla → hata);
-   - (b) `catalog.json` içindeki **tüm** distinct `category/kind/level/language` değerlerinin `i18n-data.json → labels` içinde EN karşılığı var (i3);
+   - (b) `catalog.json` içindeki **tüm** distinct `category/kind/level/language` değerlerinin `i18n-data.js → labels` içinde EN karşılığı var (i3);
    - (c) her `routes[]` id'sinin EN başlık+açıklaması ve her adım notunun EN karşılığı var (i1);
    - (d) EN değerlerde Türkçe karakter taraması (veri etiketleri ve UI değerleri için; bilinçli istisnalar `allowlist` ile);
    - (e) `index.html`'deki tüm `data-i18n*` özniteliklerinin sözlükte karşılığı var;
@@ -37,9 +37,14 @@ EN dil modunda bazı alanların Türkçe kalması sorununu **kanıtıyla tespit 
 6. **i4:** fallback `'Kişisel arşiv'` → `t('privateArchive')` anahtarı (TR/EN).
 7. **i5:** `resultCount` metni `recordsSummary` bileşik anahtarıyla (`{count} records · {saved} saved` / `{count} kayıt · okuma listende {saved}`) sözlüğe taşınır; `plural` API kullanılır.
 
+
+> **Uygulama notu (2026-10-14):** Veri sözlüğü site/i18n-data.js olarak, global I18N_DATA sabiti biçiminde uygulandı (fetch yerine script yüklemesi): SW çevrimdışı önbelleği ve 	ools/check_app.cjs fetch-mock''u ile sıfır sürtünme; içerik ve doğrulama sözleşmesi aynı. sync_catalog.py isteğe bağlı 
+ote_en geçişini destekler; runtime önceliği 
+ote_en → i18n-data.js → özgün dil + etiket.
+
 ## 4. Görev Listesi
 
-1. `i18n-data.json` iskeleti; `EN_LABELS` içeriğini taşı; `EN_ROUTES`'u ID-anhtarlı `routes` bölümüne çevir.
+1. `i18n-data.js` iskeleti; `EN_LABELS` içeriğini taşı; `EN_ROUTES`'u ID-anhtarlı `routes` bölümüne çevir.
 2. 75 adım notunun EN çevirilerini hazırla (rotaların içeriklerine sadık, akademik ton).
 3. `app.js`: `renderRoutes`, `renderDriveFolders`, `render`, `label()` çağrılarını yeni mimariye bağla; `plural()` yardımcısını ekle.
 4. `i18n.js`: eksik-anahtar uyarısı; `privateArchive`, `recordsSummary` anahtarları.
@@ -64,19 +69,19 @@ i6) t() eksik anahtarda sessizce anahtarı döndürüyor.
 i7) Çoğul biçimler elle çoğaltılmış (activeFilterSingular/Plural).
 
 Hedef mimari:
-1. site/data/i18n-data.json OLUŞTUR (yeni dosya): { "labels": {...EN_LABELS içeriği...}, "routes": { "<route-id>": { "title": "...", "description": "...", "steps": { "<adım-id veya sıra-anahtarı>": "çeviri" } } } }. Route id'leri catalog.json → routes[].id alanlarından al (id yoksa title'ın normalize edilmiş halini anahtar yap ve bunu belgele).
-2. catalog.json'daki 10 rotanın TÜM adım notlarını (steps[].note, toplam 75) İngilizceye çevir — içeriklere sadık, akademik-ama-doğal ton; çevirileri i18n-data.json routes bölümüne koy. Kaynak metinleri okuyarak çevir; makine çevirisi hissi veren kalıplardan kaçın.
+1. site/data/i18n-data.js OLUŞTUR (yeni dosya): { "labels": {...EN_LABELS içeriği...}, "routes": { "<route-id>": { "title": "...", "description": "...", "steps": { "<adım-id veya sıra-anahtarı>": "çeviri" } } } }. Route id'leri catalog.json → routes[].id alanlarından al (id yoksa title'ın normalize edilmiş halini anahtar yap ve bunu belgele).
+2. catalog.json'daki 10 rotanın TÜM adım notlarını (steps[].note, toplam 75) İngilizceye çevir — içeriklere sadık, akademik-ama-doğal ton; çevirileri i18n-data.js routes bölümüne koy. Kaynak metinleri okuyarak çevir; makine çevirisi hissi veren kalıplardan kaçın.
 3. app.js'i yeni mimariye bağla:
-   - label(): EN_LABELS yerine i18n-data.json → labels (yükleme: start() içinde fetch veya i18n.js'e gömülü — SW çevrimdışı uyumlu olacak şekilde seç, tercihen site/i18n.js içine import edilmiş sabit ya da site/data/i18n-data.json fetch + sw.js önbelleğine ekle).
+   - label(): EN_LABELS yerine i18n-data.js → labels (yükleme: start() içinde fetch veya i18n.js'e gömülü — SW çevrimdışı uyumlu olacak şekilde seç, tercihen site/i18n.js içine import edilmiş sabit ya da site/data/i18n-data.js fetch + sw.js önbelleğine ekle).
    - renderRoutes(): EN modda başlık/açıklama/adım notu ID-anhtarlı sözlükten; notun çevirisi yoksa notu özgün dilde göster VE arkasına görsel "(original language)" mikro-etiketi koy — asla sessizce Türkçe bırakma.
    - renderDriveFolders(): 'Kişisel arşiv' fallback'i → t('privateArchive').
    - render(): resultCount → t('recordsSummary') + plural API.
    - plural(key, n): TR tek biçim, EN key/key_plural; mevcut *Singular/*Plural çiftlerini göçür.
 4. site/i18n.js: t() fonksiyonuna geliştirme modunda (location.protocol==='file:' veya ?debug) eksik anahtar console.warn; yeni anahtarlar: privateArchive, recordsSummary, recordsSummary_plural, stepNoteOriginal.
-5. tools/validate_i18n.py YAZ (yeni): (a) UI.tr/UI.en anahtar paritesi; (b) catalog.json'daki tüm distinct category/kind/level/language değerlerinin i18n-data.json labels'ta karşılığı; (c) her rotanın EN başlık+açıklaması ve her adım notunun EN karşılığı; (d) EN değerlerde Türkçe karakter taraması ([çğıöşüÇĞİÖŞÜ]) — allowlist ile istisnalar; (e) index.html'deki data-i18n* özniteliklerinin hepsinin sözlükte karşılığı; (f) app.js'te t('...') sabit anahtarlarının sözlükte karşılığı (regex taraması). .github/workflows/pages.yml doğrulama adımına ekle — hata yayını BLOKE etsin.
+5. tools/validate_i18n.py YAZ (yeni): (a) UI.tr/UI.en anahtar paritesi; (b) catalog.json'daki tüm distinct category/kind/level/language değerlerinin i18n-data.js labels'ta karşılığı; (c) her rotanın EN başlık+açıklaması ve her adım notunun EN karşılığı; (d) EN değerlerde Türkçe karakter taraması ([çğıöşüÇĞİÖŞÜ]) — allowlist ile istisnalar; (e) index.html'deki data-i18n* özniteliklerinin hepsinin sözlükte karşılığı; (f) app.js'te t('...') sabit anahtarlarının sözlükte karşılığı (regex taraması). .github/workflows/pages.yml doğrulama adımına ekle — hata yayını BLOKE etsin.
 6. tools/ katalog üretim hattına (Guncelle.ps1'nin çağırdığı python araçları) note_en alan desteği ekle: alan catalog kaynaklarında varsa catalog.json'a yazılır; yoksa davranış bugünküyle aynı (çift-yazım güvenli göç).
 
-Kısıtlar: vanilla JS; UI dizeleri site/i18n.js'de kalıyor; kayıt başlığı/yazar/açıklama özgün dilde kalıyor (bu KUSUR DEĞİL, tasarım kararı — dokunma); tüm URL parametreleri ve davranışlar korunmalı; çevrimdışı (SW) i18n-data.json dahil çalışmalı.
+Kısıtlar: vanilla JS; UI dizeleri site/i18n.js'de kalıyor; kayıt başlığı/yazar/açıklama özgün dilde kalıyor (bu KUSUR DEĞİL, tasarım kararı — dokunma); tüm URL parametreleri ve davranışlar korunmalı; çevrimdışı (SW) i18n-data.js dahil çalışmalı.
 
 Kabul (Definition of Done):
 - python tools/validate_i18n.py → 0 hata; pages.yml'de çalışıyor.
@@ -101,4 +106,4 @@ TR↔EN geçişinde: sorgu + filtre + görünüm + açık detay + rota durumu ·
 
 ## 8. Geri Alma
 
-Tek commit → `git revert`. `i18n-data.json` runtime bağımlılığı olduğundan revert sonrası `app.js` de dönmeli (aynı commit'te olduklarından otomatik).
+Tek commit → `git revert`. `i18n-data.js` runtime bağımlılığı olduğundan revert sonrası `app.js` de dönmeli (aynı commit'te olduklarından otomatik).
