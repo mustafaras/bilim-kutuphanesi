@@ -23,8 +23,26 @@ import unicodedata
 ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 TURKISH = re.compile(r"[çğıöşüÇĞİÖŞÜ]")
-# Deliberate exceptions: EN strings that intentionally quote Turkish names.
-ALLOWLIST = set()
+# Legitimate non-Turkish uses inside EN values: proper nouns and foreign-language
+# title quotes that happen to share letters with the Turkish alphabet.
+ALLOWED_SUBSTRINGS = [
+    "Mössbauer", "Provençal", "Atatürk", "Türkiye", "Hüseyin Rahmi Gürpınar",
+    "für",  # quoted German titles ("... resource on Mathematik I für ...")
+]
+# EN description pattern that intentionally quotes the Turkish catalog title.
+CATALOGUED_PATTERN = re.compile(r"^Catalogued in Turkish as: .+\. Full English edition from Project Gutenberg")
+
+
+def turkish_letters(value: str) -> bool:
+    """True if value contains Turkish letters outside deliberate exceptions."""
+    if not value:
+        return False
+    if CATALOGUED_PATTERN.match(value):
+        return False
+    cleaned = value
+    for allowed in ALLOWED_SUBSTRINGS:
+        cleaned = cleaned.replace(allowed, "")
+    return bool(TURKISH.search(cleaned))
 
 
 def slug(title: str) -> str:
@@ -93,22 +111,49 @@ def main() -> int:
     # (d) Turkish letters in EN values
     offenders = []
     for k, v in labels.items():
-        if TURKISH.search(v) and v not in ALLOWLIST:
+        if turkish_letters(v):
             offenders.append(f"label {k!r}: {v!r}")
     for key, entry in routes.items():
         for prop in ("title", "description"):
-            if TURKISH.search(entry.get(prop, "")):
+            if turkish_letters(entry.get(prop, "")):
                 offenders.append(f"route {key!r} {prop}")
         for sid, note in entry.get("steps", {}).items():
-            if TURKISH.search(note):
+            if turkish_letters(note):
                 offenders.append(f"route {key!r} step {sid}: {note!r}")
+    for k, v in data.get("awardTopics", {}).items():
+        if turkish_letters(v):
+            offenders.append(f"awardTopic {k!r}: {v!r}")
+    for k, v in data.get("descriptions", {}).items():
+        if turkish_letters(v):
+            offenders.append(f"description for {k[:40]!r}...: {v[:60]!r}")
     for v in bundle["enVals"]:
-        if TURKISH.search(v) and v not in ALLOWLIST:
+        if turkish_letters(v):
             offenders.append(f"UI.en value: {v!r}")
     if offenders:
         failures.extend(f"Turkish letters in EN value — {o}" for o in offenders)
     else:
         print("OK: no Turkish letters in EN values")
+
+    # (g) every Turkish award title has an EN translation
+    award_topics = data.get("awardTopics", {})
+    missing_award = 0
+    for r in catalog["records"]:
+        if r["collection"] == "awards" and TURKISH.search(r.get("title", "")) and r["title"] not in award_topics:
+            failures.append(f"awardTopics: no EN title for {r['title']!r}")
+            missing_award += 1
+    if not missing_award:
+        print(f"OK: all Turkish award titles translated ({len(award_topics)} topics)")
+
+    # (h) every Turkish description has an EN translation
+    descriptions = data.get("descriptions", {})
+    missing_desc = 0
+    for r in catalog["records"]:
+        d = r.get("description", "")
+        if d and TURKISH.search(d) and d not in descriptions:
+            failures.append(f"descriptions: no EN for record {r['id']} description {d[:60]!r}...")
+            missing_desc += 1
+    if not missing_desc:
+        print(f"OK: all Turkish descriptions translated ({len(descriptions)} distinct)")
 
     # (e) data-i18n attributes in index.html
     html = (SITE / "index.html").read_text(encoding="utf-8")

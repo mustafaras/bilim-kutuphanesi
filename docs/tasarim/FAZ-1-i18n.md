@@ -42,6 +42,9 @@ EN dil modunda bazı alanların Türkçe kalması sorununu **kanıtıyla tespit 
 ote_en geçişini destekler; runtime önceliği 
 ote_en → i18n-data.js → özgün dil + etiket.
 
+
+> **Veri katmanı tamamlaması (2026-10-14):** Kullanıcı denetimi üzerine EN modundaki tüm veri kaynaklı Türkçe metinler de kapatıldı: 551 ödül konusu, 347 farklı açıklama ve Nobel belge başlığı son ekleri (i18n-data.js içinde wardTopics/descriptions + displayTitle/displayDescription yardımcıları). Özgün baskı başlıkları (Türkçe/Almanca eser adları) uluslararası katalog pratiği gereği özgün dilde kalır ve originalNote ile bildirilir.
+
 ## 4. Görev Listesi
 
 1. `i18n-data.js` iskeleti; `EN_LABELS` içeriğini taşı; `EN_ROUTES`'u ID-anhtarlı `routes` bölümüne çevir.
