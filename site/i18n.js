@@ -29,3 +29,7 @@ Object.assign(UI.en,{browseRelated:'Continue exploring the catalog',browseAuthor
 
 Object.assign(UI.tr,{archiveStatus:"Arşiv erişim durumu",archiveStatusNote:"Erişim durumu son katalog güncellemesine aittir.",browseReady:"Hazır kaynakları göster"});
 Object.assign(UI.en,{archiveStatus:"Archive availability",archiveStatusNote:"Availability reflects the latest catalog update.",browseReady:"Browse available sources"});
+
+/* FAZ-3 · Keşif katmanı — küratör notu, galaksi ipucu, arşiv gözlem günlüğü */
+Object.assign(UI.tr,{curatorNote:'Küratör notu — bu dört kaynak bilim, edebiyat ve Nobel arşivinin farklı ufkunu açar; her biri kendi disiplinine giden güvenilir bir ilk adımdır.',galaxyHint:'Kaydırmaya devam et — galakside ilerle',logVerified:'doğrulandı'});
+Object.assign(UI.en,{curatorNote:"Curator's note — these four sources open different horizons of the science, literature and Nobel archives; each is a dependable first step into its discipline.",galaxyHint:'Keep scrolling — travel through the galaxy',logVerified:'verified'});

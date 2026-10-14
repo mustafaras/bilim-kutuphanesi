@@ -371,3 +371,68 @@ footer .footer-brand b{font-size:22px}
 .effects-paused .hero h1 .line,.effects-paused .hero .eyebrow,.effects-paused .hero .hero-description,.effects-paused .hero .hero-actions,.effects-paused .hero .hero-foot,.effects-paused .hero-legend,.effects-paused .hero-hud,.effects-paused .hero-scroll{animation:none!important}
 .effects-paused .hero-scroll-line{animation:none!important;transform:scaleX(1)}
 .effects-paused .hero-hud-tag::before,.effects-paused .stats-kicker::before{animation:none!important}
+
+/* ==========================================================================
+   FAZ-3 · Keşif katmanı / Discovery layer — bento fields, shelf spotlight,
+   Nobel galaxy scrollytelling, observation-log archives. Appended last on
+   purpose: equal-specificity rules here win over every earlier block.
+   ========================================================================== */
+
+/* --- 1 · Bento discovery grid ---------------------------------------------- */
+.collection-grid{grid-template-columns:repeat(12,1fr);gap:14px}
+.collection-grid .collection-tile{grid-column:span var(--tile-span,3)}
+.collection-tile .tile-top>span:first-child{font:600 12px/1 var(--mono);letter-spacing:.14em}
+.collection-tile .tile-inventory{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+.collection-tile::before{background-image:radial-gradient(rgba(255,255,255,.32) 1px,transparent 1.4px);background-size:22px 22px;opacity:.32}
+.collection-tile:focus-visible{outline:var(--focus-ring);outline-offset:4px}
+.collection-tile:hover .subject-art svg,.collection-tile:focus-visible .subject-art svg{transform:scale(1.04)}
+.collection-tile .tile-constellation{position:absolute;inset:0;z-index:-1;width:100%;height:100%;pointer-events:none}
+.collection-tile .tile-constellation line{stroke:var(--atlas-light);stroke-width:.7;opacity:0;transition:opacity var(--dur-2) var(--ease-out) var(--d,0ms)}
+.collection-tile .tile-constellation circle{fill:var(--atlas-light);opacity:.12;transition:opacity var(--dur-2) var(--ease-out) var(--d,0ms),filter var(--dur-2) var(--ease-out) var(--d,0ms)}
+.collection-tile:hover .tile-constellation circle,.collection-tile:focus-visible .tile-constellation circle{opacity:1;filter:drop-shadow(0 0 4px var(--atlas-light))}
+.collection-tile:hover .tile-constellation line,.collection-tile:focus-visible .tile-constellation line{opacity:.5}
+.collection-tile.is-large h3{font-size:clamp(26px,2.1vw,32px)}
+.collection-tile.is-large .subject-art svg{width:180px;height:142px}
+@media(max-width:1024px){.collection-grid{grid-template-columns:repeat(6,1fr)}.collection-grid .collection-tile.is-large{grid-column:span 6}.collection-grid .collection-tile:not(.is-large){grid-column:span 3}}
+@media(max-width:760px){.collection-grid{grid-template-columns:1fr}.collection-grid .collection-tile{grid-column:auto}.collection-tile.is-large h3{font-size:22px}.collection-tile.is-large .subject-art svg{width:140px;height:110px}}
+@media(prefers-reduced-motion:reduce){.collection-tile .tile-constellation line,.collection-tile .tile-constellation circle{transition:none}}
+
+/* --- 2 · Spotlight shelf + curator note ------------------------------------- */
+.spotlight-card .catalog-cover{transform-origin:50% 100%}
+.shelf-edge{display:block;position:relative;height:1px;margin:0 -4px 14px;background:linear-gradient(90deg,transparent,var(--accent-3) 10%,var(--accent-1) 50%,var(--accent-3) 90%,transparent)}
+.shelf-edge::after{content:'';position:absolute;left:10%;right:10%;top:2px;height:6px;background:radial-gradient(ellipse at 50% 0,rgba(19,43,59,.16),transparent 72%)}
+.spotlight-card .spotlight-caption{margin-top:10px}
+.spotlight-card:hover .catalog-cover,.spotlight-card:focus-visible .catalog-cover{transform:perspective(800px) rotateX(6deg) translateY(-7px);box-shadow:inset 5px 0 7px #0005,inset 7px 0 0 #ffffff18,4px 5px 0 var(--edge-warm),6px 8px 0 var(--edge-warm-2),0 26px 46px #132b3b28}
+.spotlight-card:focus-visible{outline:var(--focus-ring);outline-offset:4px}
+.curator-note{margin:30px 0 0;max-width:76ch;font:italic 400 15px/1.85 var(--serif);letter-spacing:.01em;color:var(--text-2)}
+@media(prefers-reduced-motion:reduce){.spotlight-card:hover .catalog-cover{transform:none}}
+
+/* --- 3 · Nobel galaxy — year stars (all modes) ------------------------------- */
+.timeline-tick{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;display:block;min-height:14px}
+.timeline-bar{width:var(--r,4px);height:var(--r,4px);max-width:none;border-radius:50%;background:radial-gradient(circle at 32% 30%,#fff9ea 6%,#f2dfae 45%,#caa25e 95%);box-shadow:0 0 calc(var(--r,4px)*1.4 + 3px) rgba(232,206,158,calc(var(--lum,.6)*.8));opacity:calc(.3 + var(--lum,.6)*.7);transition:transform var(--dur-2) var(--ease-out),opacity var(--dur-2) var(--ease-out)}
+.timeline-year.empty .timeline-bar{background:radial-gradient(circle,#9fb9b2 0 45%,#2c4753 100%);box-shadow:none;opacity:.4}
+.timeline-year:hover:not(:disabled) .timeline-bar,.timeline-year:focus-visible .timeline-bar{transform:scale(1.65);opacity:1;background:radial-gradient(circle at 32% 30%,#fffdf4 6%,#f8ecc4 45%,#dcbf7f 95%);box-shadow:0 0 calc(var(--r,4px)*1.6 + 6px) rgba(246,227,186,.75)}
+.timeline-year.selected .timeline-bar{transform:scale(1.4);opacity:1;background:radial-gradient(circle at 32% 30%,#fffdf4 6%,#f8ecc4 45%,#dcbf7f 95%);box-shadow:0 0 0 2px #0d2029,0 0 0 3.5px #e8ce9e,0 0 18px #e3c79dd9}
+.timeline-year.in-range .timeline-bar{background:radial-gradient(circle at 32% 30%,#eefaf3 6%,#a8c5bb 45%,#6f958a 95%)}
+.chronicle-tooltip{background:rgba(13,32,41,.6);border-color:#e8ce9e59;border-radius:8px;-webkit-backdrop-filter:blur(14px) saturate(150%);backdrop-filter:blur(14px) saturate(150%);box-shadow:0 12px 32px #0006,inset 0 1px 0 #ffffff14}
+.galaxy-hint{display:none;margin:0;font:400 10px/1.4 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:#9fb9b2;text-align:center}
+@media(min-width:1024px){
+.timeline-section.galaxy .chronicle-panel{position:sticky;top:calc(var(--header-h) + 14px);display:flex;flex-direction:column;justify-content:center;height:calc(100svh - var(--header-h) - 28px);min-height:430px;background:radial-gradient(1.5px 1.5px at 8% 18%,#ffffff26,transparent),radial-gradient(1px 1px at 22% 64%,#ffffff1e,transparent),radial-gradient(1.5px 1.5px at 38% 30%,#ffffff20,transparent),radial-gradient(1px 1px at 55% 12%,#ffffff24,transparent),radial-gradient(1.5px 1.5px at 68% 58%,#ffffff1c,transparent),radial-gradient(1px 1px at 81% 26%,#ffffff26,transparent),radial-gradient(1.5px 1.5px at 92% 70%,#ffffff1e,transparent),radial-gradient(ellipse at 85% 0%,#325e5f55,transparent 60%),radial-gradient(ellipse at 5% 100%,#9b653326,transparent 55%),linear-gradient(150deg,#16303c,#102a36)}
+.timeline-section.galaxy .chronicle-head{padding:0 28px 18px}
+.timeline-section.galaxy .chronicle-chart{display:flex;flex-direction:column;gap:16px;padding:8px 28px 4px;overflow:hidden}
+.timeline-section.galaxy .chronicle-tooltip{bottom:52px}
+.timeline-section.galaxy .timeline-strip{flex:0 0 auto;overflow:visible;padding:0 0 4px;background:linear-gradient(90deg,transparent,var(--scene-line) 5%,var(--scene-line) 95%,transparent) 0 calc(100% - 22px)/100% 1px no-repeat}
+.timeline-section.galaxy .timeline-year{flex:0 0 24px;min-width:24px;gap:10px}
+.timeline-section.galaxy .galaxy-hint{display:flex;align-items:center;justify-content:center;gap:12px}
+.timeline-section.galaxy .galaxy-hint::before,.timeline-section.galaxy .galaxy-hint::after{content:'';width:46px;height:1px;background:linear-gradient(90deg,transparent,#9fb9b26b)}
+.timeline-section.galaxy .galaxy-hint::after{background:linear-gradient(90deg,#9fb9b26b,transparent)}
+}
+@media(prefers-reduced-motion:reduce){.timeline-bar{transition:none}.timeline-year:hover:not(:disabled) .timeline-bar{transform:none}}
+
+/* --- 4 · Archives — observation log ------------------------------------------ */
+.archive-log-line{margin:12px 0 0;font:500 10.5px/1.7 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:#b9d0c9;font-variant-numeric:tabular-nums}
+.archive-sync-card progress{height:8px;margin:14px 0 10px;background:linear-gradient(90deg,#e8ce9e30,#e8ce9e30) 0 calc(50% - .5px)/100% 1px no-repeat,#ffffff0f;border-radius:4px}
+.archive-sync-card progress::-webkit-progress-bar{background:#ffffff0f;border-radius:4px}
+.archive-sync-card progress::-webkit-progress-value{background:linear-gradient(90deg,#b98f55,#e8ce9e);border-radius:4px;box-shadow:0 0 10px #e8ce9e3d}
+.archive-sync-card progress::-moz-progress-bar{background:linear-gradient(90deg,#b98f55,#e8ce9e);border-radius:4px}
+.archive-sync-footer{justify-content:flex-end}

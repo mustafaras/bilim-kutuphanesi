@@ -7,7 +7,7 @@ vm.runInContext(fs.readFileSync(root+'/site/i18n-data.js','utf8'),context);
 const missingArt=process.argv.includes('--missing-art');if(!missingArt)vm.runInContext(fs.readFileSync(root+'/site/visuals.js','utf8'),context);
 vm.runInContext(fs.readFileSync(root+'/site/app.js','utf8'),context);
 (async()=>{await vm.runInContext('start()',context);const run=s=>vm.runInContext(s,context);
-if(!missingArt)assert.equal(run('SUBJECT_ART.length'),8);assert.equal((el('collectionGrid').innerHTML.match(/<svg /g)||[]).length,8);assert.equal(run('records.length'),data.records.length);assert.equal(run('filtered().length'),data.records.length);
+if(!missingArt)assert.equal(run('SUBJECT_ART.length'),8);assert.equal((el('collectionGrid').innerHTML.match(/<svg /g)||[]).length,16);/* 8 engraving + 8 hover constellation (FAZ-3) */assert.equal(run('records.length'),data.records.length);assert.equal(run('filtered().length'),data.records.length);
 el('collection').value='books';assert.equal(run('filtered().length'),758);
 el('query').value='istatistik';assert(run('filtered().length')>0);assert.equal(run("norm('İSTATİSTİK ı')"),'istatistik i');
 run('reset()');el('collection').value='nobel';el('yearFrom').value='1906';assert(run('filtered().length')>0);assert(run("filtered().every(r=>Number(r.year)>=1906)"));el('yearTo').value='1906';assert(run("filtered().every(r=>r.year==='1906')"));el('yearFrom').value='';el('yearTo').value='2026';assert(run("filtered().every(r=>r.year&&Number(r.year)<=2026)"));
