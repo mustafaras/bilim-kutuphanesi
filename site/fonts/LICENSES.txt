@@ -1,0 +1,22 @@
+Self-hosted font files and their licenses.
+
+- Fraunces-var-latin.woff2, Fraunces-var-latinext.woff2
+  Family: Fraunces (variable: opsz 9-144, wght 300-900)
+  Copyright 2018 The Fraunces Project Authors (https://github.com/googlefonts/Fraunces)
+  License: SIL Open Font License 1.1 — https://openfontlicense.org/open-font-license-official-text/
+
+- Inter-var-latin.woff2, Inter-var-latinext.woff2
+  Family: Inter (variable: wght 300-800)
+  Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter)
+  License: SIL Open Font License 1.1 — https://openfontlicense.org/open-font-license-official-text/
+
+- PlexMono-400-latin.woff2, PlexMono-400-latinext.woff2,
+  PlexMono-500-latin.woff2, PlexMono-500-latinext.woff2
+  Family: IBM Plex Mono (weights 400, 500)
+  Copyright 2017 IBM Corp. with Reserved Font Name "Plex Mono"
+  License: SIL Open Font License 1.1 — https://openfontlicense.org/open-font-license-official-text/
+
+All files were subset to the character set used by this catalog
+(basic Latin, Latin-1 supplement, Turkish letters, typographic punctuation)
+from the originals served by Google Fonts. No external font service is used
+at runtime; the files above are served from this repository only.

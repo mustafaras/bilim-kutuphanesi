@@ -20,6 +20,8 @@ jobs:
       - uses: actions/checkout@v6
       - name: Validate catalog
         run: python tools/validate_site.py
+      - name: Validate fonts
+        run: python tools/validate_fonts.py
       - name: Verify catalog interactions
         run: |
           node --check site/app.js
