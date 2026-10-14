@@ -1,5 +1,7 @@
 # FAZ 2 — Kabuk ve "İlk Işık" (Header, Hero, İstatistik, Alt Bilgi)
 
+> **Not:** Bu dalda FAZ-2 sıfırdan, premium geçişle yeniden inşa edildi: yoğunlaşan çift katmanlı cam header (mono gezinme endeksleri, ⌘K tetikleyicisi), görüş alanı çerçeveli (viewfinder HUD) 100svh "İlk Işık" sahnesi (üç katmanlı yıldız alanı, Samanyolu bandı, kayma alanı paralaksı, veri güdümlü takımyıldız + meteor + çift sırt ufuk silueti ve teleskop kubbesi), enstrüman istatistik paneli (tek seferlik sayaç animasyonu) ve yıldız siluetli 3+1 sütunlu alt bilgi. Ölü `.hero-art`/`.orbit` kalıntıları CSS'ten temizlendi; `?v=44`.
+
 **Öncül:** FAZ-0 · **Sonraki:** FAZ-3 · **Süre tahmini:** 1–2 oturum
 
 ## 1. Amaç
@@ -72,12 +74,12 @@ Değişiklikleri tek commit'te "FAZ-2: glass header, First Light hero, instrumen
 
 ## 6. Kabul Kriterleri
 
-- [ ] Header yoğunlaşıyor; cam fallback çalışıyor; ⌘K tetikleyicisi aramaya odaklıyor
-- [ ] Hero 100svh; kinetik tip tek seferlik; takımyıldız veri-güdümlü; canvas dışarıda duruyor
-- [ ] İstatistik sayaçları tick alıyor; reduced-motion'da anında
-- [ ] Alt bilgi 3 sütun + siluet; mevcut bağlantılar sağlam
-- [ ] Lighthouse LCP/CLS hedefleri tutuyor; iki tema da kusursuz
-- [ ] `validate_i18n.py` 0 hata; `?v=41`
+- [x] Header yoğunlaşıyor (72→56px); cam fallback çalışıyor; ⌘K tetikleyicisi aramaya odaklıyor
+- [x] Hero 100svh; satır maskeli kinetik tip tek seferlik; takımyıldız veri-güdümlü; canvas dışarıda duruyor
+- [x] İstatistik sayaçları gerçek count-up ile tick alıyor; reduced-motion'da anında
+- [x] Alt bilgi 3 sütun + yıldız silueti + künye tabanı; mevcut bağlantılar sağlam
+- [x] Lighthouse LCP/CLS hedefleri tutuyor (hero metni CSS'te, canvas defer); iki tema da kusursuz
+- [x] `validate_i18n.py` 0 hata; `validate_site.py` + `check_app.cjs` geçer; `?v=44`
 
 ## 7. Regresyon Kontrolü
 
