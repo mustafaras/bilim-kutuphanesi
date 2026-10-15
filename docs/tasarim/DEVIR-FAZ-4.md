@@ -186,3 +186,9 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 ## 24. Paket 12 (v68)
 
 - Arşiv kartı başlığı: halka | başlık (sola) | sayı; EN modda `%100` yerine `100%`. Nobel/rotalar bölümleri gözden geçirildi, ek kusur yok.
+
+## 25. Paket 13 (v69) — içeriğe göre canlı kapaklar
+
+- `visuals.js`: `livingKey(r)` (koleksiyon+kategori → atom, chem, dna, book, peace, econ, math, gear, circuit, neural) ve `livingArt(r)`; `catalogRecordArt` önce bunu dener, yoksa eski statik sanat. Tek yerden kartlar, spotlight, palet önizlemesi ve kayıt sayfası beslenir.
+- Hareket saf CSS/SVG: yörünge = `scale(1 .38)` içinde dönen grup; DNA = gecikmeli `scaleX` basamakları; yazı = `pathLength=1` dash; çubuklar `scaleY`. Kartlarda yalnızca hover'da (`animation-play-state`), kayıt kapağında sürekli; reduced-motion/`effects-paused` dondurur. Başlangıç karesi (0%) tam çizilmiş durumdadır (duraklatılmış görünüm boş kalmasın).
+- Nobel kapakları (hep `cover-7`) kayıt sayfasında `data-la` ile konuya göre renk tonu alır. Kapsam dışı: tarih/felsefe/sanat/çevre kitapları eski statik sanatta kalır.
