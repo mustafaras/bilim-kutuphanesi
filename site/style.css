@@ -1051,3 +1051,37 @@ button.stat:focus-visible,.bottom-nav a:focus-visible,.bottom-nav button:focus-v
 @media(min-width:901px){.hero-fields,:root[data-theme=light] .hero-fields{justify-content:safe center;gap:6px}.hero-field{padding:6px 10px;font-size:10px;letter-spacing:.07em}.hero-field b,.hero-field small,.hero-field .n{letter-spacing:0}}
 @media(min-width:901px) and (max-width:1599px){.hero-field small{display:none}}
 .archive-sync-card.has-ring .archive-sync-heading>span:not(.rp-ring){margin-right:auto;text-align:left}
+
+/* Package 13: living covers — each subject moves in its own way */
+.living-art svg *{transform-box:view-box}
+.living-art *{animation-play-state:paused}
+.catalog-cover:hover .living-art *,.card:hover .living-art *,.spotlight-card:hover .living-art *,.rv-art .living-art *,.pv-art .living-art *{animation-play-state:running}
+.la-rot{animation:la-spin 8s linear infinite}.la-rev{animation-direction:reverse}
+@keyframes la-spin{to{transform:rotate(360deg)}}
+.la-pulse{transform-box:fill-box;transform-origin:center;animation:la-pulse 2.6s ease-in-out infinite}
+@keyframes la-pulse{50%{transform:scale(1.35);opacity:.65}}
+.la-twist{animation:la-twist 3.6s linear infinite}
+@keyframes la-twist{0%,100%{transform:scaleX(1)}25%{transform:scaleX(.04)}50%{transform:scaleX(-1)}75%{transform:scaleX(.04)}}
+.la-write{stroke-dasharray:1;stroke-dashoffset:0;animation:la-write 5s ease-in-out infinite}
+@keyframes la-write{0%{stroke-dashoffset:0}8%{stroke-dashoffset:1}45%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+.la-flip{transform-origin:70px 55px;animation:la-flip 5.4s ease-in-out infinite}
+@keyframes la-flip{0%,22%{transform:scaleX(1)}50%,78%{transform:scaleX(-1)}100%{transform:scaleX(1)}}
+.la-ripple{transform-origin:70px 55px;animation:la-ripple 4.8s ease-out infinite}
+@keyframes la-ripple{0%{transform:scale(1);opacity:.75}100%{transform:scale(3.8);opacity:0}}
+.la-sway{transform-origin:0 0;animation:la-sway 5s ease-in-out infinite}
+@keyframes la-sway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3.5deg)}}
+.la-bar{transform-box:fill-box;transform-origin:50% 100%;animation:la-bar 4s ease-in-out infinite}
+@keyframes la-bar{0%{transform:scaleY(1)}12%{transform:scaleY(.15)}55%,90%{transform:scaleY(1)}100%{transform:scaleY(1)}}
+.la-flow path{stroke-dasharray:3 9;animation:la-dash 1.6s linear infinite}
+.la-flow1{stroke-dasharray:2 7;stroke-opacity:.8;animation:la-dash 2.2s linear infinite;stroke-width:.9}
+@keyframes la-dash{to{stroke-dashoffset:-18}}
+@media(prefers-reduced-motion:reduce){.living-art *{animation:none!important}}
+/* record page: larger, always alive, tinted per subject */
+.rv-art .living-art{min-height:230px}.rv-art .living-art svg{width:250px;height:196px}
+.rv-art .living-art{filter:drop-shadow(0 0 14px color-mix(in srgb,currentColor 28%,transparent))}
+.catalog-cover.cover-7[data-la=atom]{background:linear-gradient(150deg,#35557a,#1f3350)}
+.catalog-cover.cover-7[data-la=chem]{background:linear-gradient(150deg,#2f6a5c,#173a35)}
+.catalog-cover.cover-7[data-la=dna]{background:linear-gradient(150deg,#74405f,#3b2034)}
+.catalog-cover.cover-7[data-la=book]{background:linear-gradient(150deg,#6b5638,#3a2c1a)}
+.catalog-cover.cover-7[data-la=peace]{background:linear-gradient(150deg,#3f6a85,#1f3a4d)}
+.catalog-cover.cover-7[data-la=econ]{background:linear-gradient(150deg,#5a6a36,#2f3a1a)}
