@@ -1130,3 +1130,17 @@ button.stat:focus-visible,.bottom-nav a:focus-visible,.bottom-nav button:focus-v
 @media(min-width:901px) and (max-height:820px){.hero-fields,:root[data-theme=light] .hero-fields{inset:auto var(--page-pad) 22px auto;padding:10px 12px}.dr-spec{display:none}}
 @media(max-width:900px){.deck-read{display:none}.deck-chips{display:contents}.hero-ground{display:none}}
 @media(min-width:901px){.hero-fields,:root[data-theme=light] .hero-fields{width:min(1040px,76%);right:calc(var(--page-pad) + 64px);grid-template-columns:226px minmax(0,1fr)}.hero-fields .hero-field{padding:9px 10px;letter-spacing:.03em}}
+
+/* Package 17: animated surfaces are not text-selectable (selection boxes tore through canvases and SVG art) */
+.hero,.hero *,.rv-constellation,.rv-constellation *,.nc-3d,.nc-3d *,.timeline-section,.timeline-section *:not(input):not(textarea),.atlas-tile,.atlas-tile *,.collection-tile,.collection-tile *,.catalog-cover,.catalog-cover *,.subject-art,.subject-art *,.tile-3d,.shelf-3d,.bottom-nav,.bottom-nav *,.palette-art,.rv-art,.rv-art *,.footer-starmap,.footer-starmap *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.hero ::selection,.rv-constellation ::selection,.nc-3d ::selection,.timeline-section ::selection,.catalog-cover ::selection,.atlas-tile ::selection{background:transparent;color:inherit}
+canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
+/* hold-still singularity: the cursor reads as a well */
+.hero.hero-well{cursor:grabbing}
+.hero.hero-well::before{content:'';position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(circle at var(--mx,70%) var(--my,50%),transparent 0,rgba(0,0,0,.28) 22%,transparent 46%)}
+@media(min-width:901px){.hero-hint{bottom:auto;top:92px}.dr-m{min-height:29px}}
+
+/* Package 17b: three.js landscape on the ground band */
+.hero-ground-gl{position:absolute;left:0;right:0;bottom:0;height:clamp(170px,26vh,300px);width:100%;z-index:2;pointer-events:none;opacity:0;transition:opacity 1.2s ease;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 30%);mask-image:linear-gradient(to bottom,transparent 0,#000 30%)}
+.hero-ground-gl.on{opacity:1}
+@media(max-width:900px){.hero-ground-gl{height:150px}}

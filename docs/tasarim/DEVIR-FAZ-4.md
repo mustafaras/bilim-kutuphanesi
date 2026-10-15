@@ -209,3 +209,9 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - Yer bandındaki çipler + spektrum rozeti tek cam güverteye (`.hero-fields`, ≥901px) birleştirildi: solda canlı okuma paneli (`.deck-read`: alan no, ad, kayıt·dil·yazar sayısı, pay çubuğu, spektrum; çipe hover/odakta güncellenir, ilgili spektrum çizgisi `hot` yanar), sağda 4x2 çip ızgarası. Sayaçlar çiplerde gizli (okuma panelinde).
 - Yer düzlemine hafif perspektif ızgara (`.hero-ground`). Mobilde (<=900px) eski yatay şerit; okuma paneli ve ızgara gizli.
 - `hero3d.js` `buildLabels` yeniden çağrılırsa spektrum eski panelden alınıp yenisine taşınır.
+
+## 29. Paket 17 (v74) — three.js zemin manzarası, hero sinematik geçişi, seçilemez animasyon yüzeyleri
+
+- `ground3d.js`: hero yer bandı canlı three.js manzarası. Vertex shader yükseklik alanı (3 katmanlı sinüs) + işaretçi dalgaları (6 halkalık ring buffer); fragment shader eş yükselti çizgileri (`fwidth` ile sabit kalınlık), seyrek ölçü ızgarası, galaksinin altında yansıma parıltısı ve kıvılcım noktaları. Koyu: pirinç ışık, açık: mürekkep çizgi. Kendi küçük WebGL bağlamı; hero dışındayken durur; reduced-motion tek kare. `requestIdleCallback` `timeout:1200` ile (yazılım render altında aç kalıyordu).
+- `hero3d.js`: UnrealBloom sonrası "grade" ShaderPass (kromatik sapma — zoom/şok/uçuşla artar, işaretçi çevresinde yerçekimi merceği, vinyet, film greni; yalnız koyu tema). Basılı tut (320ms, kıpırdamadan) = tekillik: GPU çekim kuyusu + girdap + mercek; bırakınca şok dalgası + renk sapması patlaması.
+- `user-select:none` tüm animasyon yüzeylerinde (hero, takımyıldızı, Nobel, kapaklar, kutucuklar, alt çubuk) + `::selection` şeffaf. İpucu hapı masaüstünde üste taşındı (güverteyle çakışıyordu).
