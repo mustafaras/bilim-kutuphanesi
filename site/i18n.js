@@ -74,3 +74,5 @@ Object.assign(UI.tr,{rvTabs:'Kayıt bölümleri',rvTabOverview:'Özet',rvTabCite
 Object.assign(UI.tr,{quickNav:'Hızlı gezinme',bnTheme:'Tema'});Object.assign(UI.en,{quickNav:'Quick navigation',bnTheme:'Theme'});
 
 Object.assign(UI.tr,{rvDragHint:'Sürükle · döndür'});Object.assign(UI.en,{rvDragHint:'Drag to orbit'});
+
+Object.assign(UI.tr,{deckAll:'Keşif alanları',deckFields:'alan',deckField:'alan',deckLangs:'dil',deckAuthors:'yazar'});Object.assign(UI.en,{deckAll:'Discovery fields',deckFields:'fields',deckField:'field',deckLangs:'languages',deckAuthors:'authors'});
