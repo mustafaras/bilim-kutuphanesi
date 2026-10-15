@@ -72,3 +72,5 @@ Object.assign(UI.tr,{paletteDym:'Şunu mu demek istediniz:'});Object.assign(UI.e
 Object.assign(UI.tr,{rvTabs:'Kayıt bölümleri',rvTabOverview:'Özet',rvTabCite:'Atıf ve paylaşım'});Object.assign(UI.en,{rvTabs:'Record sections',rvTabOverview:'Overview',rvTabCite:'Cite & share'});
 
 Object.assign(UI.tr,{quickNav:'Hızlı gezinme',bnTheme:'Tema'});Object.assign(UI.en,{quickNav:'Quick navigation',bnTheme:'Theme'});
+
+Object.assign(UI.tr,{rvDragHint:'Sürükle · döndür'});Object.assign(UI.en,{rvDragHint:'Drag to orbit'});

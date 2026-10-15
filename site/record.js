@@ -25,7 +25,7 @@
  function constellationHtml(r,nodes){
   if(!nodes.length)return '';
   const W=1000,H=560,cx=500,cy=284;
-  const pts=nodes.map((n,i)=>{const ang=(-90+i*(360/nodes.length)+(i*53%17)-8)*Math.PI/180,rad=150+(i*97%66);return{x:Math.max(96,Math.min(904,Math.round(cx+Math.cos(ang)*rad*1.5))),y:Math.max(78,Math.min(486,Math.round(cy+Math.sin(ang)*rad*0.92)))}});
+  const pts=nodes.map((n,i)=>{const ang=(-90+i*(360/nodes.length)+(i%2?6:-6))*Math.PI/180,rad=(i%2?218:138)+(i*37%22);return{x:Math.max(96,Math.min(904,Math.round(cx+Math.cos(ang)*rad*1.5))),y:Math.max(78,Math.min(486,Math.round(cy+Math.sin(ang)*rad*0.92)))}});
   const rels=nodes.map(n=>relation(r,n));
   const lines=pts.map((p,i)=>{const mx=(cx+p.x)/2,my=(cy+p.y)/2,dx=p.y-cy,dy=cx-p.x,len=Math.hypot(dx,dy)||1,bend=(i%2?1:-1)*Math.min(46,len*.16);return `<path class="rel-${rels[i].k}" d="M${cx} ${cy} Q${Math.round(mx+dx/len*bend)} ${Math.round(my+dy/len*bend)} ${p.x} ${p.y}" pathLength="1" style="--w:${rels[i].w};animation-delay:${.25+i*.07}s"></path>`}).join('');
   const twinkles=[[120,60],[310,44],[520,70],[770,40],[905,96],[60,300],[950,320],[240,470],[700,500],[860,470],[420,510],[150,180]].map(([x,y],i)=>`<circle class="tk" cx="${x}" cy="${y}" r="${(1+(i%3)*.5).toFixed(1)}" style="animation-delay:${(i*.7)%4}s"></circle>`).join('');

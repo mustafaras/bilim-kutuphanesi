@@ -991,3 +991,35 @@ button.stat:focus-visible,.bottom-nav a:focus-visible,.bottom-nav button:focus-v
 .tile-3d,.shelf-3d,.nc-3d canvas{touch-action:pan-y}
 @media(prefers-reduced-motion:reduce){.rv-panel,.rp-ring .fg,.bottom-nav{animation:none!important;transition:none!important}}
 :root[data-theme=dark] .bottom-nav .bn-search{color:#0b1220}
+
+/* Package 8: hero dock — field chips and spectrum no longer collide */
+@media(min-width:901px){
+ .hero-fields{inset:auto var(--page-pad) 176px auto;width:min(520px,42%);padding:12px;gap:8px;justify-content:flex-start;border:1px solid var(--scene-line);border-radius:18px;background:rgba(6,11,20,.5);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);box-shadow:0 14px 40px rgba(0,0,0,.28)}
+ :root[data-theme=light] .hero-fields{background:rgba(255,253,247,.72);box-shadow:0 14px 40px rgba(60,40,20,.16)}
+ .hero-spectrum{bottom:84px;width:min(250px,30vw)}
+}
+@media(min-width:901px) and (max-height:820px){.hero-spectrum{display:none}.hero-fields{bottom:120px}}
+@media(min-width:901px){.hero-spectrum{width:300px}.hs-lab{font-size:10.5px;letter-spacing:.02em}}
+
+/* Package 8: live 3D constellation (dark + light) */
+.rv-gl{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+.rv-constellation.rv-3d{cursor:grab;touch-action:pan-y}
+.rv-constellation.rv-3d.dragging{cursor:grabbing}
+.rv-constellation.rv-3d .rv-lines,.rv-constellation.rv-3d .rv-center-no{display:none}
+.rv-constellation.rv-3d .rv-node{translate:none;animation:rv-node-in .6s var(--ease-out) both;margin-top:0}
+.rv-constellation.rv-3d .rv-node .rv-dot{box-shadow:0 0 0 3px color-mix(in srgb,var(--spine,#E8CE9E) 28%,transparent)}
+.rv-constellation.rv-3d .rv-node.hot .rv-node-label{border-color:#E8CE9E88}
+.rv-constellation.rv-3d::after{content:attr(data-hint);position:absolute;left:14px;bottom:12px;font:500 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--scene-muted);opacity:.7;pointer-events:none}
+:root[data-theme=light] .rv-constellation{background:radial-gradient(120% 130% at 50% 118%,#efe2c6,#f7f1e4 55%,#fbf8f0);border-color:var(--line);box-shadow:0 30px 60px -40px rgba(60,40,20,.35)}
+:root[data-theme=light] .rv-constellation .rv-orbits circle{stroke:#13283a}
+:root[data-theme=light] .rv-constellation .rv-twinkle .tk{fill:#13283a}
+:root[data-theme=light] .rv-node-label{background:rgba(255,253,247,.86);border-color:rgba(19,43,59,.16);color:#13283a}
+:root[data-theme=light] .rv-node-label i{color:#5b6b75}
+:root[data-theme=light] .rv-node:hover .rv-node-label,:root[data-theme=light] .rv-node:focus-visible .rv-node-label,:root[data-theme=light] .rv-constellation.rv-3d .rv-node.hot .rv-node-label{background:#fffdf7;border-color:#a15c39;color:#0c1d2b}
+:root[data-theme=light] .rv-constellation.rv-3d::after{color:#46606f}
+:root[data-theme=light] .rv-dot{box-shadow:0 0 0 3px color-mix(in srgb,var(--spine,#a15c39) 28%,transparent)}
+:root[data-theme=light] .rv-center-no{color:#8a5a32}
+.rv-constellation.rv-3d .rv-node{padding:0;width:15px;height:15px;gap:0}
+.rv-constellation.rv-3d .rv-node .rv-dot{position:absolute;inset:0;width:15px;height:15px}
+.rv-constellation.rv-3d .rv-node-label{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:9px;width:max-content;max-width:138px}
+.rv-constellation.rv-3d .rv-node:hover{z-index:9999!important}
