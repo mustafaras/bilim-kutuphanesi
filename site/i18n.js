@@ -68,3 +68,7 @@ Object.assign(UI.tr,{statFilter:'kataloğu süz',rpRead:'Okunan adım:',footerMa
 Object.assign(UI.en,{statFilter:'filter the catalog',rpRead:'Steps read:',footerMap:'Page map'});
 
 Object.assign(UI.tr,{paletteDym:'Şunu mu demek istediniz:'});Object.assign(UI.en,{paletteDym:'Did you mean'});
+
+Object.assign(UI.tr,{rvTabs:'Kayıt bölümleri',rvTabOverview:'Özet',rvTabCite:'Atıf ve paylaşım'});Object.assign(UI.en,{rvTabs:'Record sections',rvTabOverview:'Overview',rvTabCite:'Cite & share'});
+
+Object.assign(UI.tr,{quickNav:'Hızlı gezinme',bnTheme:'Tema'});Object.assign(UI.en,{quickNav:'Quick navigation',bnTheme:'Theme'});
