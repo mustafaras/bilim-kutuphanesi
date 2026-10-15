@@ -9,6 +9,7 @@
  const root=document.documentElement,canvas=document.getElementById('knowledgeCanvas'),scene=document.querySelector('.hero-scene'),button=document.getElementById('motionToggle'),label=document.getElementById('motionLabel'),progress=document.getElementById('readingProgress');
  const reduced=matchMedia('(prefers-reduced-motion: reduce)'),ctx=canvas?canvas.getContext('2d'):null;let paused=false;try{paused=localStorage.getItem('bk-effects-paused')==='true'}catch{}
  try{if(/Mac|iPhone|iPad/.test(navigator.platform))root.dataset.os='mac'}catch{}
+ const glOn=()=>!!(scene&&scene.classList&&scene.classList.contains('hero-gl'));
  let visible=true,frame=0,last=0,w=0,h=0,phase=1.7,pointer=null,px=0,py=0,areas=null,meteor=null,nextMeteor=7;
 
  /* Deterministic hash noise so the starfield is stable between frames. */
@@ -34,7 +35,10 @@
   horizon=h*.82;
   const sky=ctx.createLinearGradient(0,0,0,h);
   sky.addColorStop(0,'rgba(9,24,44,.66)');sky.addColorStop(.55,'rgba(9,22,40,.22)');sky.addColorStop(1,'rgba(6,13,24,0)');
-  ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
+  if(!glOn()){ctx.fillStyle=sky;ctx.fillRect(0,0,w,h)}
+  /* Stars, band, data constellation and meteors move to WebGL (hero3d.js) when it is active; this 2D path stays as the fallback. */
+  const cx=w*.66+px,cy=h*.33+py,radius=Math.min(w*.27,h*.32);
+  if(!glOn()){
   /* Milky Way band */
   ctx.save();ctx.globalCompositeOperation='screen';
   const by0=BAND.y0*horizon,by1=BAND.y1*horizon;
@@ -50,7 +54,6 @@
     if(hash(i,li*3+5)>.93){ctx.fillStyle=`rgba(198,220,255,${(s.a*tw*.5).toFixed(3)})`;ctx.beginPath();ctx.arc(x,y,s.r*5.2,0,Math.PI*2);ctx.fill()}
     ctx.fillStyle=`rgba(234,240,248,${(s.a*tw).toFixed(3)})`;ctx.beginPath();ctx.arc(x,y,s.r,0,Math.PI*2);ctx.fill()})});
   /* Data constellation */
-  const cx=w*.66+px,cy=h*.33+py,radius=Math.min(w*.27,h*.32);
   if(areas&&areas.length){
    ctx.lineWidth=1;ctx.strokeStyle='rgba(232,206,158,.22)';ctx.beginPath();
    areas.forEach((a,i)=>{const x=cx+a.x*radius,y=cy+a.y*radius;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();
@@ -72,6 +75,7 @@
    const tx=m.x-m.vx*tail*.016,ty=m.y-m.vy*tail*.016;
    const g=ctx.createLinearGradient(tx,ty,m.x,m.y);g.addColorStop(0,'rgba(232,206,158,0)');g.addColorStop(.7,`rgba(240,225,190,${(.5*(1-k)).toFixed(3)})`);g.addColorStop(1,`rgba(250,245,230,${(.85*(1-k)).toFixed(3)})`);
    ctx.strokeStyle=g;ctx.lineWidth=1.4;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(m.x,m.y);ctx.stroke()}
+  }
   /* Atmosphere above horizon */
   const air=ctx.createLinearGradient(0,horizon-h*.26,0,horizon);
   air.addColorStop(0,'rgba(124,199,183,0)');air.addColorStop(1,'rgba(124,199,183,.10)');
