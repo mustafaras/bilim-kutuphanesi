@@ -18,7 +18,7 @@
  async function boot(){
   try{
    const THREE=await import('./vendor/three.module.min.js');let post=null;
-   try{const [ec,rp,ub]=await Promise.all([import('./vendor/jsm/postprocessing/EffectComposer.js'),import('./vendor/jsm/postprocessing/RenderPass.js'),import('./vendor/jsm/postprocessing/UnrealBloomPass.js')]);post={EffectComposer:ec.EffectComposer,RenderPass:rp.RenderPass,UnrealBloomPass:ub.UnrealBloomPass}}catch{post=null}
+   try{const [ec,rp,ub,sp]=await Promise.all([import('./vendor/jsm/postprocessing/EffectComposer.js'),import('./vendor/jsm/postprocessing/RenderPass.js'),import('./vendor/jsm/postprocessing/UnrealBloomPass.js'),import('./vendor/jsm/postprocessing/ShaderPass.js')]);post={EffectComposer:ec.EffectComposer,RenderPass:rp.RenderPass,UnrealBloomPass:ub.UnrealBloomPass,ShaderPass:sp.ShaderPass}}catch{post=null}
    init(THREE,post)}catch{}}
  if(document.readyState==='complete')idle(boot);else addEventListener('load',()=>idle(boot),{once:true});
 
@@ -35,15 +35,15 @@
   const hex=h=>new THREE.Color(h);
   const FIELD=['#7CC7B7','#8FBF8A','#D69A6B','#B9A7D6','#7FA8D8','#8FA8A0','#D8A05A','#E8CE9E'].map(hex);
   const WARM=hex('#fff0cf'),BRASS=hex('#e8ce9e'),VIOLET=hex('#b9a7d6'),ICE=hex('#cfe0ff'),PINK=hex('#ff8fb0'),BLUE=hex('#8fb4ff');
-  const uniforms={uTime:{value:0},uScale:{value:600},uLight:{value:0},uFocus:{value:-1},uPick:{value:-99},uFade:{value:0},uMouse:{value:new THREE.Vector3()},uMouseOn:{value:0},uPulse:{value:new THREE.Vector3(0,0,-99)}};
+  const uniforms={uTime:{value:0},uScale:{value:600},uLight:{value:0},uFocus:{value:-1},uPick:{value:-99},uFade:{value:0},uMouse:{value:new THREE.Vector3()},uMouseOn:{value:0},uPulse:{value:new THREE.Vector3(0,0,-99)},uWell:{value:0}};
   const mats=[];
 
   const vert=rot=>`attribute float aS;attribute vec3 aC;attribute float aT;${rot?'attribute float aR;attribute float aA;attribute float aY;attribute float aG;attribute float aI;varying float vBig;':''}
-   uniform float uTime,uScale,uFocus,uPick,uMouseOn,uLight;uniform vec3 uMouse,uPulse;varying vec3 vC;varying float vA;
+   uniform float uTime,uScale,uFocus,uPick,uMouseOn,uLight,uWell;uniform vec3 uMouse,uPulse;varying vec3 vC;varying float vA;
    void main(){
     float tw=.8+.2*sin(uTime*(.6+aT*2.4)+aT*60.);float f=1.;float pick=0.;float ring=0.;float g=0.;vec4 mv;
     ${rot?`float ang=aA+uTime*.2/(.7+aR*.5);vec4 wp=modelMatrix*vec4(cos(ang)*aR,aY+.022*aR*aR*sin(ang-.6),sin(ang)*aR,1.);
-    vec2 dm=uMouse.xy-wp.xy;g=uMouseOn*smoothstep(2.8,0.,length(dm));wp.xy+=dm*g*.34;wp.z+=g*.7;
+    vec2 dm=uMouse.xy-wp.xy;g=uMouseOn*smoothstep(2.8+uWell*1.6,0.,length(dm));wp.xy+=dm*g*(.34+uWell*.42)+vec2(-dm.y,dm.x)*g*uWell*.32;wp.z+=g*(.7+uWell*1.6);
     float dt=uTime-uPulse.z;if(dt>0.&&dt<1.7){vec2 dp=wp.xy-uPulse.xy;float rd=abs(length(dp)-dt*7.);ring=exp(-rd*rd*.8)*(1.-dt/1.7);wp.xy+=normalize(dp+vec2(1e-4))*ring*.4;}
     mv=viewMatrix*wp;
     if(uFocus>-.5){f=aG<-.5?.6:(abs(aG-uFocus)<.5?2.:.32);}
@@ -182,15 +182,26 @@
     b.addEventListener('click',()=>fieldRun(i));chipBox.appendChild(b);labels.push({b,ang:i*(2*Math.PI/8)+.35+phase(RMAX*.66)})})}
 
   /* ---------- post-processing (bloom, dark theme) ---------- */
-  let composer=null,bloom=null,useBloom=false;
-  if(post){try{composer=new post.EffectComposer(renderer);composer.addPass(new post.RenderPass(scene,camera));bloom=new post.UnrealBloomPass(new THREE.Vector2(256,256),.56,.6,.24);composer.addPass(bloom)}catch{composer=null}}
+  let composer=null,bloom=null,useBloom=false,grade=null,caSpike=0,well=0,wellT=0,lensS=0;
+  if(post){try{composer=new post.EffectComposer(renderer);composer.addPass(new post.RenderPass(scene,camera));bloom=new post.UnrealBloomPass(new THREE.Vector2(256,256),.56,.6,.24);composer.addPass(bloom);
+   if(post.ShaderPass){grade=new post.ShaderPass({uniforms:{tDiffuse:{value:null},uTime:{value:0},uCA:{value:.3},uMouse:{value:new THREE.Vector2(.5,.5)},uLens:{value:0},uAspect:{value:1.6}},
+    vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader:`uniform sampler2D tDiffuse;uniform float uTime,uCA,uLens,uAspect;uniform vec2 uMouse;varying vec2 vUv;
+     float hs(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+     void main(){vec2 uv=vUv;vec2 c=uv-.5;
+      vec2 d=uv-uMouse;d.x*=uAspect;float r=length(d);float k=uLens*.011/(r*r+.014);vec2 off=vec2(d.x/uAspect,d.y)/(r+1e-4)*k;uv-=off;
+      float ca=uCA*(.0012+.010*dot(c,c))+k*.04;
+      vec3 col=vec3(texture2D(tDiffuse,uv+c*ca).r,texture2D(tDiffuse,uv).g,texture2D(tDiffuse,uv-c*ca).b);
+      float vg=smoothstep(.28,.98,length(c*vec2(uAspect*.62,1.)));col*=1.-.42*vg;
+      col+=(hs(uv*vec2(1731.,973.)+fract(uTime))-.5)*.032;
+      gl_FragColor=vec4(col,1.);}`});composer.addPass(grade)}}catch{composer=null}}
 
   /* ---------- layout + theme ---------- */
   let W=24,H=11,portrait=false,quality=1.6,pr=1,gStart=performance.now();
   function layout(){
    const w=sceneEl.clientWidth||innerWidth,h=sceneEl.clientHeight||innerHeight;
    pr=Math.min(devicePixelRatio||1,quality);renderer.setPixelRatio(pr);renderer.setSize(w,h,false);
-   if(composer){composer.setPixelRatio(pr);composer.setSize(w,h)}
+   if(composer){composer.setPixelRatio(pr);composer.setSize(w,h);if(grade)grade.uniforms.uAspect.value=w/h}
    camera.aspect=w/h;camera.updateProjectionMatrix();
    H=2*CAMZ*Math.tan(FOV*Math.PI/360);W=H*camera.aspect;portrait=camera.aspect<1.05;
    uniforms.uScale.value=renderer.domElement.height/(2*Math.tan(FOV*Math.PI/360));
@@ -252,12 +263,13 @@
    if(over){const p=worldOnPlane(e.clientX,e.clientY,-1);uniforms.uMouse.value.copy(p);pickSoon();if(!tip.hidden)placeTip()}else if(hover>=0)setHover(-1)},{passive:true});
   const touches=new Map();let pinch=0;
   addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&hero.contains(e.target)&&!interactive(e.target)){touches.set(e.pointerId,{x:e.clientX,y:e.clientY});if(touches.size===2){const [a,b]=[...touches.values()];pinch=Math.hypot(a.x-b.x,a.y-b.y);drag=null}}
-   if(e.button>0||!hero.contains(e.target)||interactive(e.target))return;if(touches.size>1)return;drag={x:e.clientX,y:e.clientY,moved:false}});
+   if(e.button>0||!hero.contains(e.target)||interactive(e.target))return;if(touches.size>1)return;drag={x:e.clientX,y:e.clientY,moved:false,t0:performance.now()}});
   addEventListener('pointermove',e=>{if(!touches.has(e.pointerId))return;touches.set(e.pointerId,{x:e.clientX,y:e.clientY});if(touches.size===2){const [a,b]=[...touches.values()],d=Math.hypot(a.x-b.x,a.y-b.y);if(pinch>0)zoomAt(d/pinch,(a.x+b.x)/2,(a.y+b.y)/2);pinch=d}},{passive:true});
   const endTouch=e=>{touches.delete(e.pointerId);if(touches.size<2)pinch=0};
   addEventListener('pointercancel',endTouch);
   addEventListener('pointerup',e=>{endTouch(e);const d=drag;drag=null;hero.classList.remove('hero-drag');
-   if(d&&!d.moved){const p=worldOnPlane(e.clientX,e.clientY,-1);uniforms.uPulse.value.set(p.x,p.y,time);
+   if(d&&!d.moved&&well>.35){const p=worldOnPlane(e.clientX,e.clientY,-1);uniforms.uPulse.value.set(p.x,p.y,time);caSpike=2.4;wellT=0;return}
+   if(d&&!d.moved){const p=worldOnPlane(e.clientX,e.clientY,-1);uniforms.uPulse.value.set(p.x,p.y,time);caSpike=Math.max(caSpike,1.1);
     if(e.pointerType==='touch'){mouse={x:e.clientX,y:e.clientY,in:true};pick();return}   // touch: first tap previews, tapping the card opens
     if(hover>=0)fly(hover)}});
   tip.addEventListener('click',()=>{if(hover>=0)fly(hover)});
@@ -265,7 +277,7 @@
   function fly(i){const r=records[i];if(!r||!window.openRecord)return;
    if(reduced.matches||paused()){window.openRecord(r.id);return}
    const ang=rec.a[i]+time*.2/(.7+rec.r[i]*.5);tilt.updateMatrixWorld(true);v3.set(Math.cos(ang)*rec.r[i],rec.y[i]+.022*rec.r[i]*rec.r[i]*Math.sin(ang-.6),Math.sin(ang)*rec.r[i]);tilt.localToWorld(v3);v3.project(camera);
-   const b=canvas.getBoundingClientRect();zoomAt(3.4,b.left+(v3.x*.5+.5)*b.width,b.top+(-v3.y*.5+.5)*b.height);uniforms.uPulse.value.set(uniforms.uMouse.value.x,uniforms.uMouse.value.y,time);
+   const b=canvas.getBoundingClientRect();zoomAt(3.4,b.left+(v3.x*.5+.5)*b.width,b.top+(-v3.y*.5+.5)*b.height);uniforms.uPulse.value.set(uniforms.uMouse.value.x,uniforms.uMouse.value.y,time);caSpike=3;
    setTimeout(()=>window.openRecord(r.id),560)}
   const rvEl=document.getElementById('recordView');if(rvEl&&typeof MutationObserver==='function')new MutationObserver(()=>{if(rvEl.hidden)zoomReset()}).observe(rvEl,{attributes:true,attributeFilter:['hidden']});
   hero.addEventListener('pointerleave',()=>{mouse.in=false;uniforms.uMouseOn.value=0;setHover(-1)});
@@ -286,6 +298,12 @@
    uniforms.uFade.value=intro*(1-scrollP*.75);
    glow.material.opacity=(root.dataset.theme==='light'?.3:.1)*uniforms.uFade.value+.03*Math.sin(time*.9);
    uniforms.uMouseOn.value+=((mouse.in&&!drag?1:0)-uniforms.uMouseOn.value)*Math.min(1,dt*5);
+   /* hold still on the galaxy = singularity: gravity well + lensing; release = shock + chromatic burst */
+   wellT=drag&&!drag.moved&&performance.now()-drag.t0>320?1:0;if(wellT)uniforms.uMouseOn.value=Math.max(uniforms.uMouseOn.value,1);
+   well+=(wellT-well)*Math.min(1,dt*(wellT?3.2:5));uniforms.uWell.value=well;hero.classList.toggle('hero-well',well>.15);
+   if(grade){caSpike=Math.max(0,caSpike-dt*2.2);const zv=Math.abs(zoomT-zoom)*2.2;const tgt=.28+zv+caSpike+well*.9;grade.uniforms.uCA.value+=(tgt-grade.uniforms.uCA.value)*Math.min(1,dt*10);
+    grade.uniforms.uTime.value=time;lensS+=(((mouse.in?1:0)*(.3+well*1.5))-lensS)*Math.min(1,dt*6);grade.uniforms.uLens.value=lensS;
+    const b=canvas.getBoundingClientRect();grade.uniforms.uMouse.value.set((mouse.x-b.left)/Math.max(1,b.width),1-(mouse.y-b.top)/Math.max(1,b.height))}
    hint.classList.toggle('show',time>1.2&&time<10);
    if(focus!==lastFocus){lastFocus=focus;setReadout(focus)}
    if(labels.length)labels.forEach((l,i)=>{const on=focus===i;l.b.classList.toggle('on',on);l.b.classList.toggle('dim',focus>=0&&!on)});
