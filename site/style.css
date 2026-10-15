@@ -1171,3 +1171,18 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 .rv-art.has-3d .rec-3d.on{opacity:1}
 .rv-art.has-3d.rec-ready .catalog-cover{opacity:0}
 .rv-art .rec-3d:active{cursor:grabbing}
+
+/* Package 19: phones — field markers become a quiet horizontal strip (no dots floating over the copy) */
+@media(max-width:900px){
+ .hero-fields,:root[data-theme=light] .hero-fields{position:absolute;inset:auto 0 104px 0;top:auto;display:flex;gap:8px;padding:2px 20px 6px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;pointer-events:auto;z-index:4;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 18px,#000 calc(100% - 28px),transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 18px,#000 calc(100% - 28px),transparent 100%)}
+ .hero-fields::-webkit-scrollbar{display:none}
+ .hero-fields .hero-field{position:static;margin:0;width:auto;height:auto;flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;border:1px solid color-mix(in srgb,var(--fc) 45%,transparent);background:rgba(6,12,22,.6);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);transform:none!important;opacity:1!important;overflow:hidden}
+ :root[data-theme=light] .hero-fields .hero-field{background:rgba(255,253,247,.78)}
+ .hero-fields .hero-field::before{display:none}
+ .hero-fields .hero-field i{position:static;margin:0;flex:0 0 auto;width:8px;height:8px;box-shadow:0 0 10px var(--fc)}
+ .hero-fields .hero-field span{position:static;transform:none;opacity:1;padding:0;border:0;background:none;-webkit-backdrop-filter:none;backdrop-filter:none;font-size:10.5px;letter-spacing:.1em}
+ :root[data-theme=light] .hero-fields .hero-field span{color:#13283a}
+ .hero-fields .hero-field.dim{opacity:1!important}
+}
+@media(max-width:900px){.hero-fields,:root[data-theme=light] .hero-fields{inset:auto 0 148px 0}.hero .hero-foot{display:none}}
+@media(max-width:760px){.motion-toggle{bottom:calc(204px + env(safe-area-inset-bottom,0px))!important}}
