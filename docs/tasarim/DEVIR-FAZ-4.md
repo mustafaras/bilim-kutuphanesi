@@ -178,3 +178,7 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 
 - Bu ortamda fiziksel GPU yok (`/dev/dri` yok); WebGL = SwiftShader (CPU). Ölçüm: hero ~3.8 fps, takımyıldızı ~7 fps — gerçek GPU için temsil edici DEĞİL, ama en kötü durum testi.
 - `hero3d.js` yöneticisi zaman tabanlı (≥4 kare ve >1.4 sn pencere) ve 4 kademeli: bloom → çözünürlük → yıldızların %55'i → %30'u. SwiftShader'da hero 3.8 → ~8.3 fps. Hızlı cihazda ilk iki kademe eşiği aynı (26ms), tetiklenmez.
+
+## 23. Paket 11 (v67) — hero dock yer değiştirdi
+
+- Alan çipleri galaksinin üstünden kaldırıldı: yer (mavi) bandında tek, sessiz bir satır (`.hero-fields`, ≥901px). <1600px'te sayaçlar gizlenir (aria-label'de durur). Spektrum rozeti alt-sağda, hareket düğmesinin solunda. ≤820px yükseklikte spektrum gizli, çipler sağa hizalı.
