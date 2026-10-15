@@ -68,3 +68,15 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - **Okuma yolları**: tek sütun seyir haritası (brass rota + sayaçlı durak düğümleri). Tuzak: `.route-card{overflow:hidden}` düğümleri kırpar → `visible` yapıldı.
 - Tuzaklar: `[hidden]` sınıf `display` kuralıyla ezilir (`.facet-body[hidden]` eklendi); `facets.js` `defer` ile yüklenir, `app.js` onu `typeof renderFacetRail` ile çağırır.
 - `check_app.cjs`: `matchRecords` skip, künye, defter, boş durum assert'leri.
+
+## 9. FAZ-5 uygulandı — sürüm v50
+
+- **Diyalog kaldırıldı** → `#recordView` tam sayfa düğüm görünümü (SPA; `?record=` pushState/popstate, Escape, odak dönüşü, scroll kilidi + inert aynen). Yeni dosya `site/record.js`; `discovery.js` yalnız vitrin rafına indi (kapak için `window.recordCover`).
+- **Tuzak: çift kilit** — `lockPage()` yalnız ilk açılışta (`!wasOpen`) çağrılmalı; düğüm gezinmesinde tekrar çağrılırsa `previousOverflow='hidden'` kaydedilir ve kapanışta kilit geri döner.
+- **Tuzak: sahte DOM'da `item.closest` yok** — delege klikte koruma `!item.closest||item.closest('#recordView')` şeklinde olmalı; `view.hidden` mock'ta `undefined`, açık durum testi `hidden===false`.
+- **check_app.cjs eklentileri**: context'e `window:{addEventListener(){}}` + `history.pushState`; el() mock'una `select(){}`; record.js discovery'den ÖNCE çalıştırılmalı (raf `window.recordCover` kullanır); assert'ler `el('recordSheet').innerHTML` üzerinden (içerik artık innerHTML string).
+- **Takımyıldız**: SVG dekoratif (çizgiler `pathLength="1"` + rv-draw), düğümler gerçek `<button>` (SVG içinde değil, % konumlu HTML), erişilebilir liste eşdeğeri `.rv-neighbors`. Hesap mantığı `renderRelated` ile birebir (adet 3→8).
+- **Alıntı + paylaşım kartı**: `t('citeTemplate')` TR/EN şablon; kart 1200×630 PNG tamamen istemcide (`canvas`, `toBlob`), çevrimdışı.
+- **OG**: `site/og/default.png` commit'li (37 KB); `tools/og_cards.py --all` opsiyonel (repo 10 MB disiplini için CI ÜRETMEZ; `.gitignore` `site/og/*.png` + `!default.png`). og:title/description/url JS ile canlı güncellenir.
+- **View Transition**: kaynak karta inline `view-transition-name:bk-cover`, mutate içinde yeni kapak aynı adı alır; root geçişleri CSS'te kapatıldı; `effects-paused`/reduced-motion'da morph atlanır.
+- `pages.yml` artık `record.js` + `facets.js` de kontrol eder; `validate_i18n.py` ve `validate_site.py` record.js'i tarar.
