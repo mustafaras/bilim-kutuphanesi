@@ -60,7 +60,21 @@
 
  /* "> theme", "#path", "~ physics", "@tong" jump straight into a scope. */
  function parse(q){const c=String(q).trimStart()[0];if(PREFIX[c])return{kind:PREFIX[c],text:String(q).trimStart().slice(1)};return{kind:scope==='all'?null:scope,text:String(q)}}
- function build(q){
+ /* Fuzzy fallback: when nothing matches, snap each unknown word to the nearest word in the library (edit distance <=1 for short, <=2 for long words). */
+ let vocab=null;
+ function words(){if(vocab)return vocab;const m=new Map(),add=x=>{for(const w of norm(x).split(/[^a-z0-9]+/))if(w.length>=3)m.set(w,(m.get(w)||0)+1)};for(const r of records){add(r.author);add(displayTitle(r))}for(const a of actions())add(a.label);for(const d of DISCOVERY){add(d.title[0]);add(d.title[1])}return vocab=[...m.entries()].sort((a,b)=>b[1]-a[1]).map(e=>e[0])}
+ function edit(a,b,max){if(Math.abs(a.length-b.length)>max)return max+1;let prev=Array.from({length:b.length+1},(_,i)=>i);for(let i=1;i<=a.length;i++){const cur=[i];let low=i;for(let j=1;j<=b.length;j++){const v=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));cur.push(v);if(v<low)low=v}if(low>max)return max+1;prev=cur}return prev[b.length]}
+ function snap(w,hay){if(w.length<4||hay.includes(w))return w;const max=w.length>=7?2:1;let best=w,bd=max+1;for(const v of words()){const d=edit(w,v,max);if(d<bd){bd=d;best=v;if(d===1&&max===1)break}}return best}
+ function build(q,fuzzy){
+  const out0=build0(q);
+  if(out0.length||fuzzy)return out0;
+  const {kind,text}=parse(q),tokens=norm(text).split(/\s+/).filter(Boolean);if(!tokens.length)return out0;
+  const fixed=tokens.map(w=>snap(w,''));if(fixed.join(' ')===tokens.join(' '))return out0;
+  const pre=String(q).trimStart()[0],prefix=PREFIX[pre]?pre:'';
+  const res=build0(prefix+fixed.join(' '));if(!res.length)return out0;
+  const phrase=fixed.join(' ');
+  return[{kind:'action',key:'dym',label:t('paletteDym')+' '+phrase+'?',sub:'',hay:'',run:()=>{input.value=prefix+phrase;render();input.focus()},pv:()=>`<p class="pv-hint">${esc(t('paletteDym'))} <b>${esc(phrase)}</b> <kbd>↵</kbd></p>`},...res].slice(0,12)}
+ function build0(q){
   const {kind,text}=parse(q),tokens=norm(text).split(/\s+/).filter(Boolean),want=k=>!kind||kind===k,solo=!!kind;
   const match=x=>!tokens.length||tokens.every(w=>x.hay.includes(w));
   if(!tokens.length&&!kind){const rec=recents().map(resolveRecent).filter(Boolean).slice(0,4);return[...rec,...actions().slice(0,10)]}
@@ -95,7 +109,7 @@
   if(active>=0){input.setAttribute('aria-activedescendant','pk-'+active);const el=all(list,'#pk-'+active)[0];if(scroll&&el&&el.scrollIntoView)el.scrollIntoView({block:'nearest'})}else input.removeAttribute('aria-activedescendant');
   showPreview(active>=0?active:0);lens()}
  function move(dir){if(!results.length)return;setActive((active+dir+results.length)%results.length,true)}
- function choose(i){const item=results[i===undefined?active:i];if(!item)return;remember(item);closePalette();item.run()}
+ function choose(i){const item=results[i===undefined?active:i];if(!item)return;if(item.key==='dym'){item.run();return}remember(item);closePalette();item.run()}
  function setScope(k){scope=SCOPES.includes(k)?k:'all';const t0=input.value;if(PREFIX[String(t0).trimStart()[0]])input.value=String(t0).trimStart().slice(1);render();input.focus()}
 
  function openPalette(){if(isOpen())return;opener=document.activeElement;overlay.hidden=false;input.value='';scope='all';document.body.style.overflow='hidden';render('');input.focus()}

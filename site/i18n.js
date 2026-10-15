@@ -66,3 +66,5 @@ Object.assign(UI.tr,{ncViewLabel:'Nobel görünümü',ncViewChart:'Grafik',ncVie
 Object.assign(UI.en,{ncViewLabel:'Nobel view',ncViewChart:'Chart',ncViewGalaxy:'Galaxy',ncGalaxyHint:'Drag: orbit · Click: select year · Double-click: open record · Ctrl + wheel: zoom',ncGalaxyNote:'Nobel galaxy: every record from 1901 to today is a star, colour is the prize category. The same data is available in the accessible chart view.'});
 Object.assign(UI.tr,{statFilter:'kataloğu süz',rpRead:'Okunan adım:',footerMap:'Sayfa haritası'});
 Object.assign(UI.en,{statFilter:'filter the catalog',rpRead:'Steps read:',footerMap:'Page map'});
+
+Object.assign(UI.tr,{paletteDym:'Şunu mu demek istediniz:'});Object.assign(UI.en,{paletteDym:'Did you mean'});

@@ -149,3 +149,8 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - `app.js` `withFlip`: kart listesi değişince FLIP animasyonu (reduced-motion'da kapalı).
 - Tuzak: `progress.js` hem `sw.js` FILES hem `pages.yml` `node --check` listesinde olmalı.
 - Eklenmedi: palet bulanık arama ("bunu mu demek istediniz").
+
+## 18. Paket 5 (v62) — palet bulanık arama
+
+- Sonuç yoksa `palette.js` her bilinmeyen kelimeyi kütüphane sözlüğündeki (yazar/başlık/eylem/alan kelimeleri) en yakın kelimeye çeker (Levenshtein ≤1; 7+ harfte ≤2) ve en üstte "Şunu mu demek istediniz: …?" satırı gösterir; seçilince paleti kapatmadan sorguyu düzeltir.
+- Sözlük ilk kullanımda tembel kurulur; normal aramalar etkilenmez (`build` → `build0`, bulanık yol yalnızca boş sonuçta).
