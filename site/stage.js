@@ -115,15 +115,28 @@
    const eq=h.loop(circlePts(m,R*1.25),col,.4);eq.rotation.x=Math.PI/2;g.add(eq);
    g.add(h.curve([new m.Vector3(0,-1.9,0),new m.Vector3(0,1.9,0)],col,.55));g.add(h.dots(new Float32Array([0,0,0]),0xffe9b8,.7));
    return{scene,camera,update(t,dt,it){g.rotation.set(.35+it.py*.3*it.hoverT,t*.3+it.px*.6*it.hoverT,.35);rs[3].rotation.y=t*.5;eq.rotation.z=t*.2}}},
-  /* 7 Nobel archive — medal */
-  (m,it,col)=>{const{scene,camera}=rig(m,32,5.1),g=new m.Group();scene.add(g);
-   const gold=new m.MeshStandardMaterial({color:0xd9b46c,metalness:.92,roughness:.28});
-   const disc=new m.Mesh(new m.CylinderGeometry(1.45,1.45,.16,72),gold);disc.rotation.x=Math.PI/2;g.add(disc);
-   const rim=new m.Mesh(new m.TorusGeometry(1.4,.05,12,80),gold);g.add(rim);const rim2=new m.Mesh(new m.TorusGeometry(1.05,.025,10,80),gold);rim2.position.z=.09;g.add(rim2);
-   const sh=new m.Shape();for(let i=0;i<10;i++){const a=i/10*Math.PI*2-Math.PI/2,r=i%2?.32:.78;i?sh.lineTo(Math.cos(a)*r,Math.sin(a)*r):sh.moveTo(Math.cos(a)*r,Math.sin(a)*r)}sh.closePath();
-   const star=new m.Mesh(new m.ExtrudeGeometry(sh,{depth:.07,bevelEnabled:true,bevelSize:.02,bevelThickness:.02,bevelSegments:2}),gold);star.position.z=.08;g.add(star);
-   scene.add(new m.AmbientLight(0xffffff,.55));const k=new m.PointLight(0xfff0d0,34,0,2);k.position.set(2.5,2,4);scene.add(k);const k2=new m.PointLight(0x9fc4ff,10,0,2);k2.position.set(-3,-1,3);scene.add(k2);
-   return{scene,camera,update(t,dt,it){g.rotation.y=Math.sin(t*.6)*.6+it.px*.7*it.hoverT;g.rotation.x=.12+it.py*.3*it.hoverT;k.position.x=Math.cos(t*.9)*3.2}}}
+  /* 7 Nobel archive — struck gold medal: relief face (laurel, star, lettering via bump), clearcoat, ribbon, orbiting glints */
+  (m,it,col)=>{const{scene,camera}=rig(m,32,7.4),g=new m.Group();scene.add(g);
+   const envMap=studioEnv(m);if(envMap)scene.environment=envMap;
+   const faceMask=canvasTex(m,512,512,(x,W,H)=>{x.fillStyle='#000';x.fillRect(0,0,W,H);x.translate(W/2,H/2);x.strokeStyle='#fff';x.fillStyle='#fff';x.lineWidth=7;x.beginPath();x.arc(0,0,236,0,7);x.stroke();x.lineWidth=2.5;x.beginPath();x.arc(0,0,218,0,7);x.stroke();x.beginPath();x.arc(0,0,150,0,7);x.stroke();
+    for(let s2=-1;s2<=1;s2+=2){for(let i=0;i<13;i++){const a=Math.PI*.58+i*.17,rr=190;x.save();x.scale(s2,1);x.rotate(a);x.translate(rr,0);x.rotate(.9);x.beginPath();x.ellipse(0,0,26,9,0,0,7);x.fill();x.restore()}}
+    x.beginPath();for(let k=0;k<10;k++){const a=k/10*Math.PI*2-Math.PI/2,rr=k%2?44:112;k?x.lineTo(Math.cos(a)*rr,Math.sin(a)*rr):x.moveTo(Math.cos(a)*rr,Math.sin(a)*rr)}x.closePath();x.fill();
+    x.font='600 30px "IBM Plex Mono",monospace';x.textAlign='center';const txt='· NOBEL · ARCHIVE · 1901 – 2026 ·';for(let k=0;k<txt.length;k++){const a=-Math.PI/2+(k-txt.length/2)*.115;x.save();x.rotate(a);x.translate(0,-188);x.fillText(txt[k],0,0);x.restore()}},false);
+   const faceCol=canvasTex(m,512,512,(x,W,H)=>{const gr=x.createRadialGradient(W*.4,H*.35,20,W/2,H/2,W*.62);gr.addColorStop(0,'#f6e3ad');gr.addColorStop(.55,'#d9b46c');gr.addColorStop(1,'#a67c34');x.fillStyle=gr;x.fillRect(0,0,W,H)},true);
+   const faceRough=canvasTex(m,512,512,(x,W,H)=>{x.fillStyle='#8a8a8a';x.fillRect(0,0,W,H);x.drawImage(faceMask.image,0,0);x.globalCompositeOperation='multiply';x.fillStyle='#cfcfcf';x.fillRect(0,0,W,H)},false);
+   const face=new m.MeshPhysicalMaterial({map:faceCol,bumpMap:faceMask,bumpScale:5.5,metalness:.9,roughness:.34,roughnessMap:faceRough,clearcoat:.5,clearcoatRoughness:.12,envMapIntensity:2.2});
+   const edge=new m.MeshPhysicalMaterial({color:0xe3c17a,metalness:.95,roughness:.24,envMapIntensity:2.0});
+   const disc=new m.Mesh(new m.CylinderGeometry(1.45,1.45,.16,96),[edge,face,face]);disc.rotation.x=Math.PI/2;g.add(disc);
+   const rim=new m.Mesh(new m.TorusGeometry(1.42,.06,16,120),edge);g.add(rim);
+   const bail=new m.Mesh(new m.TorusGeometry(.16,.04,12,32),edge);bail.position.y=1.62;g.add(bail);
+   const rb=new m.PlaneGeometry(.5,1.5,1,16),rpp=rb.attributes.position;for(let i=0;i<rpp.count;i++){const y=rpp.getY(i);rpp.setZ(i,Math.sin(y*3.4)*.05)}rb.computeVertexNormals();
+   const ribMat=new m.MeshPhysicalMaterial({color:0x16406e,roughness:.45,sheen:1,sheenColor:new m.Color(0xb8d4ff),side:m.DoubleSide});
+   [-1,1].forEach(sg=>{const rbm=new m.Mesh(rb,ribMat);rbm.position.set(sg*.28,2.35,-.02);rbm.rotation.z=sg*-.2;g.add(rbm)});
+   const N=60,gp=new Float32Array(N*3),gs=[];for(let i=0;i<N;i++)gs.push({a:Math.random()*7,r:1.7+Math.random()*1.1,y:(Math.random()-.5)*2.4,s:.25+Math.random()*.6});
+   const gl=new m.Points(new m.BufferGeometry().setAttribute('position',new m.BufferAttribute(gp,3)),new m.PointsMaterial({color:0xffe6a8,size:.05,transparent:true,opacity:.85,depthWrite:false,blending:m.AdditiveBlending}));scene.add(gl);
+   scene.add(new m.AmbientLight(0xffffff,.4));const k=new m.DirectionalLight(0xfff0d0,2.6);k.position.set(2.5,2,4);scene.add(k);const k2=new m.DirectionalLight(0x9fc4ff,.9);k2.position.set(-3,-1,3);scene.add(k2);
+   return{scene,camera,update(t,dt,it){g.rotation.y=Math.sin(t*.6)*.7+it.px*.7*it.hoverT;g.rotation.x=.1+it.py*.3*it.hoverT;k.position.x=Math.cos(t*.9)*3.2;
+    for(let i=0;i<N;i++){const q=gs[i],a=q.a+t*q.s;gp[i*3]=Math.cos(a)*q.r;gp[i*3+1]=q.y+Math.sin(t*q.s*2+i)*.15;gp[i*3+2]=Math.sin(a)*q.r*.6}gl.geometry.attributes.position.needsUpdate=true}}}
  ];
 
  /* ---------- 3D book (shelf) ---------- */
@@ -151,16 +164,70 @@
  function spineTexture(m,r,idx){const W=128,H=720,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle=COVER[idx%8];x.fillRect(0,0,W,H);x.fillStyle='rgba(232,206,158,.7)';x.fillRect(0,40,W,2);x.fillRect(0,H-42,W,2);
   x.save();x.translate(W/2+10,H/2);x.rotate(Math.PI/2);x.fillStyle='#f6efdc';x.font='400 34px Fraunces,Georgia,serif';x.textAlign='center';let t=String(displayTitle(r));while(x.measureText(t).width>H-170&&t.length>6)t=t.slice(0,-2);x.fillText(t.length<String(displayTitle(r)).length?t+'…':t,0,0);x.restore();
   const tx=new m.CanvasTexture(c);tx.colorSpace=m.SRGBColorSpace;return tx}
+
+ /* Image-based lighting: a tiny studio (soft boxes) baked once into a PMREM map; makes foil, cloth, clearcoat and gold read as real materials. */
+ let ENV=null;
+ function studioEnv(m){if(ENV)return ENV;
+  try{const es=new m.Scene();es.background=new m.Color(0x07090f);
+   const box=(w,h,x,y,z,c,k)=>{const mm=new m.Mesh(new m.PlaneGeometry(w,h),new m.MeshBasicMaterial({color:new m.Color(c).multiplyScalar(k),side:m.DoubleSide}));mm.position.set(x,y,z);mm.lookAt(0,0,0);es.add(mm)};
+   box(9,5,-6,5,6,0xfff0d6,6);box(4,9,8,1,3,0xd6e4ff,3.4);box(12,2,0,-6,1,0xffdca8,1.3);box(7,3,0,7,-6,0xffffff,2.6);box(3,6,-8,-1,-2,0xffe6c4,1.4);box(7,5,0,1,9,0xfff4dc,3.2);
+   const pm=new m.PMREMGenerator(renderer);renderer.setScissorTest(false);ENV=pm.fromScene(es,.035).texture;renderer.setScissorTest(true);pm.dispose()}catch{ENV=null}
+  return ENV}
+ const GOLD='#e8cf94';
+ function noise(x,W,H,a,n){for(let i=0;i<n;i++){x.fillStyle=`rgba(${Math.random()<.5?'255,240,210':'0,0,0'},${(Math.random()*a).toFixed(3)})`;x.fillRect(Math.random()*W,Math.random()*H,1+Math.random()*1.5,1+Math.random()*1.5)}}
+ /* cover = colour map + foil mask (white = gold leaf: drives metalness, roughness and the embossing bump) */
+ function paintCover(x,W,H,r,idx,mask){
+  if(mask){x.fillStyle='#000';x.fillRect(0,0,W,H);x.strokeStyle='rgba(255,255,255,.07)';x.lineWidth=1;for(let i=0;i<H;i+=3){x.beginPath();x.moveTo(0,i);x.lineTo(W,i);x.stroke()}for(let i=0;i<W;i+=3){x.beginPath();x.moveTo(i,0);x.lineTo(i,H);x.stroke()}}
+  else{const g=x.createLinearGradient(0,0,W,H);g.addColorStop(0,COVER[idx%8]);g.addColorStop(1,'#0d1822');x.fillStyle=g;x.fillRect(0,0,W,H);x.strokeStyle='rgba(0,0,0,.10)';for(let i=0;i<H;i+=3){x.beginPath();x.moveTo(0,i);x.lineTo(W,i);x.stroke()}for(let i=0;i<W;i+=3){x.beginPath();x.moveTo(i,0);x.lineTo(i,H);x.stroke()}noise(x,W,H,.14,5200)}
+  const F=mask?'#fff':GOLD,T=mask?'#9a9a9a':'#f6efdc';
+  x.strokeStyle=F;x.lineWidth=3;x.strokeRect(24,24,W-48,H-48);x.lineWidth=1.2;x.strokeRect(34,34,W-68,H-68);
+  [[24,24],[W-24,24],[24,H-24],[W-24,H-24]].forEach(([cx,cy])=>{x.beginPath();x.arc(cx,cy,9,0,Math.PI*2);x.stroke()});
+  x.fillStyle=F;x.font='600 21px "IBM Plex Mono",monospace';x.fillText(String(label(r.category)).replace(/^\d+ - /,'').toUpperCase().slice(0,30),52,84);x.fillRect(52,100,W-104,2);
+  x.strokeStyle=F;x.globalAlpha=mask?.9:.5;x.lineWidth=1.4;for(let i=0;i<6;i++){x.beginPath();x.arc(W/2,262,34+i*24,0,Math.PI*2);x.stroke()}
+  for(let i=0;i<8;i++){const a=i/8*Math.PI*2;x.beginPath();x.moveTo(W/2+Math.cos(a)*34,262+Math.sin(a)*34);x.lineTo(W/2+Math.cos(a)*150,262+Math.sin(a)*150);x.stroke()}x.globalAlpha=1;
+  x.fillStyle=F;[[0,-1],[.9,.4],[-.8,.5],[.4,1.2],[-.3,-.3]].forEach(([a,b],i)=>{x.beginPath();x.arc(W/2+a*90,262+b*60,3.4+i%2*1.8,0,Math.PI*2);x.fill()});
+  x.fillStyle=T;x.font='400 44px Fraunces,Georgia,serif';const words=String(displayTitle(r)).split(/\s+/),lines=[];let cur='';for(const w of words){const t=(cur+' '+w).trim();if(x.measureText(t).width>W-110&&cur){lines.push(cur);cur=w}else cur=t}lines.push(cur);
+  lines.slice(0,5).forEach((l,i)=>x.fillText(i===4&&lines.length>5?l+'…':l,52,430+i*54));
+  x.fillStyle=mask?'#777':'rgba(246,239,220,.82)';x.font='400 24px Inter,sans-serif';x.fillText(String(r.author||'').slice(0,34),52,H-100);
+  x.fillStyle=F;x.font='600 17px "IBM Plex Mono",monospace';x.fillText('BK · '+String(r.format||'').toUpperCase(),52,H-58);x.fillRect(52,H-82,W-104,1.5)}
+ function canvasTex(m,W,H,draw,srgb){const c=document.createElement('canvas');c.width=W;c.height=H;draw(c.getContext('2d'),W,H);const t=new m.CanvasTexture(c);t.anisotropy=8;if(srgb)t.colorSpace=m.SRGBColorSpace;return t}
+ function pageEdge(m,vertical){return canvasTex(m,vertical?512:64,vertical?64:512,(x,W,H)=>{x.fillStyle='#efe5cb';x.fillRect(0,0,W,H);const n=vertical?W:H;for(let i=0;i<n;i+=1){const a=.05+Math.random()*.2;x.fillStyle=`rgba(${110+Math.random()*30|0},${90+Math.random()*30|0},60,${a})`;vertical?x.fillRect(i,0,1,H):x.fillRect(0,i,W,1)}const g=vertical?x.createLinearGradient(0,0,W,0):x.createLinearGradient(0,0,0,H);g.addColorStop(0,'rgba(80,60,30,.25)');g.addColorStop(.15,'rgba(80,60,30,0)');g.addColorStop(.85,'rgba(80,60,30,0)');g.addColorStop(1,'rgba(80,60,30,.25)');x.fillStyle=g;x.fillRect(0,0,W,H)},true)}
+ function roundedShape(m,w,h,r){const s=new m.Shape(),x=-w/2,y=-h/2;s.moveTo(x+r,y);s.lineTo(x+w-r,y);s.quadraticCurveTo(x+w,y,x+w,y+r);s.lineTo(x+w,y+h-r);s.quadraticCurveTo(x+w,y+h,x+w-r,y+h);s.lineTo(x+r,y+h);s.quadraticCurveTo(x,y+h,x,y+h-r);s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y);return s}
+ function board(m,w,h,T,flipU){const g=new m.ExtrudeGeometry(roundedShape(m,w,h,.07),{depth:T,bevelEnabled:true,bevelSize:.016,bevelThickness:.016,bevelSegments:4,curveSegments:10});g.translate(0,0,-T/2);
+  const pos=g.attributes.position,uv=g.attributes.uv;for(let i=0;i<pos.count;i++){let u=(pos.getX(i)+w/2)/w;if(flipU)u=1-u;uv.setXY(i,u,(pos.getY(i)+h/2)/h)}uv.needsUpdate=true;return g}
  function bookScene(m,it,r){
   const{scene,camera}=rig(m,30,7.2),g=new m.Group();scene.add(g);const idx=(typeof recordArtIndex==='function')?recordArtIndex(r):0;
-  const cover=new m.MeshStandardMaterial({map:coverTexture(m,r,idx),roughness:.55,metalness:.05}),pages=new m.MeshStandardMaterial({map:pagesTexture(m),roughness:.9,emissive:0x4a4234}),board=new m.MeshStandardMaterial({map:backTexture(m,idx),roughness:.6}),spine=new m.MeshStandardMaterial({map:spineTexture(m,r,idx),roughness:.6});
-  const W=2.2,Hh=3.1,D=.52;
-  const mesh=new m.Mesh(new m.BoxGeometry(W,Hh,D),[pages,spine,pages,pages,cover,board]);g.add(mesh);
-  const shadow=new m.Mesh(new m.PlaneGeometry(3.4,1.1),new m.MeshBasicMaterial({map:(()=>{const c=document.createElement('canvas');c.width=128;c.height=64;const x=c.getContext('2d'),gr=x.createRadialGradient(64,32,0,64,32,60);gr.addColorStop(0,'rgba(0,0,0,.45)');gr.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=gr;x.fillRect(0,0,128,64);return new m.CanvasTexture(c)})(),transparent:true,depthWrite:false}));shadow.rotation.x=-Math.PI/2;shadow.position.y=-1.75;scene.add(shadow);
-  scene.add(new m.AmbientLight(0xffffff,1.0));const key=new m.DirectionalLight(0xfff1d6,2.6);key.position.set(-3,4,5);scene.add(key);const rim=new m.DirectionalLight(0x9fc4ff,.9);rim.position.set(4,1,-3);scene.add(rim);
-  let yaw=-.42,pitch=.08,vy=0,vx=0;
+  const envMap=studioEnv(m);if(envMap)scene.environment=envMap;
+  const col=canvasTex(m,512,720,(x,W,H)=>paintCover(x,W,H,r,idx,false),true),mask=canvasTex(m,512,720,(x,W,H)=>paintCover(x,W,H,r,idx,true),false);
+  const rough=canvasTex(m,512,720,(x,W,H)=>{paintCover(x,W,H,r,idx,true);const d=x.getImageData(0,0,W,H),q=d.data;for(let i=0;i<q.length;i+=4){const v=q[i];const rr=Math.round(215-v*.78);q[i]=q[i+1]=q[i+2]=rr}x.putImageData(d,0,0)},false);
+  const cover=new m.MeshPhysicalMaterial({map:col,roughnessMap:rough,roughness:1,metalnessMap:mask,metalness:1,bumpMap:mask,bumpScale:2.2,clearcoat:.18,clearcoatRoughness:.5,sheen:.8,sheenRoughness:.6,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:1.1});
+  const backCol=canvasTex(m,512,720,(x,W,H)=>{const gr=x.createLinearGradient(0,0,W,H);gr.addColorStop(0,COVER[idx%8]);gr.addColorStop(1,'#0d1822');x.fillStyle=gr;x.fillRect(0,0,W,H);noise(x,W,H,.14,5200);x.strokeStyle=GOLD;x.lineWidth=3;x.strokeRect(24,24,W-48,H-48);x.lineWidth=1.2;x.strokeRect(34,34,W-68,H-68);x.fillStyle=GOLD;x.font='600 64px Fraunces,Georgia,serif';x.textAlign='center';x.fillText('BK',W/2,H/2);x.font='600 15px "IBM Plex Mono",monospace';x.fillText('BİLİM KÜTÜPHANEM',W/2,H/2+42);x.fillStyle='rgba(246,239,220,.16)';for(let i=0;i<9;i++)x.fillRect(80,120+i*22,W-160-((i*53)%90),5)},true);
+  const backM=new m.MeshPhysicalMaterial({map:backCol,roughness:.75,sheen:.7,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:.8});
+  const clothSide=new m.MeshPhysicalMaterial({color:new m.Color(COVER[idx%8]).multiplyScalar(.7),roughness:.8,sheen:.8,sheenColor:new m.Color(0x8fa3b8)});
+  const W=2.1,Hh=3.1,D=.54,T=.05,xL=-W/2+.04;
+  const front=new m.Mesh(board(m,W-.04,Hh,T,false),[cover,clothSide]);front.position.set(xL+(W-.04)/2,0,D/2-T/2);g.add(front);
+  const back=new m.Mesh(board(m,W-.04,Hh,T,true),[backM,clothSide]);back.position.set(xL+(W-.04)/2,0,-(D/2-T/2));g.add(back);
+  /* spine: rounded, with raised bands + foil title */
+  const spineTex=(()=>{const t=spineTexture(m,r,idx);t.anisotropy=8;return t})();
+  const spine=new m.Mesh(new m.CylinderGeometry(D/2,D/2,Hh-.01,40,1,true,Math.PI,Math.PI),new m.MeshPhysicalMaterial({map:spineTex,roughness:.5,metalness:.15,sheen:.6,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:1.0,side:m.DoubleSide}));spine.position.set(xL,0,0);g.add(spine);
+  [-1.1,-.55,.55,1.1].forEach(y=>{const band=new m.Mesh(new m.TorusGeometry(D/2+.002,.008,8,40,Math.PI),new m.MeshStandardMaterial({color:0xe3c88a,metalness:1,roughness:.28,envMapIntensity:1.3}));band.rotation.set(Math.PI/2,0,Math.PI/2);band.position.set(xL,y,0);g.add(band)});
+  /* page block with real page-edge texture + headbands */
+  const edgeV=pageEdge(m,true),edgeH=pageEdge(m,false),paper=new m.MeshStandardMaterial({color:0xefe6cf,roughness:.95}),
+   pagesMat=[new m.MeshStandardMaterial({map:edgeV,roughness:.92,bumpMap:edgeV,bumpScale:.6}),paper,new m.MeshStandardMaterial({map:edgeH,roughness:.92,bumpMap:edgeH,bumpScale:.6}),new m.MeshStandardMaterial({map:edgeH,roughness:.92}),paper,paper];
+  const pages=new m.Mesh(new m.BoxGeometry(W-.2,Hh-.14,D-.1),pagesMat);pages.position.set(xL+(W-.2)/2+.01,0,0);g.add(pages);
+  [1,-1].forEach(s=>{const hb=new m.Mesh(new m.CylinderGeometry(.02,.02,D-.12,12),new m.MeshStandardMaterial({color:0xb8423a,roughness:.5}));hb.rotation.x=Math.PI/2;hb.position.set(xL+.03,s*(Hh/2-.085),0);g.add(hb)});
+  /* ribbon bookmark */
+  const rg=new m.PlaneGeometry(.07,1.05,1,14),rp=rg.attributes.position;for(let i=0;i<rp.count;i++){const y=rp.getY(i);rp.setZ(i,Math.sin((y+.5)*5)*.02);rp.setX(i,rp.getX(i)+Math.sin((y+.5)*3.2)*.025)}rg.computeVertexNormals();
+  const ribbon=new m.Mesh(rg,new m.MeshPhysicalMaterial({color:0xa5262c,roughness:.4,sheen:1,sheenColor:new m.Color(0xff8a80),side:m.DoubleSide}));ribbon.position.set(xL+.55,-Hh/2-.38,.02);g.add(ribbon);
+  /* contact shadow: two soft layers */
+  const shMap=(()=>{const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d'),gr=x.createRadialGradient(128,64,0,128,64,120);gr.addColorStop(0,'rgba(0,0,0,.62)');gr.addColorStop(.5,'rgba(0,0,0,.22)');gr.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=gr;x.fillRect(0,0,256,128);return new m.CanvasTexture(c)})();
+  const shadow=new m.Mesh(new m.PlaneGeometry(3.8,1.3),new m.MeshBasicMaterial({map:shMap,transparent:true,depthWrite:false}));shadow.rotation.x=-Math.PI/2;shadow.position.y=-1.78;scene.add(shadow);
+  scene.add(new m.AmbientLight(0xffffff,.42));const key=new m.DirectionalLight(0xfff1d6,2.3);key.position.set(-3,4,5);scene.add(key);const rim=new m.DirectionalLight(0x9fc4ff,1.1);rim.position.set(4,1,-3);scene.add(rim);const fill=new m.DirectionalLight(0xffe2c0,.5);fill.position.set(3,-2,4);scene.add(fill);
+  g.position.x=-.05;
+  let yaw=-.42,pitch=.08,vy=0;const dark=()=>root.dataset.theme!=='light';
   return{scene,camera,drag(dx,dy){yaw+=dx*.012;pitch=Math.max(-.5,Math.min(.5,pitch+dy*.008));vy=dx*.012},
-   update(t,dt,it){if(!it.drag){yaw+=vy;vy*=.93}const base=it.drag?0:-.42+Math.sin(t*.7)*.1;const target=it.drag?yaw:(Math.abs(vy)>1e-3?yaw:base+it.px*.55*it.hoverT);if(!it.drag&&Math.abs(vy)<=1e-3)yaw+=(target-yaw)*.12;g.rotation.y=yaw;g.rotation.x=pitch+it.py*.2*it.hoverT+Math.sin(t*.9)*.015;g.position.y=Math.sin(t*1.1)*.08+it.hoverT*.12;shadow.material.opacity=.9-it.hoverT*.2}}}
+   update(t,dt,it){if(!it.drag){yaw+=vy;vy*=.93}const base=it.drag?0:-.42+Math.sin(t*.7)*.1;const target=it.drag?yaw:(Math.abs(vy)>1e-3?yaw:base+it.px*.55*it.hoverT);if(!it.drag&&Math.abs(vy)<=1e-3)yaw+=(target-yaw)*.12;g.rotation.y=yaw;g.rotation.x=pitch+it.py*.2*it.hoverT+Math.sin(t*.9)*.015;g.position.y=Math.sin(t*1.1)*.08+it.hoverT*.12;
+    ribbon.rotation.z=Math.sin(t*1.3)*.05+yaw*.02;ribbon.position.x=xL+.55+Math.sin(t*1.2)*.01;shadow.material.opacity=.95-it.hoverT*.2;key.intensity=dark()?2.3:2.0;rim.intensity=dark()?1.1:.7}}}
 
  /* ---------- mounting ---------- */
  function mountAtlas(){

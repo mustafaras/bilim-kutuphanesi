@@ -225,3 +225,10 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - v77: işaretçi açısı `phase(r)` ile hesaplanır (aynı spiral kolun eğrisi), düğümler gerçek kolların üzerinde durur.
 
 - v78 (mobil): <=900px alan işaretçileri metnin üstünde süzülmez; alt çubuğun üstünde yatay kaydırmalı sessiz bir şeride dönüşür (`transform:none!important` JS satır içi konumu ezer). `.hero-foot` mobilde gizli, hareket düğmesi şeridin üstüne alındı.
+
+## 31. Paket 20 (v79) — gerçekçi 3B kitap ve Nobel madalyası
+
+- `stage.js` `studioEnv`: yumuşak kutulardan PMREM stüdyo ortamı (bir kez, `setScissorTest` geçici kapatılır); folyo, kumaş, clearcoat ve altın gerçek malzeme gibi okunur.
+- `bookScene` yeniden yazıldı: bevelli yuvarlak köşeli ExtrudeGeometry kapaklar, kumaş dokusu (bump), altın folyo katmanı (metalnessMap + roughnessMap + bumpMap — başlık, çerçeve, halkalar kabartma/parlak), yuvarlatılmış sırt (yarım silindir) + 4 yükseltili altın bant, sayfa bloğu (ince çizgili kenar dokusu, üst/alt/ön kenar), başlık bantları, dalgalı kırmızı saten şerit ayracı, yumuşak temas gölgesi, tema duyarlı ışık. Kayıt sayfasındaki `3D` düğmesi ve spotlight rafları aynı sahneyi kullanır.
+- Nobel kutucuğu: kabartmalı altın madalya (defne çelengi, yıldız, çevresel yazı bump ile), clearcoat, mavi kurdele, halka, orbit eden parıltılar; kutucuk büyütüldü (270px sanat alanı), eski çizgi takımyıldızı gizlendi.
+- Performans notu: PBR + 4 raf kitabı yazılım render'da yavaş; gerçek GPU'da ölçülmedi. Yavaşsa `MeshPhysicalMaterial` → `MeshStandardMaterial` (sheen/clearcoat kapat) ilk adaydır.
