@@ -964,3 +964,30 @@ button.stat:focus-visible{outline:2px solid var(--accent);outline-offset:6px;bor
 .footer-ver{font:500 11px/1.6 var(--mono);letter-spacing:.16em;color:var(--text-2,var(--muted))}
 :root[data-theme=light] .hero::after{content:'';position:absolute;left:0;right:0;bottom:0;height:34%;pointer-events:none;z-index:2;background:linear-gradient(180deg,transparent,rgba(246,239,223,.5))}
 @media(prefers-reduced-motion:reduce){.rp-ring .fg{transition:none}button.stat:hover{transform:none}}
+
+/* Package 6: record tabs */
+.rv-tabs{display:flex;gap:6px;margin:22px 0 4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.rv-tab{appearance:none;background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:10px 14px;font:500 12px/1 var(--mono,monospace);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:color .2s,border-color .2s}
+.rv-tab:hover{color:var(--ink)}
+.rv-tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.rv-tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.rv-panel[hidden]{display:none!important}
+.rv-panel{animation:rv-rise .35s var(--ease-out) both}
+
+/* Package 7: mobile bottom navigation */
+.bottom-nav{display:none}
+@media(max-width:760px){
+ .bottom-nav{position:fixed;left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));bottom:max(10px,env(safe-area-inset-bottom,0px));z-index:60;display:grid;grid-template-columns:1fr 1fr 56px 1fr 1fr;align-items:center;gap:2px;padding:6px;border:1px solid var(--line);border-radius:22px;background:color-mix(in srgb,var(--raised,var(--white)) 88%,transparent);backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);box-shadow:0 10px 30px rgba(10,20,30,.22);transition:transform .3s var(--ease-out),opacity .25s}
+ .bottom-nav.kb,.bottom-nav.off{transform:translateY(140%);opacity:0;pointer-events:none}
+ .bottom-nav a,.bottom-nav button{appearance:none;border:0;background:none;color:var(--muted);font:500 11px/1.1 var(--mono,monospace);letter-spacing:.04em;text-transform:uppercase;text-decoration:none;text-align:center;padding:12px 4px;min-height:44px;border-radius:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+ .bottom-nav a[aria-current="true"]{color:var(--ink);background:color-mix(in srgb,var(--accent) 16%,transparent)}
+ .bottom-nav .bn-search{background:var(--accent);color:#fff;font-size:22px;width:48px;height:48px;min-height:48px;margin:-14px auto 0;border-radius:50%;box-shadow:0 6px 16px rgba(10,20,30,.3)}
+ body{padding-bottom:84px}
+ .motion-toggle{bottom:calc(84px + env(safe-area-inset-bottom,0px))!important}
+}
+
+/* Package 5: accessibility pass for new components */
+button.stat:focus-visible,.bottom-nav a:focus-visible,.bottom-nav button:focus-visible,.footer-nav a:focus-visible,.hero-field:focus-visible,.nc-viewswitch button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.tile-3d,.shelf-3d,.nc-3d canvas{touch-action:pan-y}
+@media(prefers-reduced-motion:reduce){.rv-panel,.rp-ring .fg,.bottom-nav{animation:none!important;transition:none!important}}
+:root[data-theme=dark] .bottom-nav .bn-search{color:#0b1220}

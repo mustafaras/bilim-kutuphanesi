@@ -154,3 +154,10 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 
 - Sonuç yoksa `palette.js` her bilinmeyen kelimeyi kütüphane sözlüğündeki (yazar/başlık/eylem/alan kelimeleri) en yakın kelimeye çeker (Levenshtein ≤1; 7+ harfte ≤2) ve en üstte "Şunu mu demek istediniz: …?" satırı gösterir; seçilince paleti kapatmadan sorguyu düzeltir.
 - Sözlük ilk kullanımda tembel kurulur; normal aramalar etkilenmez (`build` → `build0`, bulanık yol yalnızca boş sonuçta).
+
+## 19. Paketler 6–7 + erişilebilirlik (v63)
+
+- **Kayıt sekmeleri:** `record.js` şablonu `.rv-tabs` (role=tablist) + iki panel: Özet / Atıf ve paylaşım. Ok tuşları, Home/End; `?record=/focus/back` sözleşmesi değişmedi. Atıf düğmesi gizli panelde de DOM'da olduğundan `c` kısayolu çalışır. `[hidden]` display kuralıyla ezilmesin diye `.rv-panel[hidden]{display:none!important}`.
+- **Mobil alt gezinme:** `#bottomNav` (≤760px): Keşfet, Katalog, ortada palet, Yollar, Tema; IntersectionObserver ile `aria-current`, klavye açılınca (`visualViewport`) ve kayıt/palet açıkken gizlenir. Body'ye alt boşluk, hareket düğmesi yukarı alındı. Koyu temada büyüteç düğmesi koyu metin (kontrast).
+- **Erişilebilirlik:** yeni bileşenlerde `:focus-visible`, `touch-action:pan-y` (3D tuvallerde sayfa kaydırması), reduced-motion'da panel/halka animasyonu kapalı.
+- Gerçek cihaz GPU performansı hâlâ ölçülmedi.
