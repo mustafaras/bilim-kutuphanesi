@@ -409,25 +409,34 @@ footer .footer-brand b{font-size:22px}
 
 /* --- 3 · Nobel galaxy — year stars (all modes) ------------------------------- */
 .timeline-tick{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;display:block;min-height:14px}
-.timeline-bar{width:var(--r,4px);height:var(--r,4px);max-width:none;border-radius:50%;background:radial-gradient(circle at 32% 30%,#fff9ea 6%,#f2dfae 45%,#caa25e 95%);box-shadow:0 0 calc(var(--r,4px)*1.4 + 3px) rgba(232,206,158,calc(var(--lum,.6)*.8));opacity:calc(.3 + var(--lum,.6)*.7);transition:transform var(--dur-2) var(--ease-out),opacity var(--dur-2) var(--ease-out)}
+.timeline-bar{--sr:var(--r,4px);width:var(--sr);height:var(--sr);max-width:none;border-radius:50%;background:radial-gradient(circle at 32% 30%,#fff9ea 6%,#f2dfae 45%,#caa25e 95%);box-shadow:0 0 calc(var(--sr)*1.4 + 3px) rgba(232,206,158,calc(var(--lum,.6)*.8));opacity:calc(.3 + var(--lum,.6)*.7);transform:translateY(calc(var(--dy,0px)*var(--dys,.35))) scale(var(--s,1));transition:transform var(--dur-2) var(--ease-out),opacity var(--dur-2) var(--ease-out)}
 .timeline-year.empty .timeline-bar{background:radial-gradient(circle,#9fb9b2 0 45%,#2c4753 100%);box-shadow:none;opacity:.4}
-.timeline-year:hover:not(:disabled) .timeline-bar,.timeline-year:focus-visible .timeline-bar{transform:scale(1.65);opacity:1;background:radial-gradient(circle at 32% 30%,#fffdf4 6%,#f8ecc4 45%,#dcbf7f 95%);box-shadow:0 0 calc(var(--r,4px)*1.6 + 6px) rgba(246,227,186,.75)}
-.timeline-year.selected .timeline-bar{transform:scale(1.4);opacity:1;background:radial-gradient(circle at 32% 30%,#fffdf4 6%,#f8ecc4 45%,#dcbf7f 95%);box-shadow:0 0 0 2px #0d2029,0 0 0 3.5px #e8ce9e,0 0 18px #e3c79dd9}
+.timeline-year:hover:not(:disabled) .timeline-bar,.timeline-year:focus-visible .timeline-bar{--s:1.65;opacity:1;background:radial-gradient(circle at 32% 30%,#fffdf4 6%,#f8ecc4 45%,#dcbf7f 95%);box-shadow:0 0 calc(var(--sr)*1.6 + 6px) rgba(246,227,186,.75)}
+.timeline-year.selected .timeline-bar{--s:1.4;opacity:1;background:radial-gradient(circle at 32% 30%,#fffdf4 6%,#f8ecc4 45%,#dcbf7f 95%);box-shadow:0 0 0 2px #0d2029,0 0 0 3.5px #e8ce9e,0 0 18px #e3c79dd9}
 .timeline-year.in-range .timeline-bar{background:radial-gradient(circle at 32% 30%,#eefaf3 6%,#a8c5bb 45%,#6f958a 95%)}
 .chronicle-tooltip{background:rgba(13,32,41,.6);border-color:#e8ce9e59;border-radius:8px;-webkit-backdrop-filter:blur(14px) saturate(150%);backdrop-filter:blur(14px) saturate(150%);box-shadow:0 12px 32px #0006,inset 0 1px 0 #ffffff14}
 .galaxy-hint{display:none;margin:0;font:400 10px/1.4 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:#9fb9b2;text-align:center}
 @media(min-width:1024px){
-.timeline-section.galaxy .chronicle-panel{position:sticky;top:calc(var(--header-h) + 14px);display:flex;flex-direction:column;justify-content:center;height:calc(100svh - var(--header-h) - 28px);min-height:430px;background:radial-gradient(1.5px 1.5px at 8% 18%,#ffffff26,transparent),radial-gradient(1px 1px at 22% 64%,#ffffff1e,transparent),radial-gradient(1.5px 1.5px at 38% 30%,#ffffff20,transparent),radial-gradient(1px 1px at 55% 12%,#ffffff24,transparent),radial-gradient(1.5px 1.5px at 68% 58%,#ffffff1c,transparent),radial-gradient(1px 1px at 81% 26%,#ffffff26,transparent),radial-gradient(1.5px 1.5px at 92% 70%,#ffffff1e,transparent),radial-gradient(ellipse at 85% 0%,#325e5f55,transparent 60%),radial-gradient(ellipse at 5% 100%,#9b653326,transparent 55%),linear-gradient(150deg,#16303c,#102a36)}
-.timeline-section.galaxy .chronicle-head{padding:0 28px 18px}
-.timeline-section.galaxy .chronicle-chart{display:flex;flex-direction:column;gap:16px;padding:8px 28px 4px;overflow:hidden}
-.timeline-section.galaxy .chronicle-tooltip{bottom:52px}
-.timeline-section.galaxy .timeline-strip{flex:0 0 auto;overflow:visible;padding:0 0 4px;background:linear-gradient(90deg,transparent,var(--scene-line) 5%,var(--scene-line) 95%,transparent) 0 calc(100% - 22px)/100% 1px no-repeat}
-.timeline-section.galaxy .timeline-year{flex:0 0 24px;min-width:24px;gap:10px}
+/* Cosmic corridor: the section itself goes dark so the capped sticky panel
+   never floats over exposed page background on tall viewports. */
+.timeline-section.galaxy{margin:0 calc(var(--page-pad)*-1);padding:62px var(--page-pad) 0;background:radial-gradient(ellipse at 85% 0%,#325e5f30,transparent 55%),radial-gradient(ellipse at 8% 100%,#9b65331c,transparent 50%),linear-gradient(150deg,#132b38,#0d222e);box-shadow:inset 0 -1px 0 #ffffff12}
+.timeline-section.galaxy .eyebrow{color:var(--scene-brass)}
+.timeline-section.galaxy h2{color:#f2eee3}
+.timeline-section.galaxy .section-intro,.timeline-section.galaxy .visual-note{color:#9fb9b2}
+.timeline-section.galaxy .chronicle-panel{position:sticky;top:calc(var(--header-h) + 14px);display:flex;flex-direction:column;height:min(calc(100svh - var(--header-h) - 28px),1080px);background:radial-gradient(1.5px 1.5px at 8% 18%,#ffffff26,transparent),radial-gradient(1px 1px at 22% 64%,#ffffff1e,transparent),radial-gradient(1.5px 1.5px at 38% 30%,#ffffff20,transparent),radial-gradient(1px 1px at 55% 12%,#ffffff24,transparent),radial-gradient(1.5px 1.5px at 68% 58%,#ffffff1c,transparent),radial-gradient(1px 1px at 81% 26%,#ffffff26,transparent),radial-gradient(1.5px 1.5px at 92% 70%,#ffffff1e,transparent),radial-gradient(ellipse at 85% 0%,#325e5f55,transparent 60%),radial-gradient(ellipse at 5% 100%,#9b653326,transparent 55%),linear-gradient(150deg,#16303c,#102a36)}
+.timeline-section.galaxy .chronicle-head{padding:22px 30px 0}
+.timeline-section.galaxy .chronicle-chart{flex:1;display:flex;flex-direction:column;justify-content:center;gap:20px;padding:10px 34px 22px;overflow:hidden}
+.timeline-section.galaxy .chronicle-tooltip{bottom:96px}
+/* Scattered star band: nebula glow + dust + ecliptic hairline behind the years */
+.timeline-section.galaxy .timeline-strip{flex:0 0 auto;overflow:visible;min-height:250px;align-items:stretch;background:radial-gradient(ellipse 75% 55% at 50% 45%,rgba(50,94,95,.24),transparent 70%),radial-gradient(ellipse 45% 35% at 18% 55%,rgba(155,101,51,.10),transparent 70%),radial-gradient(1.5px 1.5px at 6% 30%,#ffffff21,transparent),radial-gradient(1px 1px at 14% 70%,#ffffff19,transparent),radial-gradient(1.5px 1.5px at 24% 22%,#ffffff1c,transparent),radial-gradient(1px 1px at 37% 64%,#ffffff17,transparent),radial-gradient(1.5px 1.5px at 49% 28%,#ffffff20,transparent),radial-gradient(1px 1px at 58% 72%,#ffffff18,transparent),radial-gradient(1.5px 1.5px at 66% 20%,#ffffff1d,transparent),radial-gradient(1px 1px at 78% 60%,#ffffff19,transparent),radial-gradient(1.5px 1.5px at 88% 34%,#ffffff21,transparent),radial-gradient(1px 1px at 96% 68%,#ffffff17,transparent),linear-gradient(90deg,transparent,var(--scene-line) 5%,var(--scene-line) 95%,transparent) 0 calc(100% - 44px)/100% 1px no-repeat}
+.timeline-section.galaxy .timeline-bar{--sr:calc(var(--r,4px)*1.5);--dys:1}
+.timeline-section.galaxy .timeline-year{flex:0 0 20px;min-width:20px;gap:10px}
+.timeline-section.galaxy .timeline-tick{font-size:10.5px;letter-spacing:.08em;color:#a8c0ba}
 .timeline-section.galaxy .galaxy-hint{display:flex;align-items:center;justify-content:center;gap:12px}
 .timeline-section.galaxy .galaxy-hint::before,.timeline-section.galaxy .galaxy-hint::after{content:'';width:46px;height:1px;background:linear-gradient(90deg,transparent,#9fb9b26b)}
 .timeline-section.galaxy .galaxy-hint::after{background:linear-gradient(90deg,#9fb9b26b,transparent)}
 }
-@media(prefers-reduced-motion:reduce){.timeline-bar{transition:none}.timeline-year:hover:not(:disabled) .timeline-bar{transform:none}}
+@media(prefers-reduced-motion:reduce){.timeline-bar{transition:none}.timeline-year:hover:not(:disabled) .timeline-bar{--s:1}}
 
 /* --- 4 · Archives — observation log ------------------------------------------ */
 .archive-log-line{margin:12px 0 0;font:500 10.5px/1.7 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:#b9d0c9;font-variant-numeric:tabular-nums}
