@@ -42,3 +42,7 @@ Object.assign(UI.en,{timelineIntro:"The Nobel archive from 1901 to today. Pick a
 Object.assign(UI.tr,{yearRange:'Yıl aralığı',ledgerNo:'No',ledgerYear:'Yıl',ledgerSave:'Okuma listesine ekle',emptyAlternatives:'En yakın alternatifler'});
 Object.assign(UI.en,{yearRange:'Year range',ledgerNo:'No.',ledgerYear:'Year',ledgerSave:'Add to reading list',emptyAlternatives:'Closest alternatives'});
 
+
+/* FAZ-5 · Kayıt deneyimi — düğüm sayfası, alıntı, keşif takımyıldızı */
+Object.assign(UI.tr,{backToCatalog:'Kataloğa dön',cite:'Alıntıyı kopyala',citeLabel:'Alıntı',citeTemplate:'{author}“{title}.” {collection}{year}. Bilim Kütüphanem, erişim: {url}',citedCopied:'Alıntı kopyalandı.',constellationSummary:'Keşif takımyıldızı: “{title}” ve ona bağlı {count} kayıt. Aynı kayıtlar aşağıdaki listede de yer alır.',nodeJump:'Bu kayda geç'});
+Object.assign(UI.en,{backToCatalog:'Back to catalog',cite:'Copy citation',citeLabel:'Citation',citeTemplate:'{author}“{title}.” {collection}{year}. The Knowledge Library, accessed at {url}',citedCopied:'Citation copied.',constellationSummary:'Discovery constellation: “{title}” and {count} linked records. The same records are listed below.',nodeJump:'Go to this record'});

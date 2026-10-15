@@ -26,6 +26,8 @@ Sekiz keşif alanı kataloğu konu gruplarına ayırır. Alan seçimi kaynak dil
 
 Başka bir bilgisayarda da bu depoyu klonlayıp arayüzü geliştirebilirsin. Arayüz ve mevcut katalog üzerinde çalışmak için masaüstündeki PDF klasörleri gerekmez. Yeni dosyaların özel Drive bağlantılarını eşlemek ve yerel CSV kataloglarını yeniden üretmek için aşağıdaki güncelleme adımlarını kullan.
 
+Kayıt sayfası (`?record=<id>`) tam sayfa görünümdür; künye, tek tıkla alıntı ve keşif takımyıldızı içerir (`site/record.js`). Paylaşım önizleme görselleri `python tools/og_cards.py` ile derleme zamanında üretilir (`site/og/<id>.png`; Actions yayın adımında çalışır, yalnızca `default.png` depoda tutulur). Gereksinim: `pip install pillow fonttools brotli`.
+
 ## Yerel katalog güncellemesi
 
 Masaüstündeki `ODTU Kitap Seckisi` ve `Nobel Calismalari Arsivi` kataloglarını güncelledikten sonra:

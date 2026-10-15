@@ -68,3 +68,13 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - **Okuma yolları**: tek sütun seyir haritası (brass rota + sayaçlı durak düğümleri). Tuzak: `.route-card{overflow:hidden}` düğümleri kırpar → `visible` yapıldı.
 - Tuzaklar: `[hidden]` sınıf `display` kuralıyla ezilir (`.facet-body[hidden]` eklendi); `facets.js` `defer` ile yüklenir, `app.js` onu `typeof renderFacetRail` ile çağırır.
 - `check_app.cjs`: `matchRecords` skip, künye, defter, boş durum assert'leri.
+
+## 9. FAZ-5 uygulandı — sürüm v50
+
+- **`#recordDialog` + `#detailBackdrop` kaldırıldı**; yerine `#record-view` (tam sayfa, `position:fixed` kendi scroll'u; arka plan inert + `body` scroll kilidi). Mantık yeni **`site/record.js`**'te (`openRecord`/`hideRecord`/`closeRecord`, `popstate`, odak, OG meta). `discovery.js` yalnız vitrin (`cover`, `renderShelf`) ve `relatedRecords(r, limit)` hesabını tutar (hesap aynen, sınır 3 → 8). `cover`/`relatedRecords` global fonksiyondur (IIFE dışı).
+- **URL sözleşmesi:** kapalıyken açış `pushState({bkRecord})`, görünüm içi kayıt değişimi `replaceState`; UI kapatma push edilmişse `history.back()` yapar, `popstate` tek doğruluk kaynağıdır. Derin bağlantı (`?record=`) push etmez. `render()`'ın `replaceState` çağrısı artık `history.state`'i korur (eskiden `null` yazıp işaretçiyi siliyordu).
+- **Tuzaklar:** `startViewTransition` güncelleme callback'i **asenkron** çalışır → odak dönüşü ve `unlock()` callback içinde yapılır (sayfa o ana dek inert). Aynı `view-transition-name` iki öğede olamaz: kaynak kart adı callback başında silinir (`record-art`, `#detailArt` CSS ile adlı). Yıldız tıklaması kartları yeniden çizer → açan öğe kopar; `focusOpener` aynı `data-detail`li kontrole düşer.
+- **Takımyıldız:** `svg.rv-links` (`role=img`, özet `constellationSummary`) + gerçek `<button class="rv-node">` düğümleri + `ul.rv-list` metin eşdeğeri (≤640px'te düğüm etiketleri gizlenir, liste asıl yoldur).
+- **Alıntı:** `citeTemplate` (TR/EN) + `citedCopied`; pano yoksa `#detailShareFallback` alanı (paylaşımla ortak).
+- **OG:** `tools/og_cards.py` (Pillow + fontTools; woff2→TTF `.local/og-fonts`). CI `pages.yml`'de `validate`'ten sonra çalışır; `site/og/*.png` Git'te yok (yalnız `default.png`). `validate_site.py` site boyutunu 10MB ile sınırlar → yerelde çıktıyı `--out` ile site dışına yaz.
+- `check_app.cjs`: kayıt sayfası, künye, alıntı TR/EN + pano fallback, Escape, takımyıldız düğüm/liste eşitliği assert'leri; sahte `history` artık `pushState`/`state` taşır.

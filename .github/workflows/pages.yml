@@ -33,8 +33,13 @@ jobs:
           node --check site/visuals.js
           node --check site/effects.js
           node --check site/discovery.js
+          node --check site/record.js
           node tools/check_app.cjs
           node tools/check_app.cjs --missing-art
+      - name: Build OG share cards
+        run: |
+          python -m pip install --quiet pillow fonttools brotli
+          python tools/og_cards.py
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
