@@ -1186,3 +1186,9 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 }
 @media(max-width:900px){.hero-fields,:root[data-theme=light] .hero-fields{inset:auto 0 148px 0}.hero .hero-foot{display:none}}
 @media(max-width:760px){.motion-toggle{bottom:calc(204px + env(safe-area-inset-bottom,0px))!important}}
+
+/* Package 20: the Nobel tile is the showpiece */
+.atlas-tile.atlas-7 .subject-art{min-height:270px}
+.atlas-tile.atlas-7 .tile-3d{filter:drop-shadow(0 18px 28px rgba(0,0,0,.35))}
+@media(min-width:1101px){.atlas-tile.atlas-7{min-height:430px}}
+.atlas-tile.atlas-7 .tile-constellation{opacity:.0}
