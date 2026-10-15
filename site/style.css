@@ -516,3 +516,110 @@ footer{margin-top:0}
 .collection-tile .tile-glow{position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:0;background:radial-gradient(240px circle at var(--mx,50%) var(--my,30%),rgba(255,255,255,.11),transparent 62%);transition:opacity .5s var(--ease-out)}
 .collection-tile:hover .tile-glow{opacity:1}
 @media(prefers-reduced-motion:reduce){.collection-tile .tile-constellation line,.collection-tile .tile-constellation .n,.collection-tile .tile-constellation .h,.collection-tile .tile-glow{transition:none!important;animation:none!important}.collection-tile:hover .tile-constellation line{stroke-dashoffset:0}}
+
+/* ==========================================================================
+   FAZ-4 · Katalog sistemi / Catalog system — facet rail, card anatomy,
+   ledger list, smart empty state, journey routes. Appended last on purpose.
+   ========================================================================== */
+
+/* --- 1 · Layout + facet rail ------------------------------------------------ */
+.catalog-layout{display:block;margin-top:22px}
+.catalog-main{min-width:0}
+.facet-rail{display:none}
+@media(min-width:1024px){
+.catalog-layout{display:grid;grid-template-columns:272px minmax(0,1fr);gap:clamp(24px,3vw,44px);align-items:start}
+#filterPanel{display:none}
+.facet-rail{display:block;position:sticky;top:calc(var(--header-h) + 18px);max-height:calc(100svh - var(--header-h) - 36px);overflow-y:auto;overscroll-behavior:contain;padding:4px 6px 18px 2px;scrollbar-width:thin;scrollbar-color:var(--line-2,var(--line)) transparent}
+}
+.facet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:2px 0 14px;border-bottom:1px solid var(--line-1)}
+.facet-head h3{margin:0;font:600 10.5px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--text-2)}
+.facet-clear{min-height:0;padding:4px 0;border:0;background:none;font:500 12px var(--sans);color:var(--accent-1);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.facet-clear:disabled{opacity:.35;cursor:default;text-decoration:none}
+.facet{border-bottom:1px solid var(--line-1)}
+.facet h4{margin:0}
+.facet-toggle,.facet-static{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:0;border:0;background:none;text-align:left;font:600 13px/1.2 var(--sans);color:var(--text-1);cursor:pointer}
+.facet-static{cursor:default;min-height:40px}
+.facet-toggle em{margin-left:auto;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 11px var(--sans);font-style:normal;color:var(--accent-1)}
+.facet-toggle i{flex:none;margin-left:auto;width:7px;height:7px;border:solid var(--text-2);border-width:0 1.4px 1.4px 0;transform:rotate(45deg) translate(-2px,-2px);transition:transform var(--dur-2) var(--ease-out)}
+.facet-toggle em+i{margin-left:4px}
+.facet-toggle[aria-expanded=true] i{transform:rotate(-135deg) translate(-2px,-2px)}
+.facet-toggle:focus-visible,.facet-opt:focus-within,.facet-select select:focus-visible,.facet-clear:focus-visible{outline:var(--focus-ring);outline-offset:2px;border-radius:4px}
+.facet-body{margin:0;padding:0 0 12px;list-style:none;display:grid;gap:1px}
+.facet-opt{display:grid;grid-template-columns:16px 1fr auto;align-items:center;gap:10px;min-height:34px;padding:2px 4px;border-radius:6px;cursor:pointer;transition:background var(--dur-1) var(--ease-out)}
+.facet-opt:hover{background:var(--surface-2)}
+.facet-opt input{position:absolute;opacity:0;pointer-events:none}
+.facet-box{width:15px;height:15px;border:1.3px solid var(--text-3,var(--text-2));border-radius:50%;display:grid;place-items:center;transition:border-color var(--dur-1) var(--ease-out),background var(--dur-1) var(--ease-out)}
+.facet-box::after{content:'';width:7px;height:7px;border-radius:50%;background:var(--accent-1);transform:scale(0);transition:transform var(--dur-2) var(--ease-out)}
+.facet-opt input:checked+.facet-box{border-color:var(--accent-1)}
+.facet-opt input:checked+.facet-box::after{transform:scale(1)}
+.facet-text{min-width:0;font:400 13px/1.35 var(--sans);color:var(--text-1);overflow-wrap:anywhere}
+.facet-opt input:checked~.facet-text{font-weight:600}
+.facet-count{font:500 11px var(--mono);color:var(--text-2);font-variant-numeric:tabular-nums}
+.facet-opt.is-zero{cursor:default;opacity:.38}
+.facet-opt.is-zero:hover{background:none}
+.facet-years{display:grid;gap:8px;padding:0 0 14px}
+.facet-select{display:grid;grid-template-columns:78px 1fr;align-items:center;gap:8px;font:500 12px var(--sans);color:var(--text-2)}
+.facet-select select{min-height:38px;width:100%}
+
+/* --- 2 · Result strip + chips ------------------------------------------------ */
+.result-bar{margin:6px 0 14px;padding:10px 14px;border:1px solid var(--line-1);border-radius:var(--radius-md);background:var(--surface-1);gap:12px 20px}
+.result-bar p{font:500 12px var(--mono);letter-spacing:.04em;color:var(--text-2)}
+.view-switch{padding:3px;border:1px solid var(--line-1);border-radius:var(--radius-pill);background:var(--surface-2)}
+.view-switch button{border:0;border-radius:var(--radius-pill);min-height:34px}
+.filter-chips button{border-radius:var(--radius-pill);padding:6px 12px;font:500 12px var(--sans)}
+.page-nav button{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* --- 3 · Card anatomy --------------------------------------------------------- */
+.cards{gap:16px}
+.card{border-left-width:3px;border-radius:var(--radius-md);transition:transform var(--dur-3) var(--ease-out),box-shadow var(--dur-3) var(--ease-out),border-color var(--dur-3) var(--ease-out)}
+.card:hover{transform:translateY(-3px);border-left-color:var(--spine);box-shadow:0 18px 40px -18px rgba(8,16,28,.45),-6px 0 18px -10px var(--spine)}
+.card .category{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font:500 10.5px/1.5 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text-2)}
+.card .category>span+span::before{content:'·';margin-right:8px;opacity:.6}
+.card .category .card-no{font-weight:600;letter-spacing:.14em;color:var(--spine)}
+.card .description{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}
+.card .links{margin-top:auto;padding-top:12px;border-top:1px solid var(--line-1)}
+.effects-paused .card:hover{transform:none}
+
+/* --- 4 · Ledger list ---------------------------------------------------------- */
+.cards.list-view{display:block;border:1px solid var(--line-1);border-radius:var(--radius-md);background:var(--surface-1);overflow:hidden}
+.ledger-head,.ledger-row{display:grid;grid-template-columns:84px minmax(0,2.3fr) minmax(0,1.2fr) 46px minmax(0,.9fr) minmax(0,.8fr) minmax(172px,1.1fr) 40px;align-items:center;gap:0 16px;padding:0 16px}
+.ledger-head{min-height:40px;border-bottom:1px solid var(--text-3,var(--line-1));font:600 10px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--text-2);background:var(--surface-2)}
+.ledger-row{position:relative;min-height:56px;border-top:1px solid var(--line-1);transition:background var(--dur-1) var(--ease-out)}
+.ledger-row:first-of-type{border-top:0}
+.ledger-row::before{content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:0 2px 2px 0;background:var(--spine,var(--line-1));opacity:.7}
+.ledger-row:hover{background:var(--surface-2)}
+.ledger-row h3{margin:0;font:400 16.5px/1.3 var(--serif);letter-spacing:-.01em}
+.ledger-row .title-detail{text-align:left;padding:10px 0;border:0;background:none;font:inherit;color:var(--text-1);cursor:pointer}
+.ledger-row .l-no{font:600 11px var(--mono);letter-spacing:.1em;color:var(--spine,var(--text-2))}
+.ledger-row .l-author,.ledger-row .l-kind,.ledger-row .l-lang{font:400 12.5px/1.4 var(--sans);color:var(--text-2);overflow:hidden;text-overflow:ellipsis}
+.ledger-row .l-year{font:500 12px var(--mono);color:var(--text-2);font-variant-numeric:tabular-nums}
+.ledger-row .l-links{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:12.5px}
+.ledger-row .star{justify-self:end}
+@media(max-width:1023px){.ledger-head{display:none}.ledger-row{grid-template-columns:auto minmax(0,1fr) 44px;grid-template-areas:'no no star' 'title title title' 'author author author' 'year kind lang' 'links links links';gap:2px 12px;padding:12px 16px 12px 18px}.ledger-row .l-no{grid-area:no}.ledger-row h3{grid-area:title}.ledger-row .l-author{grid-area:author}.ledger-row .l-year{grid-area:year}.ledger-row .l-kind{grid-area:kind}.ledger-row .l-lang{grid-area:lang}.ledger-row .l-links{grid-area:links;padding-top:6px}.ledger-row .star{grid-area:star}}
+
+/* --- 5 · Smart empty state ---------------------------------------------------- */
+.empty-state{grid-column:1/-1;display:grid;gap:12px;justify-items:start;padding:36px clamp(20px,4vw,40px);border:1px dashed var(--line-2,var(--line-1));border-radius:var(--radius-md);background:var(--surface-1)}
+.empty-state p{margin:0;max-width:52ch;font:400 15px/1.7 var(--sans);color:var(--text-2)}
+.empty-state .empty-kicker{margin-top:6px;font:600 10.5px/1 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--accent-1)}
+.empty-chips{display:flex;flex-wrap:wrap;gap:10px}
+.empty-chips button{display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:8px 16px;border:1px solid var(--line-1);border-radius:var(--radius-pill);background:var(--surface-2);color:var(--text-1);font:500 13px var(--sans);cursor:pointer;transition:border-color var(--dur-1) var(--ease-out),background var(--dur-1) var(--ease-out)}
+.empty-chips button:hover{border-color:var(--accent-1);background:var(--surface-3)}
+.empty-chips button:focus-visible{outline:var(--focus-ring);outline-offset:2px}
+.empty-chips b{font:500 11px var(--mono);color:var(--accent-1)}
+
+/* --- 6 · Reading routes as a journey map ---------------------------------------- */
+.route-list{position:relative;display:grid;grid-template-columns:1fr;gap:14px;padding-left:clamp(44px,6vw,72px);counter-reset:stop}
+.route-list::before{content:'';position:absolute;left:clamp(15px,2.4vw,27px);top:28px;bottom:28px;width:1px;background:linear-gradient(180deg,transparent,var(--accent-1) 6%,var(--accent-1) 94%,transparent);opacity:.65}
+.route-list .route-card,.route-list .route-card[open]{grid-column:auto;position:relative;counter-increment:stop}
+.route-list .route-card::before{content:counter(stop,decimal-leading-zero);position:absolute;left:calc(-1*clamp(44px,6vw,72px) + clamp(15px,2.4vw,27px) - 15px);top:34px;width:31px;height:31px;display:grid;place-items:center;border:1px solid var(--accent-1);border-radius:50%;background:var(--surface-0,var(--paper));font:600 10px var(--mono);letter-spacing:.04em;color:var(--accent-1);z-index:1;transition:background var(--dur-2) var(--ease-out),color var(--dur-2) var(--ease-out),box-shadow var(--dur-2) var(--ease-out)}
+.route-list .route-card:hover::before,.route-list .route-card[open]::before{background:var(--accent-1);color:var(--surface-0,#fff);box-shadow:0 0 0 5px color-mix(in srgb,var(--accent-1) 22%,transparent)}
+.route-card summary{min-height:104px}
+@media(max-width:560px){.route-list{padding-left:40px}.route-list::before{left:13px}.route-list .route-card::before{left:-40px;transform:translateX(0);left:-40px}}
+
+.card h3{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;line-clamp:4;overflow:hidden;font-size:20px}
+.cards.list-view .card h3{-webkit-line-clamp:unset}
+.ledger-row .l-links a,.ledger-row .l-links span{white-space:nowrap}
+.empty.empty-state{text-align:left;padding:36px clamp(20px,4vw,40px)}
+.facet-body[hidden]{display:none}
+.route-list .route-card,.route-list .route-card[open]{overflow:visible}
+.route-list .route-card summary{border-radius:inherit}

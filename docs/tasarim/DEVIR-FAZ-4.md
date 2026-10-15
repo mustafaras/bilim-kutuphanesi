@@ -1,7 +1,7 @@
 # DEVİR — FAZ-4 (Katalog Sistemi) · Sonraki oturuma uygulama notları
 
 **Tarih:** 2026-10-15 · **Yazan:** FAZ-3 oturumu (GLM-5.3) · **Alan:** Sonraki uygulayıcı (Opus 5.5)
-**Durum:** FAZ-0, FAZ-1, FAZ-2, FAZ-3 tamamlandı, main'de birleştirildi ve canlıda.
+**Durum:** FAZ-0..3 main'de ve canlıda. FAZ-3b (cila) ve **FAZ-4 uygulandı**, `claude/ecstatic-knuth-ad7fw0` dalında; main'e birleştirme bekliyor. Aşağıdaki 1–3. bölümler tarihîdir; güncel durum §7 ve §8'dedir.
 
 Bu belge, `TASARIM-PLANI.md` ve `docs/tasarim/FAZ-4-katalog.md` yerine geçmez; onları okuduktan sonra buradaki **güncel durum + bu oturumların öğrettikleri** ile başla. FAZ-4 belgesindeki uygulama promptu geçerli; aşağıdaki düzeltme ve tuzaklarla birlikte uygula.
 
@@ -58,3 +58,13 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - Tuzak: genel `.empty` sınıfı `grid-column:1/-1` verir — Nobel sütunlarında `.is-empty` kullanıldı.
 - Düzeltmeler: üstbilgi opaklığı (içerik sızıntısı), vitrin kartlarının eşit yüksekliği, gözlemevi kubbesi metinle çakışmıyor, altbilgi öncesi şerit boşluğu, hareket düğmesi ikon-only, mobilde iki satırlı kompakt üstbilgi, 2×2 istatistik, tek sütun bento (özgüllük hatası).
 - `check_app.cjs` Nobel Chronicle assert'leri eklendi (126 sütun, dossier ödül sahibi sayısı, 1953 → Churchill).
+
+## 8. FAZ-4 uygulandı — sürüm v49
+
+- **`matchRecords(skip)`** (app.js): `filtered()` bunun üzerine kuruldu; `skip` verilen fasetin kendi süzgecini yok sayar (`'year'`, `'availability'`, `'query'` dahil). Canlı sayımların ve boş durum önerilerinin temeli.
+- **`site/facets.js`**: ≥1024px sol sticky faset rayı (`#facetRail`). Mevcut `<select>`'ler tek doğruluk kaynağı: ray onları okur, `.value` yazar, `change` tetikler. Disclosure (APG), canlı sayım, 0 sonuç → `disabled`, odak yeniden kurulumda korunur, 60ms debounce (ölçüm: ~26ms/süzgeç değişimi). `<1024`'te ray gizli, `<details>` + `select` aynen.
+- **Kart**: mono künye (`catalogNo`: BK/NB/AW + id son 4 hane) + yıl; açıklama 2 satır, başlık 4 satır clamp. **Liste = kayıt defteri** (`ledgerHead`/`ledgerRow`), mobilde kart-satır.
+- **Boş durum** (`emptyState` + `facetAlternatives`): aynı fasetin en çok sonuç veren 3 değeri; hiç yoksa "filtreyi kaldır" çipleri (`query` dahil).
+- **Okuma yolları**: tek sütun seyir haritası (brass rota + sayaçlı durak düğümleri). Tuzak: `.route-card{overflow:hidden}` düğümleri kırpar → `visible` yapıldı.
+- Tuzaklar: `[hidden]` sınıf `display` kuralıyla ezilir (`.facet-body[hidden]` eklendi); `facets.js` `defer` ile yüklenir, `app.js` onu `typeof renderFacetRail` ile çağırır.
+- `check_app.cjs`: `matchRecords` skip, künye, defter, boş durum assert'leri.

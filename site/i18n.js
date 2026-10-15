@@ -37,3 +37,8 @@ Object.assign(UI.en,{curatorNote:"Curator's note — these four sources open dif
 /* FAZ-3b · Nobel Chronicle — yıl dosyası, on yıl kısayolları */
 Object.assign(UI.tr,{timelineIntro:"Nobel arşivi 1901'den bugüne. Bir yıl seç, o yılın ödül sahiplerini ve kayıtlarını gör.",nobelDossier:'Yıl dosyası',nobelLaureate:'ödül sahibi',nobelLaureate_plural:'ödül sahibi',nobelOpenYear:'Bu yılı katalogda aç',nobelNoAwards:'Bu yıl için ödül kaydı yok; arşivde yalnızca konferans ve belgeler bulunuyor.',nobelPrev:'Önceki yıl',nobelNext:'Sonraki yıl',nobelPeak:'En yoğun yıl',nobelDecadeLabel:'On yıla göre katalogda süz',otherCategory:'Diğer'});
 Object.assign(UI.en,{timelineIntro:"The Nobel archive from 1901 to today. Pick a year to see its laureates and records.",nobelDossier:'Year dossier',nobelLaureate:'laureate',nobelLaureate_plural:'laureates',nobelOpenYear:'Open this year in the catalog',nobelNoAwards:'No prize records for this year; the archive holds lectures and documents only.',nobelPrev:'Previous year',nobelNext:'Next year',nobelPeak:'Busiest year',nobelDecadeLabel:'Filter the catalog by decade',otherCategory:'Other'});
+
+/* FAZ-4 · Katalog sistemi — faset rayı, kayıt defteri, boş durum */
+Object.assign(UI.tr,{yearRange:'Yıl aralığı',ledgerNo:'No',ledgerYear:'Yıl',ledgerSave:'Okuma listesine ekle',emptyAlternatives:'En yakın alternatifler'});
+Object.assign(UI.en,{yearRange:'Year range',ledgerNo:'No.',ledgerYear:'Year',ledgerSave:'Add to reading list',emptyAlternatives:'Closest alternatives'});
+
