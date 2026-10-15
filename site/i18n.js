@@ -58,3 +58,5 @@ Object.assign(UI.tr,{scScopes:'Palet: eylem · yol · alan · yazar kapsamı',sc
 Object.assign(UI.en,{scScopes:'Palette: action · path · field · author scope',scScopeCycle:'Palette: cycle scope'});
 Object.assign(UI.tr,{heroOpen:'Kaydı aç · tıkla'});
 Object.assign(UI.en,{heroOpen:'Open record · click'});
+Object.assign(UI.tr,{heroZoom:'Galaksi yakınlaştırma',heroZoomIn:'Yakınlaştır',heroZoomOut:'Uzaklaştır',heroZoomReset:'Görünümü sıfırla',heroHint:'Sürükle: döndür · Ctrl + tekerlek: yakınlaştır · Çift tık: odakla'});
+Object.assign(UI.en,{heroZoom:'Galaxy zoom',heroZoomIn:'Zoom in',heroZoomOut:'Zoom out',heroZoomReset:'Reset view',heroHint:'Drag: orbit · Ctrl + wheel: zoom · Double-click: focus'});

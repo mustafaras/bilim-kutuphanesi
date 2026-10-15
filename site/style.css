@@ -832,3 +832,18 @@ footer{margin-top:0}
 /* tile constellation sits behind copy: keep the copy legible when the hover lines draw */
 .atlas-tile .tile-title,.atlas-tile .tile-note,.atlas-tile h3,.atlas-tile p{position:relative;z-index:2;text-shadow:0 1px 14px rgba(4,12,20,.55)}
 .atlas-tile:hover .tile-top>span:last-child,.atlas-tile:focus-visible .tile-top>span:last-child{background:#00000040}
+
+/* Hero · bloom compositing, zoom controls, hint */
+#heroGL.screen{mix-blend-mode:screen}
+.hero-zoom{position:absolute;right:calc(var(--page-pad) - 4px);top:50%;transform:translateY(-50%);z-index:6;display:flex;flex-direction:column;gap:6px;padding:6px;border:1px solid var(--scene-line);border-radius:999px;background:rgba(6,11,20,.55)}
+.hero-zoom button{width:36px;height:36px;padding:0;border-radius:50%;border:1px solid transparent;background:transparent;color:var(--scene-ink);font:500 18px/1 var(--mono);display:grid;place-items:center}
+.hero-zoom button:hover{background:#ffffff1c;border-color:var(--scene-line)}
+.hero-zoom button:focus-visible{outline:2px solid var(--scene-brass);outline-offset:2px}
+:root[data-theme=light] .hero-zoom{background:rgba(255,255,255,.7)}
+:root[data-theme=light] .hero-zoom button:hover{background:#13283a14}
+.hero-hint{position:absolute;left:50%;bottom:34px;transform:translateX(-50%);z-index:5;margin:0;padding:8px 14px;border-radius:999px;border:1px solid var(--scene-line);background:rgba(6,11,20,.55);font:500 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--scene-muted);white-space:nowrap;opacity:0;transition:opacity .6s;pointer-events:none}
+.hero-hint.show,.hero.hero-engaged .hero-hint{opacity:1}
+:root[data-theme=light] .hero-hint{background:rgba(255,255,255,.7)}
+@media(max-width:900px){.hero-hint{display:none}.hero-zoom{top:auto;bottom:70px;transform:none;flex-direction:row;right:var(--page-pad)}}
+@media(prefers-reduced-motion:reduce){.hero-hint{transition:none}}
+:root:not([data-theme=light]) .hero-vignette{background:linear-gradient(90deg,rgba(3,6,12,.9),rgba(3,6,12,.55) 44%,transparent 68%),radial-gradient(120% 96% at 66% 34%,transparent 30%,rgba(3,6,12,.88) 100%)}
