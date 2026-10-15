@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url || steps.deploy2.outputs.page_url || steps.deploy3.outputs.page_url }}
     steps:
       - uses: actions/checkout@v6
       - name: Validate catalog
@@ -55,4 +55,21 @@ jobs:
           path: site
       - name: Deploy
         id: deploy
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      # Pages rejects a deployment while a previous one is still finishing (HTTP 400 "in progress deployment"); wait and retry.
+      - name: Wait before retry
+        if: steps.deploy.outcome == 'failure'
+        run: sleep 150
+      - name: Deploy (retry 1)
+        id: deploy2
+        if: steps.deploy.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - name: Wait before retry 2
+        if: steps.deploy.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        run: sleep 240
+      - name: Deploy (retry 2)
+        id: deploy3
+        if: steps.deploy.outcome == 'failure' && steps.deploy2.outcome == 'failure'
         uses: actions/deploy-pages@v4
