@@ -64,3 +64,5 @@ Object.assign(UI.tr,{rel_author:'Aynı yazar',rel_year:'Yakın yıl',rel_lang:'A
 Object.assign(UI.en,{rel_author:'Same author',rel_year:'Close in time',rel_lang:'Same language',rel_field:'Same field',relLegend:'Link types'});
 Object.assign(UI.tr,{ncViewLabel:'Nobel görünümü',ncViewChart:'Grafik',ncViewGalaxy:'Galaksi',ncGalaxyHint:'Sürükle: döndür · Tıkla: yılı seç · Çift tık: kaydı aç · Ctrl + tekerlek: yakınlaştır',ncGalaxyNote:"Nobel galaksisi: 1901'den bugüne her kayıt bir yıldız, renk ödül kategorisi. Aynı veriye erişilebilir grafik görünümünden ulaşılır."});
 Object.assign(UI.en,{ncViewLabel:'Nobel view',ncViewChart:'Chart',ncViewGalaxy:'Galaxy',ncGalaxyHint:'Drag: orbit · Click: select year · Double-click: open record · Ctrl + wheel: zoom',ncGalaxyNote:'Nobel galaxy: every record from 1901 to today is a star, colour is the prize category. The same data is available in the accessible chart view.'});
+Object.assign(UI.tr,{statFilter:'kataloğu süz',rpRead:'Okunan adım:',footerMap:'Sayfa haritası'});
+Object.assign(UI.en,{statFilter:'filter the catalog',rpRead:'Steps read:',footerMap:'Page map'});

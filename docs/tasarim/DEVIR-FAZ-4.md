@@ -140,3 +140,12 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - **Kayıt uçuşu (hero):** yıldıza tık → kamera yıldıza dalar (zoom 3.4 + şok dalgası), 560ms sonra kayıt açılır; kayıt kapanınca (`#recordView[hidden]` MutationObserver) kamera geri çıkar. Dokunmatikte kart dokunuşu aynı yolu kullanır.
 - **`tools/ui_audit.py` + CI adımı (yayını bloklar):** 390/768/1024/1440 × açık/koyu: yatay taşma, konsol hatası, **hesaplanmış stillerle** metin kontrastı <3:1 (gradyan üstü metin atlanır; piksel örnekleme `content-visibility`/currentColor nedeniyle güvenilmezdi), hover'da bileşen kontrastı. Yerelde: `BK_CHROMIUM=/opt/pw-browsers/chromium python tools/ui_audit.py`. Bulduğu ve düzeltilen: 1024px'te `.shelf-3d` yatay taşması (`.spotlight-section{overflow-x:clip}`), altbilgi koordinat metni 2.4:1.
 - **Bilinçli olarak yapılmayanlar:** GPU renk-seçimi (CPU seçim 2653 yıldız için <1ms/olay; kazanç yok), OffscreenCanvas worker (tek ana iş parçacığı bütçesi yeterli, karmaşıklık fazla). Hero'da `?perf` HUD'u yok.
+
+## 17. Paket 4 (v61) — okuma ilerlemesi ve küçük canlı detaylar
+
+- `progress.js`: açılan kayıtlar `localStorage['bk-read']` içinde tutulur; okuma yollarında adım ✓'i ve rota başına `n/N` halkası, arşiv kartlarında yörünge halkası. Hepsi yerel, ağ yok.
+- Üst istatistikler (kitap / Nobel / PDF) gerçek filtre düğmeleridir (`button.stat[data-stat]`).
+- Alt bilgi: bölüm haritası + `BUILD vNN` rozeti (`app.js?v=` değerinden okunur; önbellek şüphesinde ilk bakılacak yer).
+- `app.js` `withFlip`: kart listesi değişince FLIP animasyonu (reduced-motion'da kapalı).
+- Tuzak: `progress.js` hem `sw.js` FILES hem `pages.yml` `node --check` listesinde olmalı.
+- Eklenmedi: palet bulanık arama ("bunu mu demek istediniz").

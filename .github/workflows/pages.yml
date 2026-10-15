@@ -39,6 +39,7 @@ jobs:
           node --check site/stage.js
           node --check site/hero3d.js
           node --check site/facets.js
+          node --check site/progress.js
           node tools/check_app.cjs
           node tools/check_app.cjs --missing-art
       - name: UI audit (overflow, console errors, contrast)
