@@ -32,7 +32,9 @@ jobs:
           node --check site/i18n-data.js
           node --check site/visuals.js
           node --check site/effects.js
+          node --check site/record.js
           node --check site/discovery.js
+          node --check site/facets.js
           node tools/check_app.cjs
           node tools/check_app.cjs --missing-art
       - uses: actions/configure-pages@v5

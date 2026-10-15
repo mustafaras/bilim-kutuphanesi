@@ -42,3 +42,7 @@ Object.assign(UI.en,{timelineIntro:"The Nobel archive from 1901 to today. Pick a
 Object.assign(UI.tr,{yearRange:'Yıl aralığı',ledgerNo:'No',ledgerYear:'Yıl',ledgerSave:'Okuma listesine ekle',emptyAlternatives:'En yakın alternatifler'});
 Object.assign(UI.en,{yearRange:'Year range',ledgerNo:'No.',ledgerYear:'Year',ledgerSave:'Add to reading list',emptyAlternatives:'Closest alternatives'});
 
+/* FAZ-5 · Kayıt deneyimi — düğüm sayfası, keşif takımyıldızı, alıntı, paylaşım kartı */
+Object.assign(UI.tr,{recordHud:'KAYIT DOSYASI',backToCatalog:'Kataloga dön',citeHeading:'Atıf',cite:'Alıntıyı kopyala',citedCopied:'Atıf panoya kopyalandı.',shareCard:'Paylaşım kartı indir',shareCardDone:'Paylaşım kartı indirildi.',constellationTitle:'KEŞİF TAKIMYILDIZI',constellationNote:'Bu kayda komşu çalışmalar; aynı alan ve koleksiyondan, dil, seviye ve yıl yakınlığına göre.',nodeHint:'Bir yıldıza dokun: o kayda yolculuk et.',citeTemplate:'{author}. “{title}.” {collection}, {year}. Bilim Kütüphanem — {url}'});
+Object.assign(UI.en,{recordHud:'RECORD FILE',backToCatalog:'Back to catalog',citeHeading:'Cite',cite:'Copy citation',citedCopied:'Citation copied to clipboard.',shareCard:'Download share card',shareCardDone:'Share card downloaded.',constellationTitle:'DISCOVERY CONSTELLATION',constellationNote:'Records neighboring this one — same subject and collection, ranked by language, level and year proximity.',nodeHint:'Touch a star: travel to that record.',citeTemplate:'{author}. “{title}.” {collection}, {year}. The Knowledge Library — {url}'});
+
