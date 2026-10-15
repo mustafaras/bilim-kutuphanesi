@@ -23,4 +23,12 @@ assert set(re.findall(r"\$\('([^']+)'\)",js))<=known
 worker=(S/'sw.js').read_text(encoding='utf-8')
 for asset in re.findall(r'(?:src|href)="([^"?#]+\.(?:js|css)\?v=\d+)"',html):
  assert "'"+asset+"'" in worker,'Offline cache asset version differs: '+asset
+
+# Offline cache coverage: every shipped runtime file must be listed in sw.js FILES (a forgotten vendor/addon breaks offline silently).
+listed=set(re.findall(r"'([^']+)'",worker.split('FILES=[',1)[1].split(']',1)[0]))
+bare={f.split('?')[0] for f in listed}
+for f in S.glob('*.js'):
+ if f.name!='sw.js': assert f.name in bare,'Not in sw.js FILES: '+f.name
+for f in list((S/'vendor').rglob('*.js'))+list((S/'fonts').glob('*.woff2')):
+ rel=f.relative_to(S).as_posix(); assert rel in bare,'Not in sw.js FILES: '+rel
 print('OK:',len(r),'records;',len(d['routes']),'routes;',d['stats']['uploaded'],'Drive links; no PDFs or credentials in public site.')

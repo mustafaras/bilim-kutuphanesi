@@ -118,3 +118,11 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - **Kaydırma:** `.facet-rail` `overscroll-behavior:contain` (tekerleği hapsediyordu) → `auto`; ekran yüksekliği <900'de ray statik. `scrollbar-gutter:stable`, ince temalı kaydırma çubukları, hero'da `touch-action:pan-y`.
 - **Banner:** kayıt sayfası gökyüzü bandı 150px; başlık sütunu bandın altından başlar (başlık koyu metin koyu bant üstünde kalıyordu). Spektrum HUD'una kendi zemini verildi.
 - Denetim notu: tam sayfa piksel örnekleyici `<details>` kapalı içerik ve `color-mix()` renklerinde yanlış pozitif verir.
+
+## 14. Paket 1 (hızlı kazanımlar) — sürüm v58
+
+- **Keşif takımyıldızı v2** (`record.js` `constellationHtml`/`relation`): bağ türleri anlamlı — aynı yazar (pirinç, kalın), yakın yıl ≤2 (mor), aynı dil (turkuaz), aynı alan (kesikli); kalınlık/opaklık = güç; efsane (`.rv-legend`); okunur etiketler (başlık 2 satır + yazar·yıl, AA kontrast), alan renginde düğmeler, süzülme animasyonu, imleçle paralaks, hover'da diğer bağlar kısılır.
+- **Hero:** 8 alan artık her zaman görünen gerçek düğme çubuğu (`.hero-fields`, dönen etiketlerin yerine); dokunmatikte ilk dokunuş önizler, karta dokunmak açar; iki parmak sıkıştırma zoom'u; mobilde galaksi metnin altına.
+- **Koyu temada beyaz kartlar:** `.route-body li a{background:#fffefa}` sabit renkti (açık kart + açık başlık). Token'a bağlandı, koyu temaya özel gradyan/hover. Sabit açık arka plan taraması: başka eşleşme yok.
+- **Tipografi:** 8–10px mono etiketler 11px'e çıkarıldı.
+- **CI:** `validate_site.py` artık `sw.js FILES` kapsamını denetler (her üst düzey `.js`, `vendor/**.js`, `fonts/*.woff2`).

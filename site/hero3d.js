@@ -151,7 +151,7 @@
 
   /* ---------- DOM: field labels, tooltip, zoom controls, hint ---------- */
   const labelBox=document.createElement('div');labelBox.className='hero-fields';hero.appendChild(labelBox);
-  const tip=document.createElement('div');tip.className='hero-tip';tip.setAttribute('aria-hidden','true');tip.hidden=true;hero.appendChild(tip);
+  const tip=document.createElement('div');tip.className='hero-tip';tip.setAttribute('aria-hidden','true');tip.hidden=true;tip.setAttribute('role','presentation');hero.appendChild(tip);
   const zoomBox=document.createElement('div');zoomBox.className='hero-zoom';zoomBox.setAttribute('role','group');hero.appendChild(zoomBox);
   const hint=document.createElement('p');hint.className='hero-hint';hint.setAttribute('aria-hidden','true');hero.appendChild(hint);
   let labels=[],focus=-1;
@@ -182,9 +182,9 @@
    camera.aspect=w/h;camera.updateProjectionMatrix();
    H=2*CAMZ*Math.tan(FOV*Math.PI/360);W=H*camera.aspect;portrait=camera.aspect<1.05;
    uniforms.uScale.value=renderer.domElement.height/(2*Math.tan(FOV*Math.PI/360));
-   const sc=portrait?.7:Math.min(1.3,W/21);
-   rig.position.set(portrait?0:(.68-.5)*W,portrait?H*.2:(.5-.44)*H,-1);rig.scale.setScalar(sc);
-   labelBox.hidden=portrait}
+   const sc=portrait?.52:Math.min(1.3,W/21);
+   rig.position.set(portrait?W*.08:(.68-.5)*W,portrait?-H*.2:(.5-.44)*H,-1);rig.scale.setScalar(sc);
+   }
   function applyTheme(){
    const light=root.dataset.theme==='light';uniforms.uLight.value=light?1:0;
    mats.forEach(m=>{m.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;m.needsUpdate=true});
@@ -238,10 +238,17 @@
    if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>4)drag.moved=true;yaw+=dx*.006/Math.sqrt(zoom);pitch=clamp(pitch+dy*.004,-.5,.5);vYaw=dx*.006/Math.sqrt(zoom);drag.x=e.clientX;drag.y=e.clientY;hero.classList.add('hero-drag');setHover(-1);return}
    uniforms.uMouseOn.value=over?1:0;
    if(over){const p=worldOnPlane(e.clientX,e.clientY,-1);uniforms.uMouse.value.copy(p);pickSoon();if(!tip.hidden)placeTip()}else if(hover>=0)setHover(-1)},{passive:true});
-  addEventListener('pointerdown',e=>{if(e.button>0||!hero.contains(e.target)||interactive(e.target))return;drag={x:e.clientX,y:e.clientY,moved:false}});
-  addEventListener('pointerup',e=>{const d=drag;drag=null;hero.classList.remove('hero-drag');
+  const touches=new Map();let pinch=0;
+  addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&hero.contains(e.target)&&!interactive(e.target)){touches.set(e.pointerId,{x:e.clientX,y:e.clientY});if(touches.size===2){const [a,b]=[...touches.values()];pinch=Math.hypot(a.x-b.x,a.y-b.y);drag=null}}
+   if(e.button>0||!hero.contains(e.target)||interactive(e.target))return;if(touches.size>1)return;drag={x:e.clientX,y:e.clientY,moved:false}});
+  addEventListener('pointermove',e=>{if(!touches.has(e.pointerId))return;touches.set(e.pointerId,{x:e.clientX,y:e.clientY});if(touches.size===2){const [a,b]=[...touches.values()],d=Math.hypot(a.x-b.x,a.y-b.y);if(pinch>0)zoomAt(d/pinch,(a.x+b.x)/2,(a.y+b.y)/2);pinch=d}},{passive:true});
+  const endTouch=e=>{touches.delete(e.pointerId);if(touches.size<2)pinch=0};
+  addEventListener('pointercancel',endTouch);
+  addEventListener('pointerup',e=>{endTouch(e);const d=drag;drag=null;hero.classList.remove('hero-drag');
    if(d&&!d.moved){const p=worldOnPlane(e.clientX,e.clientY,-1);uniforms.uPulse.value.set(p.x,p.y,time);
+    if(e.pointerType==='touch'){mouse={x:e.clientX,y:e.clientY,in:true};pick();return}   // touch: first tap previews, tapping the card opens
     if(hover>=0&&window.openRecord){const r=records[hover];if(r)setTimeout(()=>window.openRecord(r.id),160)}}});
+  tip.addEventListener('click',()=>{if(hover>=0&&window.openRecord){const r=records[hover];if(r)window.openRecord(r.id)}});
   hero.addEventListener('pointerleave',()=>{mouse.in=false;uniforms.uMouseOn.value=0;setHover(-1)});
 
   /* ---------- loop ---------- */
@@ -261,11 +268,7 @@
    glow.material.opacity=(root.dataset.theme==='light'?.3:.1)*uniforms.uFade.value+.03*Math.sin(time*.9);
    uniforms.uMouseOn.value+=((mouse.in&&!drag?1:0)-uniforms.uMouseOn.value)*Math.min(1,dt*5);
    hint.classList.toggle('show',time>1.2&&time<10);
-   /* field labels ride the arm tips */
-   if(labels.length&&!portrait){const w=sceneEl.clientWidth||innerWidth,h=sceneEl.clientHeight||innerHeight;rig.updateMatrixWorld(true);
-    labels.forEach((l,i)=>{const rl=RMAX*.66,ang=l.ang+time*.2/(.7+rl*.5);v3.set(Math.cos(ang)*rl,0,Math.sin(ang)*rl);tilt.localToWorld(v3);v3.project(camera);
-     const x=(v3.x*.5+.5)*w,y=(-v3.y*.5+.5)*h,wide=zoom>1.25,ok=v3.z<1&&(wide?x>70&&x<w-70&&y>96&&y<h-110:x>w*.52&&x<w-190&&y>86&&y<h*.74&&!(x>w*.76&&y>h*.45))&&uniforms.uFade.value>.6,on=focus===i;
-     l.b.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;l.b.style.opacity=ok?(focus<0||on?1:.35):0;l.b.style.pointerEvents=ok?'auto':'none';l.b.tabIndex=ok?0:-1;l.b.classList.toggle('on',on)})}
+   if(labels.length)labels.forEach((l,i)=>{const on=focus===i;l.b.classList.toggle('on',on);l.b.classList.toggle('dim',focus>=0&&!on)});
    if(root.dataset.theme!=='light')meteors.forEach(m=>{m.next-=dt;if(!m.l.visible&&m.next<=0){m.l.visible=true;m.t=0;m.life=1.1+rnd()*.7;m.x=(rnd()-.2)*W*.7;m.y=H*.5-rnd()*H*.25;const a=-.45-rnd()*.3;m.vx=Math.cos(a)*(W*.5);m.vy=Math.sin(a)*(W*.5);m.next=6+rnd()*8}
     if(m.l.visible){m.t+=dt;const kk=m.t/m.life,pos=m.l.geometry.attributes.position,col=m.l.geometry.attributes.color,n=pos.count,hx=m.x+m.vx*m.t*.5,hy=m.y+m.vy*m.t*.5;
      for(let i=0;i<n;i++){const f=i/(n-1);pos.setXYZ(i,hx-m.vx*.09*f*(1-kk*.4),hy-m.vy*.09*f*(1-kk*.4),-4);const b=(1-f)*(1-kk)*.95;col.setXYZ(i,b,b*.93,b*.78)}pos.needsUpdate=true;col.needsUpdate=true;if(kk>=1)m.l.visible=false}});
