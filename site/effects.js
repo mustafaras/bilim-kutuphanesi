@@ -87,7 +87,7 @@
   for(let x=0;x<=w;x+=step2){const u=x/Math.max(1,w),y=horizon-ridgeAmp(u,0,.4)+.75;x?ctx.lineTo(x,y):ctx.moveTo(x,y)}
   ctx.strokeStyle='rgba(232,206,158,.30)';ctx.lineWidth=1;ctx.stroke();
   /* Observatory silhouette */
-  const ox=w*.175,oy=horizon-ridgeAmp(ox/w,0,.4)+1;
+  const ox=w*.62,oy=horizon-ridgeAmp(ox/w,0,.4)+1;
   ctx.save();ctx.translate(ox,oy);
   ctx.fillStyle='rgba(5,9,17,.99)';
   ctx.beginPath();ctx.moveTo(-19,0);ctx.lineTo(-15,-20);ctx.lineTo(15,-20);ctx.lineTo(19,0);ctx.closePath();ctx.fill();

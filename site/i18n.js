@@ -31,5 +31,9 @@ Object.assign(UI.tr,{archiveStatus:"Arşiv erişim durumu",archiveStatusNote:"Er
 Object.assign(UI.en,{archiveStatus:"Archive availability",archiveStatusNote:"Availability reflects the latest catalog update.",browseReady:"Browse available sources"});
 
 /* FAZ-3 · Keşif katmanı — küratör notu, galaksi ipucu, arşiv gözlem günlüğü */
-Object.assign(UI.tr,{curatorNote:'Küratör notu — bu dört kaynak bilim, edebiyat ve Nobel arşivinin farklı ufkunu açar; her biri kendi disiplinine giden güvenilir bir ilk adımdır.',galaxyHint:'Kaydırmaya devam et — galakside ilerle',logVerified:'doğrulandı'});
-Object.assign(UI.en,{curatorNote:"Curator's note — these four sources open different horizons of the science, literature and Nobel archives; each is a dependable first step into its discipline.",galaxyHint:'Keep scrolling — travel through the galaxy',logVerified:'verified'});
+Object.assign(UI.tr,{curatorNote:'Küratör notu — bu dört kaynak bilim, edebiyat ve Nobel arşivinin farklı ufkunu açar; her biri kendi disiplinine giden güvenilir bir ilk adımdır.',logVerified:'doğrulandı'});
+Object.assign(UI.en,{curatorNote:"Curator's note — these four sources open different horizons of the science, literature and Nobel archives; each is a dependable first step into its discipline.",logVerified:'verified'});
+
+/* FAZ-3b · Nobel Chronicle — yıl dosyası, on yıl kısayolları */
+Object.assign(UI.tr,{timelineIntro:"Nobel arşivi 1901'den bugüne. Bir yıl seç, o yılın ödül sahiplerini ve kayıtlarını gör.",nobelDossier:'Yıl dosyası',nobelLaureate:'ödül sahibi',nobelLaureate_plural:'ödül sahibi',nobelOpenYear:'Bu yılı katalogda aç',nobelNoAwards:'Bu yıl için ödül kaydı yok; arşivde yalnızca konferans ve belgeler bulunuyor.',nobelPrev:'Önceki yıl',nobelNext:'Sonraki yıl',nobelPeak:'En yoğun yıl',nobelDecadeLabel:'On yıla göre katalogda süz',otherCategory:'Diğer'});
+Object.assign(UI.en,{timelineIntro:"The Nobel archive from 1901 to today. Pick a year to see its laureates and records.",nobelDossier:'Year dossier',nobelLaureate:'laureate',nobelLaureate_plural:'laureates',nobelOpenYear:'Open this year in the catalog',nobelNoAwards:'No prize records for this year; the archive holds lectures and documents only.',nobelPrev:'Previous year',nobelNext:'Next year',nobelPeak:'Busiest year',nobelDecadeLabel:'Filter the catalog by decade',otherCategory:'Other'});

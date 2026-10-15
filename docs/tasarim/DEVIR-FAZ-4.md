@@ -51,3 +51,10 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - FAZ-3 kabul kriterlerinin tamamı yeşil; bekleyen iş yok. Kullanıcının bildirdiği sticky boşluk hatası `eed84cf` ile kapatıldı.
 - Galaksi JS'i (`setupGalaxyScroll`) `renderTimeline` sonunda `scheduleGalaxyScroll()` ile tetiklenir — FAZ-4 katalog değişiklikleri `render()` sıklığını değiştirirse bu yeniden ölçüm maliyeti göz ardı edilebilir düzeyde kalır (idempotent teardown+setup).
 - `check_app.cjs` içindeki çeviri/URL assert'leri yeni faset UI'ını kapsamaz; faset sözleşmesi için kendi ek assert'lerini `check_app.cjs`'e ekle (proje disiplimi böyle).
+
+## 7. FAZ-3b güncellemesi (cila) — sürüm v47
+
+- **Nobel galaksisi kaldırıldı** (`setupGalaxyScroll` + sticky sahne + spacer). Yerine **Nobel Chronicle**: kategoriye göre yığılmış 126 yıl sütunu (`#timelineStrip`, `.nc-*`), on yıl kısayolları (`#nobelDecades` → katalogda yıl aralığı süzer) ve **yıl dosyası** (`#nobelDossier`: büyük yıl, kategori dökümü, ödül sahipleri → `data-detail` ile kayıt penceresi). Klavye: ← → Home End. Sütun tıklaması yalnız önizler; katalog süzgeci "Bu yılı katalogda aç" ile uygulanır.
+- Tuzak: genel `.empty` sınıfı `grid-column:1/-1` verir — Nobel sütunlarında `.is-empty` kullanıldı.
+- Düzeltmeler: üstbilgi opaklığı (içerik sızıntısı), vitrin kartlarının eşit yüksekliği, gözlemevi kubbesi metinle çakışmıyor, altbilgi öncesi şerit boşluğu, hareket düğmesi ikon-only, mobilde iki satırlı kompakt üstbilgi, 2×2 istatistik, tek sütun bento (özgüllük hatası).
+- `check_app.cjs` Nobel Chronicle assert'leri eklendi (126 sütun, dossier ödül sahibi sayısı, 1953 → Churchill).
