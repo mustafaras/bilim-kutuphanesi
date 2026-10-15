@@ -223,3 +223,5 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - `nobel3d.js`: bölüm görünür olurken galaksi kaydırmaya bağlı yaklaşır ve döner (`se` = smoothstep(scroll)), hero ile süreklilik hissi.
 
 - v77: işaretçi açısı `phase(r)` ile hesaplanır (aynı spiral kolun eğrisi), düğümler gerçek kolların üzerinde durur.
+
+- v78 (mobil): <=900px alan işaretçileri metnin üstünde süzülmez; alt çubuğun üstünde yatay kaydırmalı sessiz bir şeride dönüşür (`transform:none!important` JS satır içi konumu ezer). `.hero-foot` mobilde gizli, hareket düğmesi şeridin üstüne alındı.
