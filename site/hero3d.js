@@ -161,25 +161,27 @@
    if(i<0||!stats[i]){k.textContent=t('deckAll');tt.textContent=total.toLocaleString(locale())+' '+t('records');m.textContent=DISCOVERY.length+' '+t('deckFields');bar.style.width='100%';rdBox.style.removeProperty('--fc');rdBox.classList.remove('has-field')}
    else{const d=DISCOVERY[i],st=stats[i];k.textContent=String(i+1).padStart(2,'0')+' · '+t('deckField');tt.textContent=d.title[uiLang==='en'?1:0];m.textContent=st.n.toLocaleString(locale())+' '+t('records')+' · '+st.l+' '+t('deckLangs')+' · '+st.a.toLocaleString(locale())+' '+t('deckAuthors');bar.style.width=Math.max(4,st.n/total*100*3).toFixed(1)+'%';rdBox.style.setProperty('--fc','#'+FIELD[i].getHexString());rdBox.classList.add('has-field')}
    const lines=rdBox.querySelectorAll('.hs-bar i');lines.forEach((el,j)=>el.classList.toggle('hot',i>=0&&j===i%4))}
+  /* a field marker rides on its own spiral arm; pressing it dives the camera into that arm, then opens the field */
+  function flyField(i){const l=labels[i];if(!l)return;
+   if(reduced.matches||paused()){fieldRun(i);return}
+   const rr=hero.getBoundingClientRect();zoomAt(2.5,rr.left+l.x,rr.top+l.y);caSpike=2.2;uniforms.uPulse.value.set(uniforms.uMouse.value.x,uniforms.uMouse.value.y,time);
+   setTimeout(()=>{fieldRun(i);setTimeout(zoomReset,500)},620)}
+  function placeMarkers(){if(!labels.length)return;const rr=hero.getBoundingClientRect(),w=rr.width,h=rr.height;tilt.updateMatrixWorld(true);
+   for(const l of labels){const r=RMAX*.62+(l.i%2?.5:-.3),ang=l.ang+time*.2/(.7+r*.5);v3.set(Math.cos(ang)*r,.022*r*r*Math.sin(ang-.6),Math.sin(ang)*r);tilt.localToWorld(v3);v3.project(camera);
+    l.vis=v3.z<1;l.x=(v3.x*.5+.5)*w;l.y=(-v3.y*.5+.5)*h;l.b.style.transform=`translate3d(${l.x.toFixed(1)}px,${l.y.toFixed(1)}px,0)`;l.b.style.opacity=l.vis?String(Math.max(0,Math.min(1,uniforms.uFade.value*1.2))):'0'}}
   function fieldRun(i){try{reset();discoveryIndex=i;populateFilters();render();const el=document.getElementById('catalog');if(el)el.scrollIntoView({block:'start'})}catch{}}
   function buildLabels(){
-   const spec=hero.querySelector('.hero-spectrum');if(spec&&spec.parentNode!==labelBox&&!(rdBox&&rdBox.contains(spec)))spec.dataset.home='1';
-   labelBox.innerHTML='';labels=[];
-   rdBox=document.createElement('div');rdBox.className='deck-read';rdBox.setAttribute('aria-hidden','true');rdBox.innerHTML='<p class="dr-k"></p><p class="dr-t"></p><p class="dr-m"></p><i class="dr-bar"><b></b></i><div class="dr-spec"></div>';
-   chipBox=document.createElement('div');chipBox.className='deck-chips';labelBox.appendChild(rdBox);labelBox.appendChild(chipBox);
-   if(spec)rdBox.querySelector('.dr-spec').appendChild(spec);
-   stats=DISCOVERY.map((d,i)=>{const set=new Set(),au=new Set();let n=0;for(const r of records){let g=-1;try{g=recordArtIndex(r)}catch{}if(g!==i)continue;n++;if(r.language)set.add(r.language);if(r.author)au.add(r.author)}return{n,l:set.size,a:au.size}});
-   setReadout(-1);
+   labelBox.innerHTML='';labels=[];rdBox=null;
    zoomBox.setAttribute('aria-label',t('heroZoom'));
    zoomBox.innerHTML=`<button type="button" data-z="in" aria-label="${esc(t('heroZoomIn'))}">+</button><button type="button" data-z="out" aria-label="${esc(t('heroZoomOut'))}">−</button><button type="button" data-z="reset" aria-label="${esc(t('heroZoomReset'))}">⌂</button>`;
    hint.textContent=t('heroHint');
    let groups;try{groups=DISCOVERY}catch{return}
    groups.forEach((d,i)=>{let n=0;for(let k=0;k<rec.n;k++)if(rec.g[k]===i)n++;
     const b=document.createElement('button');b.type='button';b.className='hero-field';b.style.setProperty('--fc','#'+FIELD[i].getHexString());
-    const nm=d.title[uiLang==='en'?1:0];b.innerHTML=`<i aria-hidden="true"></i><span>${esc(nm)}</span><small>${n.toLocaleString(locale())}</small>`;
+    const nm=d.title[uiLang==='en'?1:0];b.innerHTML=`<i aria-hidden="true"></i><span>${esc(nm)}</span>`;
     b.setAttribute('aria-label',`${nm} · ${n.toLocaleString(locale())} ${t('records')}`);
     b.addEventListener('pointerenter',()=>{focus=i});b.addEventListener('pointerleave',()=>{focus=-1});b.addEventListener('focus',()=>{focus=i});b.addEventListener('blur',()=>{focus=-1});
-    b.addEventListener('click',()=>fieldRun(i));chipBox.appendChild(b);labels.push({b,ang:i*(2*Math.PI/8)+.35+phase(RMAX*.66)})})}
+    b.addEventListener('click',()=>flyField(i));labelBox.appendChild(b);labels.push({b,i,ang:i*(2*Math.PI/8)+.35+phase(RMAX*.62),x:0,y:0,vis:false})})}
 
   /* ---------- post-processing (bloom, dark theme) ---------- */
   let composer=null,bloom=null,useBloom=false,grade=null,caSpike=0,well=0,wellT=0,lensS=0;
@@ -306,6 +308,7 @@
     const b=canvas.getBoundingClientRect();grade.uniforms.uMouse.value.set((mouse.x-b.left)/Math.max(1,b.width),1-(mouse.y-b.top)/Math.max(1,b.height))}
    hint.classList.toggle('show',time>1.2&&time<10);
    if(focus!==lastFocus){lastFocus=focus;setReadout(focus)}
+   placeMarkers();
    if(labels.length)labels.forEach((l,i)=>{const on=focus===i;l.b.classList.toggle('on',on);l.b.classList.toggle('dim',focus>=0&&!on)});
    if(root.dataset.theme!=='light')meteors.forEach(m=>{m.next-=dt;if(!m.l.visible&&m.next<=0){m.l.visible=true;m.t=0;m.life=1.1+rnd()*.7;m.x=(rnd()-.2)*W*.7;m.y=H*.5-rnd()*H*.25;const a=-.45-rnd()*.3;m.vx=Math.cos(a)*(W*.5);m.vy=Math.sin(a)*(W*.5);m.next=6+rnd()*8}
     if(m.l.visible){m.t+=dt;const kk=m.t/m.life,pos=m.l.geometry.attributes.position,col=m.l.geometry.attributes.color,n=pos.count,hx=m.x+m.vx*m.t*.5,hy=m.y+m.vy*m.t*.5;
