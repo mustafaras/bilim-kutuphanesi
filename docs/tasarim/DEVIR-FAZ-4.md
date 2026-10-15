@@ -95,3 +95,10 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - **Palet v2 (`palette.js` yeniden yazıldı):** iki panel (liste + canlı önizleme), kapsam çipleri ve önekler (`>` eylem, `#` yol, `~` alan, `@` yazar; Alt+←/→ döngü), son kullanılanlar (`bk-palette-recent`), kayan seçim merceği, koyu enstrüman yüzeyi (iki temada), SVG simgeler. API aynı (`openPalette`, `paletteQuery`…).
 - **Düzeltmeler:** alıntıda ham `nobel` yerine koleksiyon etiketi; rota araması `path/yol/okuma` eş anlamlıları; "1 record" tekili.
 - Tuzak: `effects.js` sabitleri (`cx,cy,radius`) 2D bloğunun dışına alındı (blok `glOn()` ile atlanıyor, sonraki kod kullanıyor).
+
+## 11. Record Galaxy + tema denetimi — sürüm v55
+
+- **Hero artık veri:** `hero3d.js` 2653 kaydın her birini gerçek yıldız olarak çizer (8 kol = 8 keşif alanı, renk = kart omurgası). Yıldıza gel → künye/başlık/yazar ipucu, tıkla → kayıt sayfası; alan etiketi (gerçek `<button>`, `aria-label`) → kolu aydınlatır, tıkla → o alanın katalog süzgeci. Sürükle = yörünge (atalet). Karanlık = ışıklı toplamalı karışım; **açık = parşömen üstü mürekkep yıldız atlası** (aynı veri, `uLight`, normal karışım). `.hero-scene.hero-gl` iken `effects.js` yıldız/bant çizmez; ufuk/kubbe tema duyarlı.
+- **Tuzak 1:** `--scene-*` değişkenleri yalnız hero'da değil (kayıt sayfası takımyıldızı `--scene-0..2` kullanır) → açık tema hero geçersiz kılmaları `:root[data-theme=light] .hero{…}` ile **kapsamlandı**; kökte yeniden tanımlamak kayıt takımyıldızını beyazlatmıştı.
+- **Tuzak 2:** shader'da `uPick` varsayılanı −1 iken toz parçacıkların `aI=-1` değeri "seçili" sayılıyordu → varsayılan −99.
+- **Tema denetimi:** koyu temada kayıt sayfasındaki `.related-source` hover'da sabit açık zemine (`#ede9df`) geçip metni görünmez yapıyordu → `var(--raised)/--hover-warm`. Katalog numaraları (omurga renkleri) iki temada AA'ya çekildi. Denetim betiği: her etkileşimli öğe üstünde fare → metin rengi ile ekran görüntüsünden örneklenen zemin kontrastı (yanlış pozitif: `color-mix()` renklerini ayrıştıramaz; kayıt sayfası açıkken alttaki sayfa taranmamalı).

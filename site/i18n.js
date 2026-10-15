@@ -56,3 +56,5 @@ Object.assign(UI.tr,{paletteScopes:'Arama kapsamı',scopeAll:'Tümü',paletteRec
 Object.assign(UI.en,{paletteScopes:'Search scope',scopeAll:'All',paletteRecent:'Recent',pkPrefix:'scope',recordOne:'record',pvOpenRecord:'Open record',pvOpenRoute:'Open path',pvOpenField:'Explore field',pvOpenAuthor:'Filter by author',pvRun:'Run',pvSteps:'stop reading path',pvNoDesc:'No description.',pvStart:'Pick a scope or start typing.'});
 Object.assign(UI.tr,{scScopes:'Palet: eylem · yol · alan · yazar kapsamı',scScopeCycle:'Palet: kapsamı değiştir'});
 Object.assign(UI.en,{scScopes:'Palette: action · path · field · author scope',scScopeCycle:'Palette: cycle scope'});
+Object.assign(UI.tr,{heroOpen:'Kaydı aç · tıkla'});
+Object.assign(UI.en,{heroOpen:'Open record · click'});
