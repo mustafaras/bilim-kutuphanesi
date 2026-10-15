@@ -167,7 +167,7 @@
    const rr=hero.getBoundingClientRect();zoomAt(2.5,rr.left+l.x,rr.top+l.y);caSpike=2.2;uniforms.uPulse.value.set(uniforms.uMouse.value.x,uniforms.uMouse.value.y,time);
    setTimeout(()=>{fieldRun(i);setTimeout(zoomReset,500)},620)}
   function placeMarkers(){if(!labels.length)return;const rr=hero.getBoundingClientRect(),w=rr.width,h=rr.height;tilt.updateMatrixWorld(true);
-   for(const l of labels){const r=RMAX*.62+(l.i%2?.5:-.3),ang=l.ang+time*.2/(.7+r*.5);v3.set(Math.cos(ang)*r,.022*r*r*Math.sin(ang-.6),Math.sin(ang)*r);tilt.localToWorld(v3);v3.project(camera);
+   for(const l of labels){const r=RMAX*.62+(l.i%2?.5:-.3),ang=l.i*(2*Math.PI/8)+.35+phase(r)+time*.2/(.7+r*.5);v3.set(Math.cos(ang)*r,.022*r*r*Math.sin(ang-.6),Math.sin(ang)*r);tilt.localToWorld(v3);v3.project(camera);
     l.vis=v3.z<1;l.x=(v3.x*.5+.5)*w;l.y=(-v3.y*.5+.5)*h;l.b.style.transform=`translate3d(${l.x.toFixed(1)}px,${l.y.toFixed(1)}px,0)`;l.b.style.opacity=l.vis?String(Math.max(0,Math.min(1,uniforms.uFade.value*1.2))):'0'}}
   function fieldRun(i){try{reset();discoveryIndex=i;populateFilters();render();const el=document.getElementById('catalog');if(el)el.scrollIntoView({block:'start'})}catch{}}
   function buildLabels(){
