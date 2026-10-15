@@ -232,3 +232,9 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - `bookScene` yeniden yazıldı: bevelli yuvarlak köşeli ExtrudeGeometry kapaklar, kumaş dokusu (bump), altın folyo katmanı (metalnessMap + roughnessMap + bumpMap — başlık, çerçeve, halkalar kabartma/parlak), yuvarlatılmış sırt (yarım silindir) + 4 yükseltili altın bant, sayfa bloğu (ince çizgili kenar dokusu, üst/alt/ön kenar), başlık bantları, dalgalı kırmızı saten şerit ayracı, yumuşak temas gölgesi, tema duyarlı ışık. Kayıt sayfasındaki `3D` düğmesi ve spotlight rafları aynı sahneyi kullanır.
 - Nobel kutucuğu: kabartmalı altın madalya (defne çelengi, yıldız, çevresel yazı bump ile), clearcoat, mavi kurdele, halka, orbit eden parıltılar; kutucuk büyütüldü (270px sanat alanı), eski çizgi takımyıldızı gizlendi.
 - Performans notu: PBR + 4 raf kitabı yazılım render'da yavaş; gerçek GPU'da ölçülmedi. Yavaşsa `MeshPhysicalMaterial` → `MeshStandardMaterial` (sheen/clearcoat kapat) ilk adaydır.
+
+## 32. Paket 21 (v80) — Nobel Silüeti (three.js), tema uyumlu Nobel bölümü
+
+- `skyline3d.js` (`window.NobelSkyline`): 126 yıl, kategori renkli yığılmış kuleler (InstancedMesh, PMREM stüdyo ortamı), yansıma, on yıl cetvelleri, seçili yıl için ışık huzmesi + rozet. Etkileşim: hover → yıl dökümü (kategori sayıları), tıkla → aynı `selectNobelYear` ile yıl dosyası, lejant çipleri kategori izole eder (Shift/Alt = tek), kuleler yay animasyonuyla yeniden yığılır; sürükle=yörünge, Ctrl/⌘+tekerlek / düğmeler=yakınlaştır, ←/→/Home/End/PgUp/PgDn=yıl gezinme (canvas odaklanabilir, `role=application`). Silüet artık varsayılan görünüm; Grafik ve Galaksi korunur (erişilebilir grafik).
+- Tema: `.nobel-chronicle` açık temada parşömen/koyu mürekkep (önceden hep koyu); 3B paneller, lejant, tooltip, kontroller, yıl dosyası başlığı açık temada uyumlu.
+- Yazılım render'da `MeshPhysicalMaterial` çok yavaştı → kulelerde `MeshStandardMaterial`, DPR 1.5.

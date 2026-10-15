@@ -14,14 +14,22 @@
   const sw=document.createElement('div');sw.className='nc-viewswitch';sw.setAttribute('role','group');
   const panel=document.createElement('div');panel.className='nc-3d';panel.hidden=true;
   chart.parentNode.insertBefore(sw,chart);chart.parentNode.insertBefore(panel,chart.nextSibling);
-  const labelsOf=()=>{sw.setAttribute('aria-label',t('ncViewLabel'));sw.innerHTML=`<button type="button" data-v="chart" aria-pressed="${view==='chart'}">${esc(t('ncViewChart'))}</button><button type="button" data-v="galaxy" aria-pressed="${view==='galaxy'}">${esc(t('ncViewGalaxy'))}</button>`;
+  const sky=document.createElement('div');sky.className='nc-3d nc-sky';sky.hidden=true;
+  sky.innerHTML='<canvas></canvas><div class="nc-3d-labels" aria-hidden="true"></div><div class="nc-sky-legend" role="group"></div><div class="nc-sky-chip" hidden aria-hidden="true"></div><div class="nc-3d-tip" aria-hidden="true" hidden></div><div class="nc-3d-ctl" role="group"><button type="button" data-z="in">+</button><button type="button" data-z="out">−</button><button type="button" data-z="reset">⌂</button></div>';
+  chart.parentNode.insertBefore(sky,chart);
+  sky.querySelector('.nc-3d-ctl').setAttribute('aria-label',t('heroZoom'));
+  const labelsOf=()=>{sw.setAttribute('aria-label',t('ncViewLabel'));sw.innerHTML=`${window.NobelSkyline?`<button type="button" data-v="skyline" aria-pressed="${view==='skyline'}">${esc(t('ncViewSky'))}</button>`:''}<button type="button" data-v="chart" aria-pressed="${view==='chart'}">${esc(t('ncViewChart'))}</button><button type="button" data-v="galaxy" aria-pressed="${view==='galaxy'}">${esc(t('ncViewGalaxy'))}</button>`;
    if(ui.hint)ui.hint.textContent=t('ncGalaxyHint');if(ui.note)ui.note.textContent=t('ncGalaxyNote')};
-  let view='chart',ui={},booted=false;
+  let view=window.NobelSkyline?'skyline':'chart',ui={},booted=false;
   panel.innerHTML=`<canvas aria-hidden="true"></canvas><div class="nc-3d-labels" aria-hidden="true"></div><div class="nc-3d-tip" aria-hidden="true" hidden></div><div class="nc-3d-ctl" role="group"><button type="button" data-z="in">+</button><button type="button" data-z="out">−</button><button type="button" data-z="reset">⌂</button></div><p class="nc-3d-hint"></p><p class="sr-only nc-3d-note"></p>`;
   ui={canvas:panel.querySelector('canvas'),labels:panel.querySelector('.nc-3d-labels'),tip:panel.querySelector('.nc-3d-tip'),hint:panel.querySelector('.nc-3d-hint'),note:panel.querySelector('.nc-3d-note'),ctl:panel.querySelector('.nc-3d-ctl')};
   labelsOf();
   ui.ctl.setAttribute('aria-label',t('heroZoom'));[['in','heroZoomIn'],['out','heroZoomOut'],['reset','heroZoomReset']].forEach(([k,key])=>ui.ctl.querySelector(`[data-z=${k}]`).setAttribute('aria-label',t(key)));
-  sw.addEventListener('click',e=>{const b=e.target.closest?e.target.closest('[data-v]'):null;if(!b)return;view=b.dataset.v;chart.hidden=view==='galaxy';panel.hidden=view!=='galaxy';labelsOf();if(view==='galaxy'){if(!booted){booted=true;boot()}else if(api)api.wake()}});
+  const setView=v=>{view=v;chart.hidden=view!=='chart';panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';labelsOf();
+   if(view==='galaxy'){if(!booted){booted=true;boot()}else if(api)api.wake()}
+   if(view==='skyline'&&window.NobelSkyline){const si=window.NobelSkyline.inst;if(si)si.sync();else window.NobelSkyline.init(sky).then(r=>{if(!r){setView('chart')}})}};
+  sw.addEventListener('click',e=>{const b=e.target.closest?e.target.closest('[data-v]'):null;if(!b)return;setView(b.dataset.v)});
+  if(view==='skyline')setTimeout(()=>setView('skyline'),60);
   document.addEventListener('library:language',labelsOf);
   let api=null;
   async function boot(){
