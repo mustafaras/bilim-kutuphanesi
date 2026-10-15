@@ -173,3 +173,8 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - 390px'te kayıt görünümü 96px yatay taşıyordu (`.rv-art-col` ve `.rv-constellation` aspect-ratio + min-height'tan gelen içsel genişlik, `1fr` izi min-content'e açıktı). Çözüm: `grid-template-columns:minmax(0,1fr)`, `min-width:0`, `width:100%`. Mobilde 3B takımyıldızda etiketler yalnızca dokunulan/odaklanan düğümde görünür.
 - `tools/ui_audit.py` artık her genişlikte bir kayıt açıp `#recordView` yatay taşmasını da denetler (CI kapısı).
 - Bilinen kozmetik: "Tümü" koleksiyon görünümünde iki "Chemistry" gerçeği (kitaplar `17 - Kimya`, Nobel `02 - Kimya`); koleksiyon seçilince tek görünür. Birleştirmek test sözleşmesini değiştirir, bırakıldı.
+
+## 22. Paket 10 (v66) — kalite yöneticisi, GPU testi
+
+- Bu ortamda fiziksel GPU yok (`/dev/dri` yok); WebGL = SwiftShader (CPU). Ölçüm: hero ~3.8 fps, takımyıldızı ~7 fps — gerçek GPU için temsil edici DEĞİL, ama en kötü durum testi.
+- `hero3d.js` yöneticisi zaman tabanlı (≥4 kare ve >1.4 sn pencere) ve 4 kademeli: bloom → çözünürlük → yıldızların %55'i → %30'u. SwiftShader'da hero 3.8 → ~8.3 fps. Hızlı cihazda ilk iki kademe eşiği aynı (26ms), tetiklenmez.

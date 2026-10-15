@@ -174,7 +174,7 @@
   if(post){try{composer=new post.EffectComposer(renderer);composer.addPass(new post.RenderPass(scene,camera));bloom=new post.UnrealBloomPass(new THREE.Vector2(256,256),.56,.6,.24);composer.addPass(bloom)}catch{composer=null}}
 
   /* ---------- layout + theme ---------- */
-  let W=24,H=11,portrait=false,quality=1.6,pr=1;
+  let W=24,H=11,portrait=false,quality=1.6,pr=1,gStart=performance.now();
   function layout(){
    const w=sceneEl.clientWidth||innerWidth,h=sceneEl.clientHeight||innerHeight;
    pr=Math.min(devicePixelRatio||1,quality);renderer.setPixelRatio(pr);renderer.setSize(w,h,false);
@@ -285,8 +285,8 @@
    const dt=Math.min(.05,(now-tPrev)/1000||0);tPrev=now;
    if(!visible||document.hidden||paused()||reduced.matches)return;
    update(dt);draw();
-   /* quality governor: first drop bloom, then resolution */
-   if(degrade<2&&++frames>=90){const avg=acc/90;if(avg>.026){degrade++;if(useBloom&&degrade===1){composer=null;useBloom=false;canvas.classList.remove('screen');renderer.setClearColor(0x000000,0)}else{quality=1;layout()}}frames=0;acc=0}else acc+=dt}
+   /* quality governor: bloom -> resolution -> fewer stars -> fewer still (weak GPUs / software rendering) */
+   if(degrade<4&&(++frames>=90||(frames>=4&&performance.now()-gStart>1400))){const avg=acc/frames;gStart=performance.now();if(avg>(degrade<2?.026:.04)){degrade++;if(useBloom&&degrade===1){composer=null;useBloom=false;canvas.classList.remove('screen');renderer.setClearColor(0x000000,0)}else{const f=[1,1,1,.7,.55][degrade];quality=f;if(degrade>=3){const keep=degrade===3?.55:.3;dust.geometry.setDrawRange(0,Math.floor(GN*keep));lanes.geometry.setDrawRange(0,Math.floor(LN*keep))}layout()}}frames=0;acc=0}else acc+=dt}
   function still(){introDone=true;time=3.6;update(0.001);draw()}
 
   /* ---------- wiring ---------- */
