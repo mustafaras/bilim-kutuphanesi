@@ -161,3 +161,9 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - **Mobil alt gezinme:** `#bottomNav` (≤760px): Keşfet, Katalog, ortada palet, Yollar, Tema; IntersectionObserver ile `aria-current`, klavye açılınca (`visualViewport`) ve kayıt/palet açıkken gizlenir. Body'ye alt boşluk, hareket düğmesi yukarı alındı. Koyu temada büyüteç düğmesi koyu metin (kontrast).
 - **Erişilebilirlik:** yeni bileşenlerde `:focus-visible`, `touch-action:pan-y` (3D tuvallerde sayfa kaydırması), reduced-motion'da panel/halka animasyonu kapalı.
 - Gerçek cihaz GPU performansı hâlâ ölçülmedi.
+
+## 20. Paket 8 (v64) — canlı 3D takımyıldızı + hero dock
+
+- `constellation3d.js`: kayıt sayfasındaki takımyıldızı three.js ile canlı sahne. DOM düğmeleri (`.rv-node`) erişilebilir/tıklanabilir katman olarak kalır; GL tuvali (`.rv-gl`) arkada derinlikli yıldızlar, bulutsu, parlayan çekirdek, yörünge halkaları, ilişki renkli kenarlar ve akan parçacıklar çizer; her karede düğmelerin `left/top` değeri 3B'den yeniden izdüşürülür (sürükleyince etiketler takip eder; atalet, boşta yumuşak salınım, çift tık sıfırlar, Shift+ok klavye). Koyu: additive ışıma; açık: parşömen üzerine mürekkep (NormalBlending). WebGL yok/reduced-motion → eski SVG.
+- Düğümde nokta artık düğmenin merkezi (etiket `position:absolute` altta), böylece halo noktayla hizalı. Yerleşim iki halkaya (138/218) alternatif — etiket çakışması giderildi.
+- Hero: alan çipleri cam "dock" içine alındı, spektrum rozeti ayrı satıra; kısa ekranda (≤820px) spektrum gizlenir. Spektrum etiketleri taşmıyordu→ genişlik 300px.
