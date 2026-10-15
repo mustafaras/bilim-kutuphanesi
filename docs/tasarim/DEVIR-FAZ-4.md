@@ -110,3 +110,11 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - **Vendor:** `vendor/jsm/postprocessing|shaders` (EffectComposer, RenderPass, UnrealBloomPass + bağımlılıkları) ve `index.html`'de **import map** (`three` → `./vendor/three.module.min.js`). Addon yüklenemezse bloomsuz çizim.
 - **Kalite yöneticisi:** ilk 90 karede yavaşsa önce bloom kapanır, sonra DPR 1.
 - **Tuzak:** açılış animasyonu duvar saatine bağlı (dt tavanı `.05` düşük fps'te animasyonu uzatıp "sönük yıldız" gösteriyordu).
+
+## 13. Hero v4 + kaydırma/banner denetimi — sürüm v57
+
+- **Galaksi doğal hâle getirildi:** eşit olmayan kollar (güçler/uzunluklar farklı), çatal, yıldız oluşum kümeleri, açıya bağlı dış kenar, **bükülmüş dış disk** (`.022·r²·sin(açı)` shader'da, diferansiyel dönüşle hareket eder), cüce eşlik galaksi + **gelgit köprüsü**, FBM nebula kenarı/asimetrisi aynı eğim yasasıyla (`phase(r)`). Mükemmel elips = diyagram; kırılma bunu bozar.
+- **Zoom kolay ve kaydırmayı tuzağa düşürmez:** Ctrl/pinch her zaman zoom; sayfa en üstteyken tekerlek ↑ yakınlaştırır, tekerlek ↓ önce uzaklaştırır, sıfırlanınca sayfa kayar; başka her yerde sayfa kayar. `+ − ⌂`, çift tık. Nokta boyutu yumuşak diz ile sınırlı (yakında dev disk olmasın). `interactive()` artık tüm `.hero-copy` kutusunu değil yalnız gerçek metin öğelerini engeller (başlık satırları galaksi üstüne taşıyordu).
+- **Kaydırma:** `.facet-rail` `overscroll-behavior:contain` (tekerleği hapsediyordu) → `auto`; ekran yüksekliği <900'de ray statik. `scrollbar-gutter:stable`, ince temalı kaydırma çubukları, hero'da `touch-action:pan-y`.
+- **Banner:** kayıt sayfası gökyüzü bandı 150px; başlık sütunu bandın altından başlar (başlık koyu metin koyu bant üstünde kalıyordu). Spektrum HUD'una kendi zemini verildi.
+- Denetim notu: tam sayfa piksel örnekleyici `<details>` kapalı içerik ve `color-mix()` renklerinde yanlış pozitif verir.
