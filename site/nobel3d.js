@@ -66,12 +66,15 @@
    canvas.parentNode.addEventListener('wheel',e=>{if(!(e.ctrlKey||e.metaKey))return;e.preventDefault();zoomT=Math.max(.7,Math.min(5,zoomT*Math.exp(-e.deltaY*.01)));wake()},{passive:false});
    ui.ctl.addEventListener('click',e=>{const b=e.target.closest?e.target.closest('[data-z]'):null;if(!b)return;if(b.dataset.z==='in')zoomT=Math.min(5,zoomT*1.4);else if(b.dataset.z==='out')zoomT=Math.max(.7,zoomT/1.4);else{zoomT=1;panT.set(0,0,0);yaw=0;pitch=0}wake()});
    function draw(dt){time+=dt;U.uTime.value=time;select();if(!drag){yaw+=vYaw;vYaw*=.94;if(Math.abs(vYaw)<1e-4)vYaw=0}
-    const k=Math.min(1,dt*5);zoom+=(zoomT-zoom)*k;pan.lerp(panT,k);camera.position.set(pan.x,pan.y+1.4/zoom,13.5/zoom+pan.z*.2);camera.lookAt(pan.x*.6,0,pan.z*.6);
-    grp.rotation.y=yaw+(reduced.matches||root.classList.contains('effects-paused')?0:time*.045);grp.rotation.x=-.95+pitch;core.material.opacity=.3+.06*Math.sin(time*.8);
+    const k=Math.min(1,dt*5);zoom+=(zoomT-zoom)*k;pan.lerp(panT,k);
+    /* scroll-linked entrance: the galaxy dollies in and swings round as the section arrives (continuity with the hero galaxy) */
+    const pr=panel.getBoundingClientRect(),sp=Math.max(0,Math.min(1,(innerHeight-pr.top)/(innerHeight*.85))),se=sp*sp*(3-2*sp),dolly=.6+.4*se;
+    camera.position.set(pan.x,pan.y+1.4/(zoom*dolly),13.5/(zoom*dolly)+pan.z*.2);camera.lookAt(pan.x*.6,0,pan.z*.6);
+    grp.rotation.y=yaw+(1-se)*1.25+(reduced.matches||root.classList.contains('effects-paused')?0:time*.045);grp.rotation.x=-.95+pitch;core.material.opacity=.3+.06*Math.sin(time*.8);
     const w=canvas.clientWidth,h=canvas.clientHeight;grp.updateMatrixWorld(true);lab.forEach((el,i)=>{const a=anchor(decs[i]);v.copy(a);grp.localToWorld(v);v.project(camera);el.style.transform=`translate(${((v.x*.5+.5)*w).toFixed(1)}px,${((-v.y*.5+.5)*h).toFixed(1)}px)`;el.style.opacity=v.z<1?1:0});
     renderer.render(scene,camera)}
    function frame(now){raf=0;const dt=Math.min(.05,(now-(frame.l||now))/1000||0);frame.l=now;if(view!=='galaxy'||!visible||document.hidden)return;draw(dt);const still=reduced.matches||root.classList.contains('effects-paused');if(!still||drag||Math.abs(vYaw)>1e-4||Math.abs(zoomT-zoom)>.002)raf=requestAnimationFrame(frame)}
-   size();new ResizeObserver(()=>{size();wake()}).observe(panel);if(typeof IntersectionObserver==='function')new IntersectionObserver(es=>{visible=es[0].isIntersecting;if(visible)wake()}).observe(panel);
+   size();new ResizeObserver(()=>{size();wake()}).observe(panel);addEventListener('scroll',()=>{if(visible&&view==='galaxy')wake()},{passive:true});if(typeof IntersectionObserver==='function')new IntersectionObserver(es=>{visible=es[0].isIntersecting;if(visible)wake()}).observe(panel);
    new MutationObserver(wake).observe(root,{attributes:true,attributeFilter:['class','data-theme']});
    api={wake};draw(.016);wake();canvas.classList.add('on')}
  }

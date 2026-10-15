@@ -177,8 +177,19 @@
    place();if(typeof ResizeObserver==='function')new ResizeObserver(place).observe(card);
    (document.fonts&&document.fonts.load?Promise.all([document.fonts.load('400 44px Fraunces'),document.fonts.load('400 24px Inter'),document.fonts.load('600 22px "IBM Plex Mono"')]).catch(()=>{}):Promise.resolve()).then(()=>
     register(cv,(m)=>{try{return bookScene(m,null,rec)}catch{return null}},{host:card,drag:true,onReady:()=>card.classList.add('has-3d')}))})}
+ /* Record page: the animated cover can be swapped for a real, draggable 3D book (button on the cover). */
+ function mountRecord(){
+  const art=document.querySelector('#recordSheet .rv-art');if(!art||art.querySelector('.rv-3d-toggle'))return;
+  const r=typeof window.recordCurrent==='function'?window.recordCurrent():null;if(!r)return;
+  const btn=document.createElement('button');btn.type='button';btn.className='rv-3d-toggle';btn.setAttribute('aria-pressed','false');btn.textContent='3D';btn.title=typeof t==='function'?t('rv3d'):'3D';btn.setAttribute('aria-label',btn.title);
+  art.appendChild(btn);let cv=null;
+  btn.addEventListener('click',e=>{e.stopPropagation();const on=btn.getAttribute('aria-pressed')!=='true';btn.setAttribute('aria-pressed',String(on));art.classList.toggle('has-3d',on);
+   if(on&&!cv){cv=document.createElement('canvas');cv.className='rec-3d';cv.setAttribute('aria-hidden','true');art.appendChild(cv);
+    (document.fonts&&document.fonts.load?Promise.all([document.fonts.load('400 44px Fraunces'),document.fonts.load('400 24px Inter'),document.fonts.load('600 22px "IBM Plex Mono"')]).catch(()=>{}):Promise.resolve()).then(()=>
+     register(cv,(m)=>{try{return bookScene(m,null,r)}catch{return null}},{host:art,drag:true,onReady:()=>art.classList.add('rec-ready')}))}})}
  function mountAll(){mountAtlas();mountShelf()}
  const start=()=>{mountAll();if(typeof MutationObserver==='function')for(const id of ['collectionGrid','spotlightGrid']){const el=document.getElementById(id);if(el)new MutationObserver(()=>{clearTimeout(start.t);start.t=setTimeout(mountAll,60)}).observe(el,{childList:true})}};
  const go=()=>{if(typeof requestIdleCallback==='function')requestIdleCallback(start,{timeout:1800});else setTimeout(start,400)};
+ {const sh=document.getElementById('recordSheet');if(sh&&typeof MutationObserver==='function')new MutationObserver(()=>setTimeout(mountRecord,80)).observe(sh,{childList:true})}
  document.addEventListener('library:ready',()=>setTimeout(go,300));if(typeof records!=='undefined'&&records.length)setTimeout(go,300);
 })();

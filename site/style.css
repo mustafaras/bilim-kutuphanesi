@@ -893,7 +893,7 @@ html{scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:color-mix(in s
 /* Step 1 · field bar: the 8 discovery fields are always visible (real buttons), replacing rotating arm labels */
 .hero:has(.hero-scene.hero-gl) .hero-legend{display:none}
 .hero-fields{position:absolute;inset:auto var(--page-pad) 134px auto;left:auto;width:min(46%,640px);z-index:4;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;overflow:visible;pointer-events:none}
-.hero-field{position:static;margin:0;transform:none!important;pointer-events:auto!important;opacity:1!important;transition:opacity .25s,background .2s,box-shadow .2s}
+.hero-field{position:static;margin:0;pointer-events:auto!important;transition:opacity .25s,background .2s,box-shadow .2s}
 .hero-field.dim{opacity:.4!important}
 @media(max-width:900px){.hero-fields{left:var(--page-pad);right:var(--page-pad);width:auto;bottom:112px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none;padding-bottom:4px;pointer-events:auto}.hero-fields::-webkit-scrollbar{display:none}.hero-field{flex:0 0 auto}}
 
@@ -1144,3 +1144,30 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 .hero-ground-gl{position:absolute;left:0;right:0;bottom:0;height:clamp(170px,26vh,300px);width:100%;z-index:2;pointer-events:none;opacity:0;transition:opacity 1.2s ease;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 30%);mask-image:linear-gradient(to bottom,transparent 0,#000 30%)}
 .hero-ground-gl.on{opacity:1}
 @media(max-width:900px){.hero-ground-gl{height:150px}}
+
+/* Package 18: field markers live on the galaxy's arms (no panel) */
+.hero-fields,:root[data-theme=light] .hero-fields{position:absolute;inset:0;left:0;right:0;bottom:0;top:0;width:auto;display:block;padding:0;border:0;border-radius:0;background:none;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;overflow:hidden;pointer-events:none;grid-template-columns:none}
+.hero-fields .hero-field{position:absolute;left:0;top:0;margin:-14px 0 0 -14px;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:none;display:block;pointer-events:auto;cursor:pointer;will-change:transform;transition:opacity .3s;overflow:visible}
+.hero-fields .hero-field i{position:absolute;left:50%;top:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:var(--fc);box-shadow:0 0 0 3px color-mix(in srgb,var(--fc) 26%,transparent),0 0 16px 3px color-mix(in srgb,var(--fc) 70%,transparent);transition:transform .35s var(--ease-out),box-shadow .35s}
+.hero-fields .hero-field::before{content:'';position:absolute;inset:3px;border-radius:50%;border:1px solid var(--fc);opacity:0;animation:hero-ring 3.4s ease-out infinite;animation-delay:calc(var(--n,0)*.4s)}
+@keyframes hero-ring{0%{transform:scale(.5);opacity:.7}100%{transform:scale(2.6);opacity:0}}
+.hero-fields .hero-field span{position:absolute;left:22px;top:50%;transform:translate(-6px,-50%);white-space:nowrap;font:500 10.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--scene-ink);padding:7px 10px;border-radius:999px;background:rgba(6,12,22,.66);border:1px solid color-mix(in srgb,var(--fc) 50%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity .25s,transform .35s var(--ease-out)}
+:root[data-theme=light] .hero-fields .hero-field span{background:rgba(255,253,247,.86);color:#13283a}
+.hero-fields .hero-field.on i,.hero-fields .hero-field:focus-visible i,.hero-fields .hero-field:hover i{transform:scale(1.7);box-shadow:0 0 0 4px color-mix(in srgb,var(--fc) 34%,transparent),0 0 26px 6px var(--fc)}
+.hero-fields .hero-field.on span,.hero-fields .hero-field:focus-visible span,.hero-fields .hero-field:hover span{opacity:1;transform:translate(0,-50%)}
+.hero-fields .hero-field.dim{opacity:.35!important}
+.hero-fields .hero-field:focus-visible{outline:2px solid var(--scene-brass);outline-offset:2px}
+.hero-fields .hero-field:nth-child(1){--n:0}.hero-fields .hero-field:nth-child(2){--n:1}.hero-fields .hero-field:nth-child(3){--n:2}.hero-fields .hero-field:nth-child(4){--n:3}.hero-fields .hero-field:nth-child(5){--n:4}.hero-fields .hero-field:nth-child(6){--n:5}.hero-fields .hero-field:nth-child(7){--n:6}.hero-fields .hero-field:nth-child(8){--n:7}
+.hero-spectrum,.deck-read{display:none!important}
+@media(prefers-reduced-motion:reduce){.hero-fields .hero-field::before{animation:none}}
+.hero-hint{top:92px;bottom:auto}
+
+/* Package 18b: record cover can become an interactive 3D book */
+.rv-art{position:relative}
+.rv-3d-toggle{position:absolute;right:12px;top:12px;z-index:6;min-width:44px;height:30px;padding:0 10px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(8,14,24,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#f3e9d4;font:600 11px/1 var(--mono);letter-spacing:.14em;cursor:pointer;transition:background .2s,color .2s}
+.rv-3d-toggle:hover,.rv-3d-toggle[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:transparent}
+.rv-3d-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.rec-3d{position:absolute;left:-12%;top:-4%;width:124%;height:108%;z-index:5;pointer-events:auto;cursor:grab;touch-action:pan-y;opacity:0;transition:opacity .4s}
+.rv-art.has-3d .rec-3d.on{opacity:1}
+.rv-art.has-3d.rec-ready .catalog-cover{opacity:0}
+.rv-art .rec-3d:active{cursor:grabbing}
