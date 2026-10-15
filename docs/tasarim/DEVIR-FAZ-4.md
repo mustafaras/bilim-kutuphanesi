@@ -102,3 +102,11 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - **Tuzak 1:** `--scene-*` değişkenleri yalnız hero'da değil (kayıt sayfası takımyıldızı `--scene-0..2` kullanır) → açık tema hero geçersiz kılmaları `:root[data-theme=light] .hero{…}` ile **kapsamlandı**; kökte yeniden tanımlamak kayıt takımyıldızını beyazlatmıştı.
 - **Tuzak 2:** shader'da `uPick` varsayılanı −1 iken toz parçacıkların `aI=-1` değeri "seçili" sayılıyordu → varsayılan −99.
 - **Tema denetimi:** koyu temada kayıt sayfasındaki `.related-source` hover'da sabit açık zemine (`#ede9df`) geçip metni görünmez yapıyordu → `var(--raised)/--hover-warm`. Katalog numaraları (omurga renkleri) iki temada AA'ya çekildi. Denetim betiği: her etkileşimli öğe üstünde fare → metin rengi ile ekran görüntüsünden örneklenen zemin kontrastı (yanlış pozitif: `color-mix()` renklerini ayrıştıramaz; kayıt sayfası açıkken alttaki sayfa taranmamalı).
+
+## 12. Hero v3 — yayılan galaksi, bloom, zoom — sürüm v56
+
+- **Teknikler (araştırma):** log-spiral parçacık diski + köke bağlı diferansiyel dönüş (vertex shader), spiral'e bükülmüş **FBM nebula düzlemi**, toz şeritleri, HII düğümleri, halo, parlak yıldızlarda kırınım kolları, **gerçek UnrealBloomPass** (karanlık tema; canvas `mix-blend-mode:screen`, çünkü bloom opak siyah zemin üretir), GPU imleç çekimi + tık şok dalgası, imlece zoom + pan, açılış uçuşu ve scroll'a bağlı geri çekilme.
+- **Zoom:** `+ − ⌂` düğmeleri, Ctrl/⌘+tekerlek, çift tık (odakla/sıfırla); tekerlek yalnız galakside tıklanıp "engaged" olunca sayfa kaydırmasını yakalar. Sayfa kaydırması korunur.
+- **Vendor:** `vendor/jsm/postprocessing|shaders` (EffectComposer, RenderPass, UnrealBloomPass + bağımlılıkları) ve `index.html`'de **import map** (`three` → `./vendor/three.module.min.js`). Addon yüklenemezse bloomsuz çizim.
+- **Kalite yöneticisi:** ilk 90 karede yavaşsa önce bloom kapanır, sonra DPR 1.
+- **Tuzak:** açılış animasyonu duvar saatine bağlı (dt tavanı `.05` düşük fps'te animasyonu uzatıp "sönük yıldız" gösteriyordu).
