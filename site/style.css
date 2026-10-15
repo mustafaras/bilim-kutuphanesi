@@ -1085,3 +1085,13 @@ button.stat:focus-visible,.bottom-nav a:focus-visible,.bottom-nav button:focus-v
 .catalog-cover.cover-7[data-la=book]{background:linear-gradient(150deg,#6b5638,#3a2c1a)}
 .catalog-cover.cover-7[data-la=peace]{background:linear-gradient(150deg,#3f6a85,#1f3a4d)}
 .catalog-cover.cover-7[data-la=econ]{background:linear-gradient(150deg,#5a6a36,#2f3a1a)}
+
+/* Package 14: scientific annotations + more motifs */
+.la-t{font:500 6.4px var(--mono);letter-spacing:.06em;fill:currentColor;stroke:none;opacity:1}
+.la-corner{opacity:.4;stroke-width:1}
+.la-tilt{animation:la-tilt 6s ease-in-out infinite}.la-tiltrev{animation:la-tiltrev 6s ease-in-out infinite}
+@keyframes la-tilt{0%,100%{transform:rotate(-9deg)}50%{transform:rotate(9deg)}}
+@keyframes la-tiltrev{0%,100%{transform:rotate(9deg)}50%{transform:rotate(-9deg)}}
+.la-ripple2{transform-origin:70px 76px;animation:la-ripple 4.2s ease-out infinite}
+.rv-art .living-art .la-t{font-size:6.8px}
+.rv-art .living-art{min-height:280px}.rv-art .living-art svg{width:min(300px,86%);height:auto;aspect-ratio:140/110}

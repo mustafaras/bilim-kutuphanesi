@@ -192,3 +192,9 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - `visuals.js`: `livingKey(r)` (koleksiyon+kategori → atom, chem, dna, book, peace, econ, math, gear, circuit, neural) ve `livingArt(r)`; `catalogRecordArt` önce bunu dener, yoksa eski statik sanat. Tek yerden kartlar, spotlight, palet önizlemesi ve kayıt sayfası beslenir.
 - Hareket saf CSS/SVG: yörünge = `scale(1 .38)` içinde dönen grup; DNA = gecikmeli `scaleX` basamakları; yazı = `pathLength=1` dash; çubuklar `scaleY`. Kartlarda yalnızca hover'da (`animation-play-state`), kayıt kapağında sürekli; reduced-motion/`effects-paused` dondurur. Başlangıç karesi (0%) tam çizilmiş durumdadır (duraklatılmış görünüm boş kalmasın).
 - Nobel kapakları (hep `cover-7`) kayıt sayfasında `data-la` ile konuya göre renk tonu alır. Kapsam dışı: tarih/felsefe/sanat/çevre kitapları eski statik sanatta kalır.
+
+## 26. Paket 14 (v70) — bilimsel ek açıklamalı, genişletilmiş kapaklar
+
+- Desen sayısı 10 → 16: graph (felsefe/sosyal bilimler), scales (tarih-siyaset-hukuk), globe (çevre), strata (yer bilimleri), spiral (sanat; altın oran + logaritmik spiral), armillary (bilim tarihi). `livingKey` tüm kitap kategorilerini kapsar.
+- Her desende bilimsel ek açıklama: köşe işaretleri (`.la-corner`) ve mono denklem/etiket (`LA_LABEL`: n=1·2·3, C₆H₆·120°, 5′/3′, ΣF=0, φ=1.618, ε=23.4° …). Etiket kontrastı için `.la-t{opacity:1}` (UI denetimi açık zeminli kartta 2.55:1 yakaladı).
+- Yörüngeler artık düzeltildi: elektron/uydu, ana grupla aynı süre/gecikmeyle ters dönen iç grup taşır → ebeveyn `scale(1 .38)` altında bile yuvarlak kalır. DNA sarmalı daha geniş/uzun (11 basamak). Kayıt kapağında sanat 300px.
