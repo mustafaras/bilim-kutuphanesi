@@ -60,3 +60,5 @@ Object.assign(UI.tr,{heroOpen:'Kaydı aç · tıkla'});
 Object.assign(UI.en,{heroOpen:'Open record · click'});
 Object.assign(UI.tr,{heroZoom:'Galaksi yakınlaştırma',heroZoomIn:'Yakınlaştır',heroZoomOut:'Uzaklaştır',heroZoomReset:'Görünümü sıfırla',heroHint:'Sürükle: döndür · Tekerlek ↑ / Ctrl + tekerlek: yakınlaştır · Çift tık: odakla'});
 Object.assign(UI.en,{heroZoom:'Galaxy zoom',heroZoomIn:'Zoom in',heroZoomOut:'Zoom out',heroZoomReset:'Reset view',heroHint:'Drag: orbit · Wheel ↑ / Ctrl + wheel: zoom · Double-click: focus'});
+Object.assign(UI.tr,{rel_author:'Aynı yazar',rel_year:'Yakın yıl',rel_lang:'Aynı dil',rel_field:'Aynı alan',relLegend:'Bağ türleri'});
+Object.assign(UI.en,{rel_author:'Same author',rel_year:'Close in time',rel_lang:'Same language',rel_field:'Same field',relLegend:'Link types'});
