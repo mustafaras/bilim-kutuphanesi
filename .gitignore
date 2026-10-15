@@ -8,7 +8,5 @@ __pycache__/
 dist/
 
 .impeccable/
-
-# FAZ-5: per-record OG cards are generated in CI (tools/og_cards.py); only the default card is committed.
 site/og/*.png
 !site/og/default.png

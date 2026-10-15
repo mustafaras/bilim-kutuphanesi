@@ -1,8 +1,10 @@
 'use strict';
-/* FAZ-5: discovery.js keeps the shelf and the related-record computation; the record page lives in record.js. */
-const SHELF_IDS=['f1e533fac4fc119031a8','91ad8c65d92e25801768','635e076e22eebfbb8889','3dd6d02cf85e782fb067'];
-function cover(r){const i=recordArtIndex(r);return `<div class="catalog-cover cover-${i}" aria-hidden="true"><span class="cover-rule"></span><span class="cover-category">${esc(label(r.category).replace(/^\d+ - /,''))}</span>${catalogRecordArt(r)}<span class="cover-title">${esc(displayTitle(r))}</span><span class="cover-author">${esc(r.author)}</span><span class="cover-imprint">BK · ${esc(r.format.toUpperCase())}</span></div>`}
-function renderShelf(){document.getElementById('spotlightGrid').innerHTML=SHELF_IDS.map(id=>records.find(r=>r.id===id)).filter(Boolean).map(r=>`<button class="spotlight-card" aria-label="${esc(displayTitle(r))} — ${esc(r.author)}" data-detail="${r.id}">${cover(r)}<span class="shelf-edge" aria-hidden="true"></span><span class="spotlight-caption"><span>${esc(label(r.language))}</span><span>${t('viewDetails')} ↗</span></span></button>`).join('')}
-/* Same ranking as the FAZ-4 panel (same collection+category, language, level, different author, year proximity); only the cap grew from 3 to `limit`. */
-function relatedRecords(r,limit=8){const candidates=records.filter(other=>other.id!==r.id&&other.collection===r.collection&&other.category===r.category&&other.title!==r.title).sort((a,b)=>Number(b.language===r.language)-Number(a.language===r.language)||(r.level&&r.level!=='Belirtilmedi'?Number(b.level===r.level)-Number(a.level===r.level):0)||(r.collection==='books'?0:Math.abs(Number(a.year)-Number(r.year))-Math.abs(Number(b.year)-Number(r.year)))||a.title.localeCompare(b.title,locale()));const selected=[],authors=new Set();for(const item of candidates){const author=norm(item.author);if(authors.has(author))continue;selected.push(item);authors.add(author);if(selected.length===limit)break}for(const item of candidates){if(selected.length===limit)break;if(!selected.includes(item))selected.push(item)}return selected}
-document.addEventListener('library:ready',renderShelf);document.addEventListener('library:language',()=>{if(records.length)renderShelf()});if(records.length)renderShelf();
+/* FAZ-5: kayıt detayı record.js'e taşındı — burada yalnız vitrin rafı kalır. */
+(()=>{
+ const choices=['f1e533fac4fc119031a8','91ad8c65d92e25801768','635e076e22eebfbb8889','3dd6d02cf85e782fb067'];
+ function renderShelf(){document.getElementById('spotlightGrid').innerHTML=choices.map(id=>records.find(r=>r.id===id)).filter(Boolean).map(r=>`<button class="spotlight-card" aria-label="${esc(displayTitle(r))} — ${esc(r.author)}" data-detail="${r.id}">${window.recordCover(r)}<span class="shelf-edge" aria-hidden="true"></span><span class="spotlight-caption"><span>${esc(label(r.language))}</span><span>${t('viewDetails')} ↗</span></span></button>`).join('')}
+ function ready(){renderShelf()}
+ document.addEventListener('library:ready',ready);
+ document.addEventListener('library:language',()=>{if(records.length)renderShelf()});
+ if(records.length)ready();
+})();

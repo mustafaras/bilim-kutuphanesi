@@ -71,10 +71,20 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 
 ## 9. FAZ-5 uygulandı — sürüm v50
 
-- **`#recordDialog` + `#detailBackdrop` kaldırıldı**; yerine `#record-view` (tam sayfa, `position:fixed` kendi scroll'u; arka plan inert + `body` scroll kilidi). Mantık yeni **`site/record.js`**'te (`openRecord`/`hideRecord`/`closeRecord`, `popstate`, odak, OG meta). `discovery.js` yalnız vitrin (`cover`, `renderShelf`) ve `relatedRecords(r, limit)` hesabını tutar (hesap aynen, sınır 3 → 8). `cover`/`relatedRecords` global fonksiyondur (IIFE dışı).
-- **URL sözleşmesi:** kapalıyken açış `pushState({bkRecord})`, görünüm içi kayıt değişimi `replaceState`; UI kapatma push edilmişse `history.back()` yapar, `popstate` tek doğruluk kaynağıdır. Derin bağlantı (`?record=`) push etmez. `render()`'ın `replaceState` çağrısı artık `history.state`'i korur (eskiden `null` yazıp işaretçiyi siliyordu).
-- **Tuzaklar:** `startViewTransition` güncelleme callback'i **asenkron** çalışır → odak dönüşü ve `unlock()` callback içinde yapılır (sayfa o ana dek inert). Aynı `view-transition-name` iki öğede olamaz: kaynak kart adı callback başında silinir (`record-art`, `#detailArt` CSS ile adlı). Yıldız tıklaması kartları yeniden çizer → açan öğe kopar; `focusOpener` aynı `data-detail`li kontrole düşer.
-- **Takımyıldız:** `svg.rv-links` (`role=img`, özet `constellationSummary`) + gerçek `<button class="rv-node">` düğümleri + `ul.rv-list` metin eşdeğeri (≤640px'te düğüm etiketleri gizlenir, liste asıl yoldur).
-- **Alıntı:** `citeTemplate` (TR/EN) + `citedCopied`; pano yoksa `#detailShareFallback` alanı (paylaşımla ortak).
-- **OG:** `tools/og_cards.py` (Pillow + fontTools; woff2→TTF `.local/og-fonts`). CI `pages.yml`'de `validate`'ten sonra çalışır; `site/og/*.png` Git'te yok (yalnız `default.png`). `validate_site.py` site boyutunu 10MB ile sınırlar → yerelde çıktıyı `--out` ile site dışına yaz.
-- `check_app.cjs`: kayıt sayfası, künye, alıntı TR/EN + pano fallback, Escape, takımyıldız düğüm/liste eşitliği assert'leri; sahte `history` artık `pushState`/`state` taşır.
+- **Diyalog kaldırıldı** → `#recordView` tam sayfa düğüm görünümü (SPA; `?record=` pushState/popstate, Escape, odak dönüşü, scroll kilidi + inert aynen). Yeni dosya `site/record.js`; `discovery.js` yalnız vitrin rafına indi (kapak için `window.recordCover`).
+- **Tuzak: çift kilit** — `lockPage()` yalnız ilk açılışta (`!wasOpen`) çağrılmalı; düğüm gezinmesinde tekrar çağrılırsa `previousOverflow='hidden'` kaydedilir ve kapanışta kilit geri döner.
+- **Tuzak: sahte DOM'da `item.closest` yok** — delege klikte koruma `!item.closest||item.closest('#recordView')` şeklinde olmalı; `view.hidden` mock'ta `undefined`, açık durum testi `hidden===false`.
+- **check_app.cjs eklentileri**: context'e `window:{addEventListener(){}}` + `history.pushState`; el() mock'una `select(){}`; record.js discovery'den ÖNCE çalıştırılmalı (raf `window.recordCover` kullanır); assert'ler `el('recordSheet').innerHTML` üzerinden (içerik artık innerHTML string).
+- **Takımyıldız**: SVG dekoratif (çizgiler `pathLength="1"` + rv-draw), düğümler gerçek `<button>` (SVG içinde değil, % konumlu HTML), erişilebilir liste eşdeğeri `.rv-neighbors`. Hesap mantığı `renderRelated` ile birebir (adet 3→8).
+- **Alıntı + paylaşım kartı**: `t('citeTemplate')` TR/EN şablon; kart 1200×630 PNG tamamen istemcide (`canvas`, `toBlob`), çevrimdışı.
+- **OG**: `site/og/default.png` commit'li (37 KB); `tools/og_cards.py --all` opsiyonel (repo 10 MB disiplini için CI ÜRETMEZ; `.gitignore` `site/og/*.png` + `!default.png`). og:title/description/url JS ile canlı güncellenir.
+- **View Transition**: kaynak karta inline `view-transition-name:bk-cover`, mutate içinde yeni kapak aynı adı alır; root geçişleri CSS'te kapatıldı; `effects-paused`/reduced-motion'da morph atlanır.
+- `pages.yml` artık `record.js` + `facets.js` de kontrol eder; `validate_i18n.py` ve `validate_site.py` record.js'i tarar.
+
+## 10. FAZ-6 devri — komut paleti (v51)
+
+- `site/palette.js` IIFE; API'yi yalnızca `window.` üzerinden dışa açar (openPalette/closePalette/paletteIsOpen/shortcutsIsOpen/paletteQuery/paletteResults/palettePick). app.js/record.js de `window.openPalette` üzerinden bağlanır — vm testlerinde ham tanımlayıcı çözümlenemez.
+- ⌘K sahibi artık palette.js (aç/kapat toggle). app.js yalnızca preventDefault + palet yoksa arama kutusuna odak yedeği. `/` aynen aramaya odak.
+- Kayıt kısayolları record.js'te: j/k, kök kaydı da içeren takımyıldız halkasında döner (travelList=[current,...related]); s favori düğmesini basar, c `copyText(citation())` çağırır — düğme delegation'ına değil doğrudan fonksiyona bağlanır (sahte DOM'da #recordCiteCopy'nin kendi click handler'ı yok).
+- Sahte DOM: `el()` artık `removeAttribute` içeriyor; palet klavye turları `documentEvents` keydown döngüsüyle test ediliyor (üç handler'da da güvenli).
+- Sürüm v51; sw FILES'ta `palette.js?v=51`; validate_site dosya listesi + `$()` taraması + validate_i18n t() taraması palette.js'i kapsıyor.

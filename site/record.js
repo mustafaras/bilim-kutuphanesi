@@ -1,95 +1,107 @@
 'use strict';
-/* FAZ-5 · Record page. Replaces the FAZ-4 dialog: full-page node view with View Transitions, academic details,
-   one-click citation and the discovery constellation. URL/focus/back-button contract is unchanged:
-   ?record=<id> opens on library:ready, back/popstate and Escape close, focus returns to the opener, page is inert + scroll-locked. */
+/* FAZ-5 · Kayıt deneyimi — düğüm sayfası, keşif takımyıldızı, alıntı, paylaşım kartı.
+   Diyalog kaldırıldı: #recordView tam sayfa, SPA kalır. ?record= / popstate / Escape /
+   odak dönüşü sözleşmeleri aynen korunur (eski discovery.js davranışı). */
 (()=>{
- const view=document.getElementById('record-view'),$$=id=>document.getElementById(id);
- let current=null,returnFocus=null,returnId=null,previousOverflow,inertElements=[],pushed=false;
- const META={};
- const isOpen=()=>view.hidden===false;
- const calm=()=>!!document.documentElement.classList&&document.documentElement.classList.contains('effects-paused');
+ const view=document.getElementById('recordView'),sheet=document.getElementById('recordSheet');
+ let current=null,returnFocus=null,previousOverflow=null,inertElements=[],pushed=false;
+ const SPINE=['#528584','#729c7d','#6b8aab','#967b9b','#729c7d','#6b8aab','#967b9b','#b49767'];
+ const motionOff=()=>{const c=document.documentElement.classList;if(c&&c.contains('effects-paused'))return true;return typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches};
+
+ function recordCover(r){return `<div class="catalog-cover cover-${recordArtIndex(r)}" aria-hidden="true"><span class="cover-rule"></span><span class="cover-category">${esc(label(r.category).replace(/^\d+ - /,''))}</span>${catalogRecordArt(r)}<span class="cover-title">${esc(displayTitle(r))}</span><span class="cover-author">${esc(r.author)}</span><span class="cover-imprint">BK · ${esc(r.format.toUpperCase())}</span></div>`}
+
+ /* Keşif önerisi — hesaplama mantığı AYNEN (eski renderRelated), sunum takımyıldıza taşındı. */
+ function relatedRecords(r,count){const candidates=records.filter(other=>other.id!==r.id&&other.collection===r.collection&&other.category===r.category&&other.title!==r.title).sort((a,b)=>Number(b.language===r.language)-Number(a.language===r.language)||(r.level&&r.level!=='Belirtilmedi'?Number(b.level===r.level)-Number(a.level===r.level):0)||(r.collection==='books'?0:Math.abs(Number(a.year)-Number(r.year))-Math.abs(Number(b.year)-Number(r.year)))||a.title.localeCompare(b.title,locale()));const selected=[],authors=new Set();for(const item of candidates){const author=norm(item.author);if(authors.has(author))continue;selected.push(item);authors.add(author);if(selected.length===count)break}for(const item of candidates){if(selected.length===count)break;if(!selected.includes(item))selected.push(item)}return selected}
+
  function shareUrl(r){const u=new URL(location.href);u.search='';u.searchParams.set('record',r.id);u.searchParams.set('ui',uiLang);u.hash='';return u.href}
- function citeText(r){const title=String(displayTitle(r)).trim().replace(/[.\s]+$/,''),author=String(r.author||'').trim().replace(/[.\s]+$/,'');return t('citeTemplate').replace('{author}',author?author+'. ':'').replace('{title}',title).replace('{collection}',t(r.collection)).replace('{year}',r.year?', '+r.year:'').replace('{url}',shareUrl(r))}
- /* Open Graph: static defaults live in index.html; an open record swaps in its own card (tools/og_cards.py), closing restores them. */
- function setMeta(r){for(const prop of ['og:title','og:description','og:image','og:url','twitter:image']){const el=document.querySelectorAll('meta[property="'+prop+'"],meta[name="'+prop+'"]')[0];if(!el)continue;if(!(prop in META))META[prop]=el.getAttribute('content');let v=META[prop];if(r){if(prop==='og:title')v=displayTitle(r)+' — '+t('brand');else if(prop==='og:description')v=(displayDescription(r)||r.author||'').slice(0,200);else if(prop==='og:url')v=shareUrl(r);else v=new URL('og/'+r.id+'.png',location.href).href}el.setAttribute('content',v)}}
- function lock(){previousOverflow=document.body.style.overflow;document.body.style.overflow='hidden';inertElements=[...document.querySelectorAll('header,main,footer,.motion-toggle,.skip')].map(el=>[el,el.inert]);inertElements.forEach(([el])=>el.inert=true)}
- function unlock(){document.body.style.overflow=previousOverflow;inertElements.forEach(([el,wasInert])=>el.inert=wasInert);inertElements=[]}
- function recordUrl(id){const u=new URL(location.href);if(id)u.searchParams.set('record',id);else u.searchParams.delete('record');return u}
- /* Morph source: the shelf cover, or the card/ledger row the reader clicked. View-transition names are scoped to one transition. */
- function morphSource(el){if(!el||typeof el.closest!=='function')return null;const shelf=el.closest('.spotlight-card');if(shelf)return shelf.querySelector('.catalog-cover');return el.closest('.card,.ledger-row')}
- function name(el,on){if(el&&el.style)el.style.viewTransitionName=on?'record-art':''}
- function transition(update,from,to,skip){
-  if(skip||typeof document.startViewTransition!=='function'||calm()){update();return}
-  name(from,true);
-  try{const vt=document.startViewTransition(()=>{name(from,false);update();name(to,true)});const done=()=>name(to,false);vt.finished.then(done,done)}catch{name(from,false);update();name(to,false)}
- }
- function renderDetail(){
-  if(!current)return;const r=current;
-  $$('detailArt').innerHTML=cover(r);
-  $$('detailKunye').textContent=[catalogNo(r),t(r.collection),r.year].filter(Boolean).join(' · ');
-  $$('detailCategory').textContent=label(r.category).replace(/^\d+ - /,'');
-  $$('detailTitle').textContent=displayTitle(r);
-  $$('detailAuthor').textContent=r.author;
-  $$('detailDescription').textContent=displayDescription(r)||t('noDescription');
-  $$('detailMetadata').innerHTML=[['language',label(r.language)],['kind',label(r.kind)],['level',label(r.level)],['year',r.year],['pages',r.pages]].filter(([,v])=>v).map(([key,v])=>`<div><dt>${esc(t(key))}</dt><dd>${esc(v)}</dd></div>`).join('');
-  $$('detailAccess').textContent=t(safeUrl(r.drive)?'ready':r.collection==='awards'?'sourceOnly':'pending');
-  $$('detailLinks').innerHTML=`${safeUrl(r.drive)?`<a class="primary" href="${esc(safeUrl(r.drive))}" target="_blank" rel="noopener">${t(r.format==='pdf'?'pdf':'file')}</a>`:''}${sourceLink(r)}`;
-  renderFavorite();
-  $$('detailClose').setAttribute('aria-label',t('backToCatalog'));
-  $$('detailShare').textContent=t('copyRecordLink');
-  $$('detailCite').textContent=t('cite');
-  $$('detailCiteText').textContent=citeText(r);
-  $$('detailVisualNote').textContent=t('coverNote');
-  $$('detailNote').textContent=t('originalNote');
-  renderConstellation(r);renderExplore(r);
- }
- function renderFavorite(){const star=$$('detailFavorite'),on=!!current&&favorites.has(current.id);star.textContent=(on?'★ ':'☆ ')+t(on?'remove':'add');star.setAttribute('aria-pressed',String(on))}
- /* Constellation: same neighbours as the FAZ-4 related panel (relatedRecords), drawn as up to 8 nodes around the open record.
-    The svg is decorative-but-labelled (role=img); nodes are real buttons; the list below is the text equivalent. */
- function renderConstellation(r){
-  const list=relatedRecords(r,8),n=list.length;$$('detailRelated').hidden=!n;
-  $$('detailRelatedTitle').textContent=t('relatedTitle');$$('detailRelatedNote').textContent=t('relatedNote');
-  const pts=list.map((_,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;return [50+41*Math.cos(a),50+34*Math.sin(a)]});
-  const summary=t('constellationSummary').replace('{title}',displayTitle(r)).replace('{count}',n);
-  $$('detailGraph').innerHTML=`<svg class="rv-links" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="${esc(summary)}" focusable="false"><circle class="rv-ring" cx="50" cy="50" r="22" vector-effect="non-scaling-stroke"></circle>${pts.map(([x,y])=>`<line x1="50" y1="50" x2="${x.toFixed(2)}" y2="${y.toFixed(2)}" vector-effect="non-scaling-stroke"></line>`).join('')}</svg><div class="rv-center spine-${recordArtIndex(r)}" aria-hidden="true"><small>${esc(catalogNo(r))}</small><strong>${esc(displayTitle(r))}</strong></div>${list.map((item,i)=>`<button type="button" class="rv-node spine-${recordArtIndex(item)}" style="left:${pts[i][0].toFixed(2)}%;top:${pts[i][1].toFixed(2)}%;--i:${i}" data-detail="${esc(item.id)}" aria-label="${esc(displayTitle(item)+' — '+item.author)}" title="${esc(t('nodeJump'))}"><span class="rv-dot" aria-hidden="true"></span><span class="rv-node-label" aria-hidden="true"><strong>${esc(displayTitle(item))}</strong><small>${esc(item.author)}</small></span></button>`).join('')}`;
-  $$('detailRelatedGrid').innerHTML=list.map(item=>`<li><button type="button" class="rv-row spine-${recordArtIndex(item)}" data-detail="${esc(item.id)}"><span class="rv-row-no">${esc(catalogNo(item))}</span><span class="rv-row-title">${esc(displayTitle(item))}</span><span class="rv-row-author">${esc(item.author)}</span><span class="rv-row-meta">${esc(label(item.language))}${item.year?' · '+esc(item.year):''}</span><span class="rv-row-arrow" aria-hidden="true">↗</span></button></li>`).join('');
- }
+ function citation(r){let tpl=t('citeTemplate');if(!r.year)tpl=tpl.replace('{collection}, {year}','{collection}');const url=shareUrl(r);return{full:tpl.replace('{author}',r.author).replace('{title}',displayTitle(r)).replace('{collection}',label(r.collection)).replace('{year}',r.year).replace('{url}',url),preview:tpl.replace('{author}',r.author).replace('{title}',displayTitle(r)).replace('{collection}',label(r.collection)).replace('{year}',r.year||'').replace(' — {url}','')}}
+
+ function constellationHtml(r,nodes){
+  if(!nodes.length)return '';
+  const W=1000,H=560,cx=500,cy=284;
+  const pts=nodes.map((n,i)=>{const ang=(-90+i*(360/nodes.length)+(i*53%17)-8)*Math.PI/180,rad=150+(i*97%66);return{x:Math.max(96,Math.min(904,Math.round(cx+Math.cos(ang)*rad*1.5))),y:Math.max(78,Math.min(486,Math.round(cy+Math.sin(ang)*rad*0.92)))}});
+  const lines=pts.map((p,i)=>{const mx=(cx+p.x)/2,my=(cy+p.y)/2,dx=p.y-cy,dy=cx-p.x,len=Math.hypot(dx,dy)||1,bend=(i%2?1:-1)*Math.min(46,len*.16);return `<path d="M${cx} ${cy} Q${Math.round(mx+dx/len*bend)} ${Math.round(my+dy/len*bend)} ${p.x} ${p.y}" pathLength="1" style="animation-delay:${.25+i*.07}s"></path>`}).join('');
+  const twinkles=[[120,60],[310,44],[520,70],[770,40],[905,96],[60,300],[950,320],[240,470],[700,500],[860,470],[420,510],[150,180]].map(([x,y],i)=>`<circle class="tk" cx="${x}" cy="${y}" r="${(1+(i%3)*.5).toFixed(1)}" style="animation-delay:${(i*.7)%4}s"></circle>`).join('');
+  const buttons=pts.map((p,i)=>`<button type="button" class="rv-node" data-detail="${esc(nodes[i].id)}" style="left:${(p.x/W*100).toFixed(2)}%;top:${(p.y/H*100).toFixed(2)}%;animation-delay:${.35+i*.07}s" aria-label="${esc(displayTitle(nodes[i])+' — '+nodes[i].author)}"><span class="rv-dot" aria-hidden="true"></span><span class="rv-node-label">${esc(displayTitle(nodes[i]))}</span></button>`).join('');
+  return `<div class="rv-constellation"><svg class="rv-lines" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true" focusable="false"><g class="rv-orbits"><circle cx="${cx}" cy="${cy}" r="120" stroke-dasharray="1 10"></circle><circle cx="${cx}" cy="${cy}" r="210" stroke-dasharray="1 14" opacity=".6"></circle></g><g class="rv-edges">${lines}</g><g class="rv-twinkle">${twinkles}</g><g class="rv-center"><circle cx="${cx}" cy="${cy}" r="26" opacity=".18"></circle><circle cx="${cx}" cy="${cy}" r="12" opacity=".35"></circle><circle class="rv-core" cx="${cx}" cy="${cy}" r="5.5"></circle></g></svg><p class="rv-center-no" aria-hidden="true">${esc(catalogNo(r))}</p>${buttons}</div>`}
+
+ function renderExplore(record){const authorCount=record.author?records.filter(other=>norm(other.author)===norm(record.author)).length:0,fieldCount=records.filter(other=>other.collection===record.collection&&other.category===record.category).length;return[...(authorCount?[{kind:'author',text:t('browseAuthor'),value:record.author,count:authorCount}]:[]),{kind:'category',text:t('browseField'),value:label(record.category).replace(/^\d+ - /,''),count:fieldCount}].map(item=>`<a href="${esc(browseUrl(record,item.kind))}" data-browse="${item.kind}" aria-label="${esc(item.text+': '+item.value+' · '+item.count+' '+t('records'))}"><span>${esc(item.text)}<small>${item.count.toLocaleString(locale())} ${t('records')}</small></span><span aria-hidden="true">↗</span></a>`).join('')}
  function browseUrl(record,kind){const params=new URLSearchParams({ui:uiLang});if(kind==='author')params.set('author',record.author);else{params.set('collection',record.collection);params.set('category',record.category)}return location.pathname+'?'+params+'#catalog'}
- function renderExplore(record){const authorCount=record.author?records.filter(other=>norm(other.author)===norm(record.author)).length:0,fieldCount=records.filter(other=>other.collection===record.collection&&other.category===record.category).length;$$('detailExplore').innerHTML=[...(authorCount?[{kind:'author',text:t('browseAuthor'),value:record.author,count:authorCount}]:[]),{kind:'category',text:t('browseField'),value:label(record.category).replace(/^\d+ - /,''),count:fieldCount}].map(item=>`<a href="${esc(browseUrl(record,item.kind))}" data-browse="${item.kind}" aria-label="${esc(item.text+': '+item.value+' · '+item.count+' '+t('records'))}"><span>${esc(item.text)}<small>${item.count.toLocaleString(locale())} ${t('records')}</small></span><span aria-hidden="true">↗</span></a>`).join('')}
- /* opts.history: 'push' (default when opening) | 'replace' | 'none' (popstate / deep link already hold the right entry). */
- function openRecord(id,opts={}){
-  const r=records.find(x=>x.id===id);if(!r)return;
-  const wasOpen=isOpen(),from=wasOpen?null:morphSource(opts.trigger||document.activeElement);
-  if(!wasOpen){returnFocus=document.activeElement;returnId=opts.trigger&&opts.trigger.dataset?opts.trigger.dataset.detail:id;lock()}
-  document.getElementById('detailShareFallback').hidden=true;
-  transition(()=>{current=r;renderDetail();view.hidden=false;view.scrollTop=0;setMeta(r);$$('detailTitle').focus({preventScroll:true})},from,$$('detailArt'));
-  const mode=opts.history||(wasOpen||new URLSearchParams(location.search).get('record')===id?'replace':'push');
-  if(mode==='push'&&typeof history.pushState==='function'){history.pushState({bkRecord:id},'',recordUrl(id));pushed=true}
-  else if(mode==='replace'){try{history.replaceState(pushed?{bkRecord:id}:history.state,'',recordUrl(id))}catch{}}
- }
- /* Hide the page. opts.url: strip ?record= (UI close); opts.focus=false: skip focus return (browse hand-off); popstate passes url:false. */
- function hideRecord(opts={}){
-  if(!isOpen())return;
-  const back=opts.focus===false?null:returnFocus,id=returnId;
-  /* Focus moves inside the update callback: the page is still inert until unlock() has run. */
-  const update=()=>{view.hidden=true;current=null;unlock();setMeta(null);focusOpener(back,id)};
-  transition(update,$$('detailArt'),opts.transition===false?null:morphSource(back),opts.transition===false);
-  if(opts.url!==false){try{history.replaceState(pushed?null:history.state,'',recordUrl(null))}catch{}pushed=false}
-  returnFocus=null;
- }
- /* The opener may have been re-rendered (a star toggle rebuilds the cards): fall back to the same record's control. */
- function focusOpener(el,id){let target=el&&el.isConnected?el:null;if(!target&&id&&typeof document.querySelector==='function')target=document.querySelector('#cards [data-detail="'+id+'"]');if(target&&typeof target.focus==='function')target.focus({preventScroll:true})}
- /* UI close: if this session pushed the entry, pop it so back/forward stay symmetric; popstate then hides the page. */
- function closeRecord(){if(!isOpen())return;if(pushed&&typeof history.back==='function'){history.back();return}hideRecord()}
- function browse(kind){if(!current)return;const record=current;hideRecord({focus:false,transition:false});reset();if(kind==='author')authorFacet=record.author;else $('collection').value=record.collection;populateFilters();if(kind==='category')$('category').value=record.category;render();$('cards').scrollIntoView({block:'start'});$('cards').querySelector('.title-detail')?.focus({preventScroll:true})}
- async function copyText(text,doneKey,labelKey){try{await navigator.clipboard.writeText(text);toast(t(doneKey))}catch{const box=$$('detailShareFallback'),input=$$('detailShareUrl');$$('detailShareLabel').textContent=t(labelKey);box.hidden=false;input.value=text;input.focus();input.select()}}
- document.addEventListener('click',event=>{const link=event.target.closest('[data-browse]');if(link&&['author','category'].includes(link.dataset.browse)){if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey||event.button>0)return;event.preventDefault();browse(link.dataset.browse);return}const item=event.target.closest('[data-detail]');if(item){if(item.tagName==='A'){if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey||event.button>0)return;event.preventDefault()}openRecord(item.dataset.detail,{trigger:item})}});
- document.addEventListener('keydown',event=>{if(event.key==='Escape'&&isOpen()){event.preventDefault();closeRecord()}});
- $$('detailClose').addEventListener('click',closeRecord);
- $$('detailFavorite').addEventListener('click',()=>{if(!current)return;favorites.has(current.id)?favorites.delete(current.id):favorites.add(current.id);saveFavorites();render();renderFavorite()});
- $$('detailShare').addEventListener('click',()=>{if(current)copyText(shareUrl(current),'linkCopied','recordLink')});
- $$('detailCite').addEventListener('click',()=>{if(current)copyText(citeText(current),'citedCopied','citeLabel')});
- if(typeof addEventListener==='function')addEventListener('popstate',event=>{pushed=!!(event.state&&event.state.bkRecord);const id=new URLSearchParams(location.search).get('record');if(id){if(!current||current.id!==id)openRecord(id,{history:'none'})}else hideRecord({url:false})});
- function ready(){const id=new URLSearchParams(location.search).get('record');if(id&&!isOpen())openRecord(id,{history:'none'})}
- document.addEventListener('library:ready',ready);document.addEventListener('library:language',()=>{if(current){renderDetail();setMeta(current)}});if(records.length)ready();
+
+ function renderRecord(){if(!current)return;const r=current,nodes=relatedRecords(r,8),cite=citation(r);
+  sheet.className='rv-sheet spine-'+recordArtIndex(r);
+  sheet.innerHTML=`<div class="rv-art-col"><div class="rv-art" id="recordArt"><span class="rv-halo" aria-hidden="true"></span><div id="recordCoverArt">${recordCover(r)}</div></div><div class="rv-links detail-links">${safeUrl(r.drive)?`<a class="primary" href="${esc(safeUrl(r.drive))}" target="_blank" rel="noopener">${t(r.format==='pdf'?'pdf':'file')}</a>`:''}${sourceLink(r)}<p class="rv-access rv-chip">${esc(t(safeUrl(r.drive)?'ready':r.collection==='awards'?'sourceOnly':'pending'))}</p></div><p class="visual-note rv-art-note">${esc(t('coverNote'))}</p></div>`+
+   `<div class="rv-plate"><p class="rv-strip"><b>${esc(catalogNo(r))}</b><span aria-hidden="true">·</span><span>${esc(label(r.collection))}</span><span aria-hidden="true">·</span><span>${esc(r.year||'—')}</span></p><h2 id="recordTitle" tabindex="-1">${esc(displayTitle(r))}</h2><p class="rv-author">${esc(r.author)}</p><dl class="rv-meta">${[['language',label(r.language)],['kind',label(r.kind)],['level',label(r.level)],['year',r.year],['pages',r.pages]].filter(([,v])=>v).map(([key,v])=>`<div><dt>${esc(t(key))}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl><p class="rv-description">${esc(displayDescription(r)||t('noDescription'))}</p>${displayDescription(r)&&uiLang==='en'?`<p class="visual-note">${esc(t('originalNote'))}</p>`:''}<nav class="detail-explore rv-explore" aria-label="${esc(t('browseRelated'))}">${renderExplore(r)}</nav><section class="rv-cite" aria-label="${esc(t('citeHeading'))}"><p class="rv-cite-label">${esc(t('citeHeading'))}</p><blockquote>${esc(cite.preview)}</blockquote><button id="recordCiteCopy" type="button">${esc(t('cite'))}</button></section><div class="rv-actions"><button id="recordShareCard" type="button"><span class="rv-btn-glyph" aria-hidden="true">✦</span>${esc(t('shareCard'))}</button></div></div>`+
+   (nodes.length?`<figure class="rv-constellation-wrap"><figcaption><span class="eyebrow"><span class="dot"></span>${esc(t('constellationTitle'))}</span><p>${esc(t('constellationNote'))}</p></figcaption>${constellationHtml(r,nodes)}<p class="rv-node-hint">${esc(t('nodeHint'))}</p><ul class="rv-neighbors">${nodes.map(n=>`<li><button type="button" class="related-source" data-detail="${esc(n.id)}"><span class="related-art" aria-hidden="true">${catalogRecordArt(n)}</span><span class="related-copy"><strong>${esc(displayTitle(n))}</strong><span>${esc(n.author)}</span><small>${esc(label(n.language))}${n.year?' · '+esc(n.year):''}</small></span><span class="related-arrow" aria-hidden="true">↗</span></button></li>`).join('')}</ul></figure>`:'');
+  const star=document.getElementById('recordFavorite');star.textContent=(favorites.has(r.id)?'★ ':'☆ ')+t(favorites.has(r.id)?'remove':'add');star.setAttribute('aria-pressed',String(favorites.has(r.id)));
+  document.getElementById('recordShare').textContent=t('copyRecordLink');
+  document.getElementById('recordBack').setAttribute('aria-label',t('close'));
+  const ogT=document.getElementById('ogTitle'),ogD=document.getElementById('ogDesc'),ogU=document.getElementById('ogUrl');
+  if(ogT)ogT.setAttribute('content',displayTitle(r)+' — '+r.author+' · '+t('brand'));
+  if(ogD)ogD.setAttribute('content',(displayDescription(r)||t('heroFoot')).slice(0,180));
+  if(ogU)ogU.setAttribute('content',shareUrl(r));
+  if(!motionOff()&&typeof matchMedia==='function'&&matchMedia('(pointer:fine)').matches){const art=document.getElementById('recordArt');if(art)art.addEventListener('pointermove',e=>{const b=art.getBoundingClientRect?art.getBoundingClientRect():{left:0,top:0,width:1,height:1};if(!art.style||!art.style.setProperty)return;art.style.setProperty('--mx',((e.clientX-b.left)/(b.width||1)*100).toFixed(1)+'%');art.style.setProperty('--my',((e.clientY-b.top)/(b.height||1)*100).toFixed(1)+'%')})}
+  const all=s=>sheet.querySelectorAll?[...sheet.querySelectorAll(s)]:[];
+  all('.rv-node').forEach((node,i)=>{const line=all('.rv-edges path')[i];if(!line||!line.classList)return;const lit=on=>line.classList.toggle('lit',on);node.addEventListener('mouseenter',()=>lit(true));node.addEventListener('mouseleave',()=>lit(false));node.addEventListener('focus',()=>lit(true));node.addEventListener('blur',()=>lit(false))})}
+
+ /* Kart→sayfa morfu: kaynak kapakla yeni kapak aynı view-transition-name'i paylaşır. */
+ function withMorph(sourceArt,mutate){
+  if(!sourceArt||typeof document.startViewTransition!=='function'||motionOff()){mutate();return}
+  const name='bk-cover';sourceArt.style.setProperty('view-transition-name',name);
+  try{const vt=document.startViewTransition(()=>{mutate();const fresh=document.getElementById('recordCoverArt');if(fresh)fresh.style.setProperty('view-transition-name',name)});
+   const clean=()=>{sourceArt.style.removeProperty('view-transition-name');const fresh=document.getElementById('recordCoverArt');if(fresh)fresh.style.removeProperty('view-transition-name')};
+   vt.finished.then(clean).catch(clean)}catch{mutate();sourceArt.style.removeProperty('view-transition-name')}}
+
+ function lockPage(){previousOverflow=document.body.style.overflow;document.body.style.overflow='hidden';inertElements=[...document.querySelectorAll('header,main,footer,.motion-toggle,.skip')].map(el=>[el,el.inert]);inertElements.forEach(([el])=>el.inert=true)}
+ function unlockPage(){document.body.style.overflow=previousOverflow;inertElements.forEach(([el,wasInert])=>el.inert=wasInert);inertElements=[]}
+ function urlHasRecord(){return new URLSearchParams(location.search).get('record')}
+ function writeParam(id){const u=new URL(location.href);if(id)u.searchParams.set('record',id);else u.searchParams.delete('record');history.replaceState(null,'',u)}
+
+ function open(id,sourceEl){const r=records.find(rec=>rec.id===id);if(!r)return;const wasOpen=view.hidden===false;if(!wasOpen)returnFocus=document.activeElement;current=r;
+  const sourceArt=sourceEl&&sourceEl.nodeType===1&&sourceEl.querySelector?sourceEl.querySelector('.catalog-cover,.card-illustration,.route-source-art,.related-art'):null;
+  withMorph(sourceArt,()=>{renderRecord();view.hidden=false;view.scrollTop=0;document.getElementById('recordTitle').focus({preventScroll:true})});
+  if(!wasOpen)lockPage();
+  if(urlHasRecord()!==r.id){if(wasOpen||urlHasRecord())writeParam(r.id);else{pushed=true;history.pushState({record:r.id},'',(()=>{const u=new URL(location.href);u.searchParams.set('record',r.id);return u})())}}}
+ function close(){if(view.hidden!==false)return;current=null;view.hidden=true;sheet.innerHTML='';unlockPage();writeParam(null);document.getElementById('recordShareFallback').hidden=true;if(returnFocus&&returnFocus.isConnected)returnFocus.focus()}
+
+ /* Okuma yolları / yazar-keşif gezintisi — katalog üstüne süzgeç uygular. */
+ function browse(kind){if(!current)return;const record=current;returnFocus=null;close();reset();if(kind==='author')authorFacet=record.author;else $('collection').value=record.collection;populateFilters();if(kind==='category')$('category').value=record.category;render();$('cards').scrollIntoView({block:'start'});const first=$('cards').querySelector('.title-detail');if(first)first.focus({preventScroll:true})}
+
+ view.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();close()} if(event.key==='Tab'){const items=(view.querySelectorAll?[...view.querySelectorAll('button,a[href],input')]:[]).filter(el=>!el.disabled&&(el.getClientRects?el.getClientRects().length:true));if(!items.length)return;const first=items[0],last=items[items.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}}});
+ document.addEventListener('click',event=>{const link=event.target.closest('[data-browse]');if(link&&['author','category'].includes(link.dataset.browse)){if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey||event.button>0)return;event.preventDefault();browse(link.dataset.browse);return} const item=event.target.closest('[data-detail]');if(item){if(item.tagName==='A'){if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey||event.button>0)return;event.preventDefault()} if(view.hidden!==false||!item.closest||item.closest('#recordView'))open(item.dataset.detail,item)}});
+ document.getElementById('recordBack').addEventListener('click',close);
+ document.getElementById('recordFavorite').addEventListener('click',()=>{if(!current)return;favorites.has(current.id)?favorites.delete(current.id):favorites.add(current.id);saveFavorites();render();renderRecord();const star=document.getElementById('recordFavorite');star.setAttribute('aria-pressed',String(favorites.has(current.id)))});
+ document.getElementById('recordShare').addEventListener('click',async()=>{if(!current)return;const u=shareUrl(current);try{await navigator.clipboard.writeText(u.href);toast(t('linkCopied'))}catch{document.getElementById('recordShareFallback').hidden=false;const input=document.getElementById('recordShareUrl');input.value=u.href;input.focus();input.select()}});
+ document.addEventListener('click',event=>{const cite=event.target.closest('#recordCiteCopy');if(cite&&current){copyText(citation(current).full,t('citedCopied'));return}const card=event.target.closest('#recordShareCard');if(card&&current)drawShareCard(current)});
+ async function copyText(text,doneKey){try{await navigator.clipboard.writeText(text);toast(t(doneKey))}catch{document.getElementById('recordShareFallback').hidden=false;const input=document.getElementById('recordShareUrl');input.value=text;input.focus();input.select()}}
+
+ /* Paylaşım kartı: 1200×630 PNG, tamamen istemci tarafında, çevrimdışı. */
+ function drawShareCard(r){const c=document.createElement('canvas');if(!c.getContext)return;const g=c.getContext('2d');if(!g)return;c.width=1200;c.height=630;
+  const grad=g.createLinearGradient(0,0,1200,630);grad.addColorStop(0,'#04070E');grad.addColorStop(.65,'#08172A');grad.addColorStop(1,'#13324A');g.fillStyle=grad;g.fillRect(0,0,1200,630);
+  let seed=0;for(const ch of String(r.id))seed=(seed*31+ch.charCodeAt(0))>>>0;const rnd=()=>((seed=(seed*1103515245+12345)&0x7fffffff)/0x7fffffff);
+  for(let i=0;i<130;i++){g.globalAlpha=.2+rnd()*.55;g.fillStyle='#FAF6EC';g.beginPath();g.arc(rnd()*1200,rnd()*430,.4+rnd()*1.5,0,7);g.fill()}g.globalAlpha=1;
+  g.fillStyle='#E8CE9E';g.beginPath();g.arc(1010,150,5,0,7);g.fill();g.strokeStyle='#E8CE9E44';g.beginPath();g.ellipse(1010,150,88,30,-.5,0,7);g.stroke();
+  g.fillStyle=SPINE[recordArtIndex(r)];g.fillRect(84,148,8,196);
+  g.fillStyle='#E8CE9E';g.font='500 21px "IBM Plex Mono",monospace';g.fillText((catalogNo(r)+' · '+(r.year||t('brand'))).toUpperCase(),122,170);
+  g.fillStyle='#FAF6EC';g.font='400 54px Fraunces,Georgia,serif';let line='',y=238;for(const word of String(displayTitle(r)).split(' ')){const test=line?line+' '+word:word;if(g.measureText(test).width>880&&line){g.fillText(line,122,y);line=word;y+=68;if(y>420)break}else line=test}if(line&&y<=420)g.fillText(line,122,y);
+  g.fillStyle='#9FB8C8';g.font='400 26px Inter,system-ui,sans-serif';g.fillText(String(r.author).slice(0,70),124,Math.min(y+ (line?68:0)+30,470));
+  g.fillStyle='#FAF6EC';g.font='400 30px Fraunces,Georgia,serif';g.fillText(t('brand'),84,566);
+  g.fillStyle='#9FB8C8';g.font='400 17px "IBM Plex Mono",monospace';g.fillText('DEC +41°16′ · RA 12h 30m · '+label(r.collection),360,566);
+  try{c.toBlob(blob=>{if(!blob)return;const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bilim-kutuphanem-'+catalogNo(r)+'.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast(t('shareCardDone'))},'image/png')}catch{}}
+
+ function onPop(){const id=urlHasRecord();const openNow=view.hidden===false;if(id&&records.some(r=>r.id===id)){if(!openNow||current.id!==id)open(id)}else if(!id&&openNow)close()}
+ if(typeof window!=='undefined'&&window.addEventListener)window.addEventListener('popstate',onPop);
+
+ /* FAZ-6 · Kayıt görünümü klavye uygarlığı: j/k komşu yolculuğu, s yıldız, c alıntı. */
+ let travelList=[],travelIndex=0;
+ const press=el=>{if(!el)return;if(el.click)el.click();else if(el.handlers&&el.handlers.click)el.handlers.click()};
+ function travel(dir){if(!current)return;if(!travelList.some(n=>n.id===current.id)){travelList=[current,...relatedRecords(current,8)];travelIndex=0}if(travelList.length<2)return;travelIndex=(travelIndex+dir+travelList.length)%travelList.length;open(travelList[travelIndex].id,null)}
+ document.addEventListener('keydown',event=>{if(view.hidden!==false||event.ctrlKey||event.metaKey||event.altKey)return;if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;if(typeof window!=='undefined'&&window.paletteIsOpen&&(window.paletteIsOpen()||window.shortcutsIsOpen()))return;const key=String(event.key).toLowerCase();
+  if(key==='j'){event.preventDefault();travel(1)}else if(key==='k'){event.preventDefault();travel(-1)}else if(key==='s'){event.preventDefault();press(document.getElementById('recordFavorite'))}else if(key==='c'&&current){event.preventDefault();copyText(citation(current).full,'citedCopied')}});
+
+ function ready(){const id=new URLSearchParams(location.search).get('record');if(id&&records.some(r=>r.id===id))open(id)}
+ document.addEventListener('library:ready',ready);
+ document.addEventListener('library:language',()=>{if(current)renderRecord()});
+ if(records.length)ready();
+ if(typeof window!=='undefined')Object.assign(window,{openRecord:open,closeRecord:close,recordCurrent:()=>current,recordCover:recordCover});
 })();
