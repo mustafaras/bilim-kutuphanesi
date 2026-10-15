@@ -78,3 +78,5 @@ Object.assign(UI.tr,{rvDragHint:'Sürükle · döndür'});Object.assign(UI.en,{r
 Object.assign(UI.tr,{deckAll:'Keşif alanları',deckFields:'alan',deckField:'alan',deckLangs:'dil',deckAuthors:'yazar'});Object.assign(UI.en,{deckAll:'Discovery fields',deckFields:'fields',deckField:'field',deckLangs:'languages',deckAuthors:'authors'});
 
 Object.assign(UI.tr,{rv3d:'Etkileşimli 3B kitap'});Object.assign(UI.en,{rv3d:'Interactive 3D book'});
+
+Object.assign(UI.tr,{ncViewSky:'Silüet',nsClick:'Tıkla: yılın dosyasını aç',nsLabel:'Nobel silueti: yıllar arasında gezinmek için ok tuşlarını kullanın'});Object.assign(UI.en,{ncViewSky:'Skyline',nsClick:'Click to open the year dossier',nsLabel:'Nobel skyline: use the arrow keys to move between years'});

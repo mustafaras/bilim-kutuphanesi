@@ -1192,3 +1192,41 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 .atlas-tile.atlas-7 .tile-3d{filter:drop-shadow(0 18px 28px rgba(0,0,0,.35))}
 @media(min-width:1101px){.atlas-tile.atlas-7{min-height:430px}}
 .atlas-tile.atlas-7 .tile-constellation{opacity:.0}
+
+/* Package 21: Nobel Skyline */
+.nc-sky{background:radial-gradient(80% 90% at 50% 30%,#10283a,#06101a);cursor:grab}
+.nc-sky canvas{outline:none}.nc-sky canvas:focus-visible{outline:2px solid var(--nc-brass);outline-offset:-3px}
+.nc-sky .nc-3d-labels span{margin:0;transform-origin:0 0;font-size:11px;color:#9fb8c8;translate:-50% 4px}
+.nc-sky .nc-3d-labels span.r{translate:-100% -50%;padding-right:6px;color:#7f98a8}
+.nc-sky-legend{position:absolute;left:12px;top:12px;z-index:3;display:flex;flex-wrap:wrap;gap:6px;max-width:calc(100% - 76px)}
+.nc-sky-legend button{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.18);background:rgba(5,10,18,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#e9eef3;font:500 11px/1 var(--mono);letter-spacing:.05em;cursor:pointer;transition:opacity .25s,border-color .2s,background .2s}
+.nc-sky-legend button i{width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:0 0 10px var(--c)}
+.nc-sky-legend button small{color:#9fb8c8;font:500 10.5px/1 var(--mono)}
+.nc-sky-legend button[aria-pressed="false"]{opacity:.42}
+.nc-sky-legend button:hover{border-color:var(--c)}
+.nc-sky-legend button:focus-visible{outline:2px solid var(--nc-brass);outline-offset:2px}
+.nc-sky-chip{position:absolute;left:0;top:0;z-index:2;margin:-34px 0 0 0;translate:-50% 0;padding:5px 9px;border-radius:999px;background:var(--nc-brass,#e8c58a);color:#10202c;font:700 11.5px/1 var(--mono);letter-spacing:.06em;pointer-events:none;box-shadow:0 8px 20px rgba(0,0,0,.35)}
+.nc-sky-chip[hidden]{display:none}
+.nc-sky .nc-3d-tip .row{display:flex;align-items:center;gap:8px;font:500 12px/1.3 var(--sans);color:#d4dde5}
+.nc-sky .nc-3d-tip .row i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.nc-sky .nc-3d-tip .row b{margin-left:auto;font:600 12px/1 var(--mono);color:#fff}
+.nc-sky .nc-3d-tip em{font:500 10.5px/1.3 var(--mono);letter-spacing:.08em;color:var(--nc-brass,#e8c58a);font-style:normal;margin-top:4px}
+@media(max-width:760px){.nc-sky{height:420px}.nc-sky-legend{max-width:calc(100% - 24px);top:auto;bottom:10px}.nc-sky-legend button span{display:none}}
+
+/* Package 21b: the whole Nobel chronicle follows the theme */
+:root[data-theme=light] .nobel-chronicle{--nc-ink:#13283a;--nc-mute:#566b75;--nc-line:rgba(19,43,59,.15);--nc-brass:#8a5a32;border-color:rgba(19,43,59,.14);background:radial-gradient(90% 70% at 88% -10%,rgba(127,205,180,.22),transparent 62%),radial-gradient(70% 60% at 0% 110%,rgba(232,197,138,.3),transparent 60%),linear-gradient(180deg,#fffdf7,#f3ecdc);box-shadow:0 1px 0 rgba(255,255,255,.8) inset,0 30px 70px -34px rgba(60,40,20,.35)}
+:root[data-theme=light] .nobel-chronicle::before{opacity:.18;filter:invert(1)}
+:root[data-theme=light] .nc-sky,:root[data-theme=light] .nc-3d{background:radial-gradient(80% 90% at 50% 30%,#fffefa,#eee4cf);border-color:rgba(19,43,59,.14)}
+:root[data-theme=light] .nc-sky .nc-3d-labels span{color:#46606f}:root[data-theme=light] .nc-sky .nc-3d-labels span.r{color:#6b7f88}
+:root[data-theme=light] .nc-sky-legend button{background:rgba(255,253,247,.8);border-color:rgba(19,43,59,.18);color:#13283a}
+:root[data-theme=light] .nc-sky-legend button small{color:#566b75}
+:root[data-theme=light] .nc-3d-ctl{background:rgba(255,253,247,.8);border-color:rgba(19,43,59,.2)}:root[data-theme=light] .nc-3d-ctl button{color:#13283a}:root[data-theme=light] .nc-3d-ctl button:hover{background:rgba(19,43,59,.08)}
+:root[data-theme=light] .nc-3d-tip{background:rgba(255,253,247,.96);border-color:rgba(19,43,59,.2);color:#13283a;box-shadow:0 16px 40px rgba(60,40,20,.25)}
+:root[data-theme=light] .nc-sky .nc-3d-tip .row{color:#2c4252}:root[data-theme=light] .nc-sky .nc-3d-tip .row b{color:#13283a}:root[data-theme=light] .nc-3d-tip span{color:#566b75}
+:root[data-theme=light] .nc-sky-chip{color:#fff}
+:root[data-theme=light] .nc-viewswitch{border-color:rgba(19,43,59,.2);background:rgba(255,253,247,.7)}
+:root[data-theme=light] .nc-viewswitch button{color:#3d5360}
+:root[data-theme=light] .nc-viewswitch button[aria-pressed="true"]{color:#13283a}
+:root[data-theme=light] .nc-big{background:none;-webkit-text-fill-color:#8a5a32;color:#8a5a32}
+:root[data-theme=light] .nc-badge{filter:saturate(1.25) brightness(.6)}
+:root[data-theme=light] .nc-kicker{color:#8a5a32}
