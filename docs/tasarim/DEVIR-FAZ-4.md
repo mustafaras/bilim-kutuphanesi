@@ -221,3 +221,5 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - Hero güvertesi kaldırıldı (çok betimleyiciydi, galaksiyle uyumsuzdu). 8 keşif alanı artık galaksinin kendi kollarında dönen parlayan düğümler (`placeMarkers`: tilt/rig matrisleriyle her karede izdüşüm; halka nabzı; hover/odakta etiket belirir, diğer alanlar sönükleşir). Düğüme basınca `flyField`: kamera o kola dalar (zoom 2.5 + renk sapması), 620ms sonra `fieldRun` ve zoom geri. Spektrum rozeti gizli. Eski `.hero-field{transform:none!important}` kuralı kaldırıldı (satır içi transform'u eziyordu).
 - Kayıt sayfasında kapak üzerindeki `3D` düğmesi canlı kapağı sürüklenebilir gerçek 3B kitapla (`stage.js` `mountRecord`, `bookScene` yeniden kullanıldı) değiştirir; varsayılan canlı animasyonlu kapak korunur.
 - `nobel3d.js`: bölüm görünür olurken galaksi kaydırmaya bağlı yaklaşır ve döner (`se` = smoothstep(scroll)), hero ile süreklilik hissi.
+
+- v77: işaretçi açısı `phase(r)` ile hesaplanır (aynı spiral kolun eğrisi), düğümler gerçek kolların üzerinde durur.
