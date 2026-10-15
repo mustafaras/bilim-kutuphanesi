@@ -35,9 +35,18 @@ jobs:
           node --check site/record.js
           node --check site/palette.js
           node --check site/discovery.js
+          node --check site/nobel3d.js
+          node --check site/stage.js
+          node --check site/hero3d.js
           node --check site/facets.js
           node tools/check_app.cjs
           node tools/check_app.cjs --missing-art
+      - name: UI audit (overflow, console errors, contrast)
+        timeout-minutes: 12
+        run: |
+          python -m pip install --quiet playwright
+          python -m playwright install --with-deps chromium
+          python tools/ui_audit.py
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:

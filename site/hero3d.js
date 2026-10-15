@@ -247,8 +247,15 @@
   addEventListener('pointerup',e=>{endTouch(e);const d=drag;drag=null;hero.classList.remove('hero-drag');
    if(d&&!d.moved){const p=worldOnPlane(e.clientX,e.clientY,-1);uniforms.uPulse.value.set(p.x,p.y,time);
     if(e.pointerType==='touch'){mouse={x:e.clientX,y:e.clientY,in:true};pick();return}   // touch: first tap previews, tapping the card opens
-    if(hover>=0&&window.openRecord){const r=records[hover];if(r)setTimeout(()=>window.openRecord(r.id),160)}}});
-  tip.addEventListener('click',()=>{if(hover>=0&&window.openRecord){const r=records[hover];if(r)window.openRecord(r.id)}});
+    if(hover>=0)fly(hover)}});
+  tip.addEventListener('click',()=>{if(hover>=0)fly(hover)});
+  /* Click a star → the camera dives onto it, then the record opens; closing the record flies back out. */
+  function fly(i){const r=records[i];if(!r||!window.openRecord)return;
+   if(reduced.matches||paused()){window.openRecord(r.id);return}
+   const ang=rec.a[i]+time*.2/(.7+rec.r[i]*.5);tilt.updateMatrixWorld(true);v3.set(Math.cos(ang)*rec.r[i],rec.y[i]+.022*rec.r[i]*rec.r[i]*Math.sin(ang-.6),Math.sin(ang)*rec.r[i]);tilt.localToWorld(v3);v3.project(camera);
+   const b=canvas.getBoundingClientRect();zoomAt(3.4,b.left+(v3.x*.5+.5)*b.width,b.top+(-v3.y*.5+.5)*b.height);uniforms.uPulse.value.set(uniforms.uMouse.value.x,uniforms.uMouse.value.y,time);
+   setTimeout(()=>window.openRecord(r.id),560)}
+  const rvEl=document.getElementById('recordView');if(rvEl&&typeof MutationObserver==='function')new MutationObserver(()=>{if(rvEl.hidden)zoomReset()}).observe(rvEl,{attributes:true,attributeFilter:['hidden']});
   hero.addEventListener('pointerleave',()=>{mouse.in=false;uniforms.uMouseOn.value=0;setHover(-1)});
 
   /* ---------- loop ---------- */
