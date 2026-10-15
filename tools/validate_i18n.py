@@ -164,7 +164,7 @@ def main() -> int:
     print("OK: all data-i18n keys resolve" if not any("data-i18n" in f for f in failures) else "FAIL: data-i18n keys")
 
     # (f) literal t('...') keys in site JS
-    for js in ("app.js", "discovery.js", "effects.js", "visuals.js", "record.js"):
+    for js in ("app.js", "discovery.js", "effects.js", "visuals.js", "record.js", "palette.js"):
         src = (SITE / js).read_text(encoding="utf-8")
         for m in re.finditer(r"\bt\('([^']+)'\)", src):
             key = m.group(1)
