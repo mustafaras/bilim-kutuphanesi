@@ -1023,3 +1023,8 @@ button.stat:focus-visible,.bottom-nav a:focus-visible,.bottom-nav button:focus-v
 .rv-constellation.rv-3d .rv-node .rv-dot{position:absolute;inset:0;width:15px;height:15px}
 .rv-constellation.rv-3d .rv-node-label{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:9px;width:max-content;max-width:138px}
 .rv-constellation.rv-3d .rv-node:hover{z-index:9999!important}
+
+/* Package 9: record view never overflows horizontally on phones */
+@media(max-width:1100px){.rv-sheet{grid-template-columns:minmax(0,1fr)}.rv-art-col,.rv-plate,.rv-constellation-wrap{min-width:0}.rv-art .catalog-cover{min-height:min(420px,112vw);width:100%}.rv-halo{max-width:100%}}
+@media(max-width:760px){.rv-constellation.rv-3d .rv-node-label{display:none}.rv-constellation.rv-3d .rv-node.hot .rv-node-label,.rv-constellation.rv-3d .rv-node:focus-visible .rv-node-label{display:grid;z-index:5}.rv-constellation.rv-3d .rv-node{width:22px;height:22px}.rv-constellation.rv-3d .rv-node .rv-dot{inset:3.5px}}
+@media(max-width:1100px){.rv-constellation{width:100%;min-width:0;box-sizing:border-box}}

@@ -138,6 +138,11 @@ def main():
                                         break
                             except Exception:
                                 pass
+                    page.evaluate("openRecord(records[3].id)")
+                    page.wait_for_timeout(900)
+                    rover = page.evaluate("(()=>{const v=document.getElementById('recordView');return v.scrollWidth-v.clientWidth})()")
+                    if rover > 1:
+                        failures.append(f"[{tag}] record view horizontal overflow {rover}px")
                     ctx.close()
             browser.close()
     finally:

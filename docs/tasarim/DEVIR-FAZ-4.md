@@ -167,3 +167,9 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - `constellation3d.js`: kayıt sayfasındaki takımyıldızı three.js ile canlı sahne. DOM düğmeleri (`.rv-node`) erişilebilir/tıklanabilir katman olarak kalır; GL tuvali (`.rv-gl`) arkada derinlikli yıldızlar, bulutsu, parlayan çekirdek, yörünge halkaları, ilişki renkli kenarlar ve akan parçacıklar çizer; her karede düğmelerin `left/top` değeri 3B'den yeniden izdüşürülür (sürükleyince etiketler takip eder; atalet, boşta yumuşak salınım, çift tık sıfırlar, Shift+ok klavye). Koyu: additive ışıma; açık: parşömen üzerine mürekkep (NormalBlending). WebGL yok/reduced-motion → eski SVG.
 - Düğümde nokta artık düğmenin merkezi (etiket `position:absolute` altta), böylece halo noktayla hizalı. Yerleşim iki halkaya (138/218) alternatif — etiket çakışması giderildi.
 - Hero: alan çipleri cam "dock" içine alındı, spektrum rozeti ayrı satıra; kısa ekranda (≤820px) spektrum gizlenir. Spektrum etiketleri taşmıyordu→ genişlik 300px.
+
+## 21. Paket 9 (v65) — kayıt görünümü mobil taşma
+
+- 390px'te kayıt görünümü 96px yatay taşıyordu (`.rv-art-col` ve `.rv-constellation` aspect-ratio + min-height'tan gelen içsel genişlik, `1fr` izi min-content'e açıktı). Çözüm: `grid-template-columns:minmax(0,1fr)`, `min-width:0`, `width:100%`. Mobilde 3B takımyıldızda etiketler yalnızca dokunulan/odaklanan düğümde görünür.
+- `tools/ui_audit.py` artık her genişlikte bir kayıt açıp `#recordView` yatay taşmasını da denetler (CI kapısı).
+- Bilinen kozmetik: "Tümü" koleksiyon görünümünde iki "Chemistry" gerçeği (kitaplar `17 - Kimya`, Nobel `02 - Kimya`); koleksiyon seçilince tek görünür. Birleştirmek test sözleşmesini değiştirir, bırakıldı.
