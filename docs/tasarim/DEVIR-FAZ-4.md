@@ -80,3 +80,11 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - **OG**: `site/og/default.png` commit'li (37 KB); `tools/og_cards.py --all` opsiyonel (repo 10 MB disiplini için CI ÜRETMEZ; `.gitignore` `site/og/*.png` + `!default.png`). og:title/description/url JS ile canlı güncellenir.
 - **View Transition**: kaynak karta inline `view-transition-name:bk-cover`, mutate içinde yeni kapak aynı adı alır; root geçişleri CSS'te kapatıldı; `effects-paused`/reduced-motion'da morph atlanır.
 - `pages.yml` artık `record.js` + `facets.js` de kontrol eder; `validate_i18n.py` ve `validate_site.py` record.js'i tarar.
+
+## 10. FAZ-6 devri — komut paleti (v51)
+
+- `site/palette.js` IIFE; API'yi yalnızca `window.` üzerinden dışa açar (openPalette/closePalette/paletteIsOpen/shortcutsIsOpen/paletteQuery/paletteResults/palettePick). app.js/record.js de `window.openPalette` üzerinden bağlanır — vm testlerinde ham tanımlayıcı çözümlenemez.
+- ⌘K sahibi artık palette.js (aç/kapat toggle). app.js yalnızca preventDefault + palet yoksa arama kutusuna odak yedeği. `/` aynen aramaya odak.
+- Kayıt kısayolları record.js'te: j/k, kök kaydı da içeren takımyıldız halkasında döner (travelList=[current,...related]); s favori düğmesini basar, c `copyText(citation())` çağırır — düğme delegation'ına değil doğrudan fonksiyona bağlanır (sahte DOM'da #recordCiteCopy'nin kendi click handler'ı yok).
+- Sahte DOM: `el()` artık `removeAttribute` içeriyor; palet klavye turları `documentEvents` keydown döngüsüyle test ediliyor (üç handler'da da güvenli).
+- Sürüm v51; sw FILES'ta `palette.js?v=51`; validate_site dosya listesi + `$()` taraması + validate_i18n t() taraması palette.js'i kapsıyor.

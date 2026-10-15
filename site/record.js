@@ -92,6 +92,13 @@
  function onPop(){const id=urlHasRecord();const openNow=view.hidden===false;if(id&&records.some(r=>r.id===id)){if(!openNow||current.id!==id)open(id)}else if(!id&&openNow)close()}
  if(typeof window!=='undefined'&&window.addEventListener)window.addEventListener('popstate',onPop);
 
+ /* FAZ-6 · Kayıt görünümü klavye uygarlığı: j/k komşu yolculuğu, s yıldız, c alıntı. */
+ let travelList=[],travelIndex=0;
+ const press=el=>{if(!el)return;if(el.click)el.click();else if(el.handlers&&el.handlers.click)el.handlers.click()};
+ function travel(dir){if(!current)return;if(!travelList.some(n=>n.id===current.id)){travelList=[current,...relatedRecords(current,8)];travelIndex=0}if(travelList.length<2)return;travelIndex=(travelIndex+dir+travelList.length)%travelList.length;open(travelList[travelIndex].id,null)}
+ document.addEventListener('keydown',event=>{if(view.hidden!==false||event.ctrlKey||event.metaKey||event.altKey)return;if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;if(typeof window!=='undefined'&&window.paletteIsOpen&&(window.paletteIsOpen()||window.shortcutsIsOpen()))return;const key=String(event.key).toLowerCase();
+  if(key==='j'){event.preventDefault();travel(1)}else if(key==='k'){event.preventDefault();travel(-1)}else if(key==='s'){event.preventDefault();press(document.getElementById('recordFavorite'))}else if(key==='c'&&current){event.preventDefault();copyText(citation(current).full,'citedCopied')}});
+
  function ready(){const id=new URLSearchParams(location.search).get('record');if(id&&records.some(r=>r.id===id))open(id)}
  document.addEventListener('library:ready',ready);
  document.addEventListener('library:language',()=>{if(current)renderRecord()});
