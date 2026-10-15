@@ -151,13 +151,25 @@
 
   /* ---------- DOM: field labels, tooltip, zoom controls, hint ---------- */
   const labelBox=document.createElement('div');labelBox.className='hero-fields';hero.appendChild(labelBox);
+  const ground=document.createElement('div');ground.className='hero-ground';ground.setAttribute('aria-hidden','true');hero.appendChild(ground);
   const tip=document.createElement('div');tip.className='hero-tip';tip.setAttribute('aria-hidden','true');tip.hidden=true;tip.setAttribute('role','presentation');hero.appendChild(tip);
   const zoomBox=document.createElement('div');zoomBox.className='hero-zoom';zoomBox.setAttribute('role','group');hero.appendChild(zoomBox);
   const hint=document.createElement('p');hint.className='hero-hint';hint.setAttribute('aria-hidden','true');hero.appendChild(hint);
-  let labels=[],focus=-1;
+  let labels=[],focus=-1,rdBox=null,chipBox=null,stats=[],lastFocus=-2;
+  function setReadout(i){if(!rdBox)return;const k=rdBox.querySelector('.dr-k'),tt=rdBox.querySelector('.dr-t'),m=rdBox.querySelector('.dr-m'),bar=rdBox.querySelector('.dr-bar b');if(!k)return;
+   const total=records.length||1;
+   if(i<0||!stats[i]){k.textContent=t('deckAll');tt.textContent=total.toLocaleString(locale())+' '+t('records');m.textContent=DISCOVERY.length+' '+t('deckFields');bar.style.width='100%';rdBox.style.removeProperty('--fc');rdBox.classList.remove('has-field')}
+   else{const d=DISCOVERY[i],st=stats[i];k.textContent=String(i+1).padStart(2,'0')+' · '+t('deckField');tt.textContent=d.title[uiLang==='en'?1:0];m.textContent=st.n.toLocaleString(locale())+' '+t('records')+' · '+st.l+' '+t('deckLangs')+' · '+st.a.toLocaleString(locale())+' '+t('deckAuthors');bar.style.width=Math.max(4,st.n/total*100*3).toFixed(1)+'%';rdBox.style.setProperty('--fc','#'+FIELD[i].getHexString());rdBox.classList.add('has-field')}
+   const lines=rdBox.querySelectorAll('.hs-bar i');lines.forEach((el,j)=>el.classList.toggle('hot',i>=0&&j===i%4))}
   function fieldRun(i){try{reset();discoveryIndex=i;populateFilters();render();const el=document.getElementById('catalog');if(el)el.scrollIntoView({block:'start'})}catch{}}
   function buildLabels(){
+   const spec=hero.querySelector('.hero-spectrum');if(spec&&spec.parentNode!==labelBox&&!(rdBox&&rdBox.contains(spec)))spec.dataset.home='1';
    labelBox.innerHTML='';labels=[];
+   rdBox=document.createElement('div');rdBox.className='deck-read';rdBox.setAttribute('aria-hidden','true');rdBox.innerHTML='<p class="dr-k"></p><p class="dr-t"></p><p class="dr-m"></p><i class="dr-bar"><b></b></i><div class="dr-spec"></div>';
+   chipBox=document.createElement('div');chipBox.className='deck-chips';labelBox.appendChild(rdBox);labelBox.appendChild(chipBox);
+   if(spec)rdBox.querySelector('.dr-spec').appendChild(spec);
+   stats=DISCOVERY.map((d,i)=>{const set=new Set(),au=new Set();let n=0;for(const r of records){let g=-1;try{g=recordArtIndex(r)}catch{}if(g!==i)continue;n++;if(r.language)set.add(r.language);if(r.author)au.add(r.author)}return{n,l:set.size,a:au.size}});
+   setReadout(-1);
    zoomBox.setAttribute('aria-label',t('heroZoom'));
    zoomBox.innerHTML=`<button type="button" data-z="in" aria-label="${esc(t('heroZoomIn'))}">+</button><button type="button" data-z="out" aria-label="${esc(t('heroZoomOut'))}">−</button><button type="button" data-z="reset" aria-label="${esc(t('heroZoomReset'))}">⌂</button>`;
    hint.textContent=t('heroHint');
@@ -167,7 +179,7 @@
     const nm=d.title[uiLang==='en'?1:0];b.innerHTML=`<i aria-hidden="true"></i><span>${esc(nm)}</span><small>${n.toLocaleString(locale())}</small>`;
     b.setAttribute('aria-label',`${nm} · ${n.toLocaleString(locale())} ${t('records')}`);
     b.addEventListener('pointerenter',()=>{focus=i});b.addEventListener('pointerleave',()=>{focus=-1});b.addEventListener('focus',()=>{focus=i});b.addEventListener('blur',()=>{focus=-1});
-    b.addEventListener('click',()=>fieldRun(i));labelBox.appendChild(b);labels.push({b,ang:i*(2*Math.PI/8)+.35+phase(RMAX*.66)})})}
+    b.addEventListener('click',()=>fieldRun(i));chipBox.appendChild(b);labels.push({b,ang:i*(2*Math.PI/8)+.35+phase(RMAX*.66)})})}
 
   /* ---------- post-processing (bloom, dark theme) ---------- */
   let composer=null,bloom=null,useBloom=false;
@@ -275,6 +287,7 @@
    glow.material.opacity=(root.dataset.theme==='light'?.3:.1)*uniforms.uFade.value+.03*Math.sin(time*.9);
    uniforms.uMouseOn.value+=((mouse.in&&!drag?1:0)-uniforms.uMouseOn.value)*Math.min(1,dt*5);
    hint.classList.toggle('show',time>1.2&&time<10);
+   if(focus!==lastFocus){lastFocus=focus;setReadout(focus)}
    if(labels.length)labels.forEach((l,i)=>{const on=focus===i;l.b.classList.toggle('on',on);l.b.classList.toggle('dim',focus>=0&&!on)});
    if(root.dataset.theme!=='light')meteors.forEach(m=>{m.next-=dt;if(!m.l.visible&&m.next<=0){m.l.visible=true;m.t=0;m.life=1.1+rnd()*.7;m.x=(rnd()-.2)*W*.7;m.y=H*.5-rnd()*H*.25;const a=-.45-rnd()*.3;m.vx=Math.cos(a)*(W*.5);m.vy=Math.sin(a)*(W*.5);m.next=6+rnd()*8}
     if(m.l.visible){m.t+=dt;const kk=m.t/m.life,pos=m.l.geometry.attributes.position,col=m.l.geometry.attributes.color,n=pos.count,hx=m.x+m.vx*m.t*.5,hy=m.y+m.vy*m.t*.5;

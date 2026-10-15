@@ -203,3 +203,9 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 
 - Katalog kartlarında canlı sanat 150px yüksekliğe çıktı: `.card-illustration:has(.living-art){height:150px}` (ebeveyn sabit 110px yüksekliği etiketi kırpıyordu). Mobilde 126px.
 - CI: Pages deploy adımı "in progress deployment" (HTTP 400) hatasında 150 sn ve 240 sn bekleyip yeniden dener (Paket 13-14 yayınları bu yüzden düşmüştü; elle iptal API yolu proxy ile kapalıydı).
+
+## 28. Paket 16 (v72) — hero "enstrüman güvertesi"
+
+- Yer bandındaki çipler + spektrum rozeti tek cam güverteye (`.hero-fields`, ≥901px) birleştirildi: solda canlı okuma paneli (`.deck-read`: alan no, ad, kayıt·dil·yazar sayısı, pay çubuğu, spektrum; çipe hover/odakta güncellenir, ilgili spektrum çizgisi `hot` yanar), sağda 4x2 çip ızgarası. Sayaçlar çiplerde gizli (okuma panelinde).
+- Yer düzlemine hafif perspektif ızgara (`.hero-ground`). Mobilde (<=900px) eski yatay şerit; okuma paneli ve ızgara gizli.
+- `hero3d.js` `buildLabels` yeniden çağrılırsa spektrum eski panelden alınıp yenisine taşınır.
