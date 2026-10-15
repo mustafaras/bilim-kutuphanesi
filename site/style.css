@@ -1095,3 +1095,11 @@ button.stat:focus-visible,.bottom-nav a:focus-visible,.bottom-nav button:focus-v
 .la-ripple2{transform-origin:70px 76px;animation:la-ripple 4.2s ease-out infinite}
 .rv-art .living-art .la-t{font-size:6.8px}
 .rv-art .living-art{min-height:280px}.rv-art .living-art svg{width:min(300px,86%);height:auto;aspect-ratio:140/110}
+
+/* Package 15: larger living art on catalog cards */
+.card .living-art{min-height:132px}.card .living-art svg{width:min(168px,80%);height:auto;aspect-ratio:140/110}
+.card .living-art{min-height:150px;height:auto;overflow:visible}.card .living-art svg{width:min(150px,72%)}
+.card-illustration .subject-art.living-art{height:150px;min-height:150px}.card-illustration .subject-art.living-art svg{width:150px;height:118px}
+@media(max-width:760px){.card-illustration .subject-art.living-art{height:126px;min-height:126px}.card-illustration .subject-art.living-art svg{width:128px;height:100px}}
+.card-illustration:has(.living-art){height:150px}
+@media(max-width:760px){.card-illustration:has(.living-art){height:126px}}

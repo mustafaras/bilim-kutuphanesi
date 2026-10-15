@@ -198,3 +198,8 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - Desen sayısı 10 → 16: graph (felsefe/sosyal bilimler), scales (tarih-siyaset-hukuk), globe (çevre), strata (yer bilimleri), spiral (sanat; altın oran + logaritmik spiral), armillary (bilim tarihi). `livingKey` tüm kitap kategorilerini kapsar.
 - Her desende bilimsel ek açıklama: köşe işaretleri (`.la-corner`) ve mono denklem/etiket (`LA_LABEL`: n=1·2·3, C₆H₆·120°, 5′/3′, ΣF=0, φ=1.618, ε=23.4° …). Etiket kontrastı için `.la-t{opacity:1}` (UI denetimi açık zeminli kartta 2.55:1 yakaladı).
 - Yörüngeler artık düzeltildi: elektron/uydu, ana grupla aynı süre/gecikmeyle ters dönen iç grup taşır → ebeveyn `scale(1 .38)` altında bile yuvarlak kalır. DNA sarmalı daha geniş/uzun (11 basamak). Kayıt kapağında sanat 300px.
+
+## 27. Paket 15 (v71)
+
+- Katalog kartlarında canlı sanat 150px yüksekliğe çıktı: `.card-illustration:has(.living-art){height:150px}` (ebeveyn sabit 110px yüksekliği etiketi kırpıyordu). Mobilde 126px.
+- CI: Pages deploy adımı "in progress deployment" (HTTP 400) hatasında 150 sn ve 240 sn bekleyip yeniden dener (Paket 13-14 yayınları bu yüzden düşmüştü; elle iptal API yolu proxy ile kapalıydı).
