@@ -182,3 +182,7 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 ## 23. Paket 11 (v67) — hero dock yer değiştirdi
 
 - Alan çipleri galaksinin üstünden kaldırıldı: yer (mavi) bandında tek, sessiz bir satır (`.hero-fields`, ≥901px). <1600px'te sayaçlar gizlenir (aria-label'de durur). Spektrum rozeti alt-sağda, hareket düğmesinin solunda. ≤820px yükseklikte spektrum gizli, çipler sağa hizalı.
+
+## 24. Paket 12 (v68)
+
+- Arşiv kartı başlığı: halka | başlık (sola) | sayı; EN modda `%100` yerine `100%`. Nobel/rotalar bölümleri gözden geçirildi, ek kusur yok.
