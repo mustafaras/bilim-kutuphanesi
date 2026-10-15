@@ -814,7 +814,7 @@ footer{margin-top:0}
 .hero-tip strong{font:400 15px/1.3 var(--serif);overflow-wrap:anywhere}.hero-tip span{font-size:12px;color:#b4c0cc}.hero-tip em{font:500 10px/1 var(--mono);font-style:normal;letter-spacing:.08em;color:#e8ce9e;margin-top:3px}
 :root[data-theme=light] .hero-tip{background:rgba(255,255,255,.96);border-color:rgba(19,43,59,.2);color:#13283a;box-shadow:0 20px 50px rgba(19,43,59,.22)}
 :root[data-theme=light] .hero-tip span{color:#46606f}:root[data-theme=light] .hero-tip em{color:#8a5a32}
-.hero:has(.hero-scene.hero-gl){cursor:grab}.hero:has(.hero-scene.hero-gl) :is(a,button,.hero-copy){cursor:auto}.hero:has(.hero-scene.hero-gl) :is(a,button){cursor:pointer}
+.hero:has(.hero-scene.hero-gl){cursor:grab}.hero:has(.hero-scene.hero-gl) :is(.hero-description,.hero-foot,.eyebrow){cursor:auto}.hero:has(.hero-scene.hero-gl) :is(a,button){cursor:pointer}
 .hero.hero-pick{cursor:pointer}.hero.hero-drag{cursor:grabbing}.hero.hero-drag .hero-copy{pointer-events:none}
 @media(hover:none){.hero-tip{display:none}}
 @media(prefers-reduced-motion:reduce){.hero-field{transition:none}}
@@ -847,3 +847,20 @@ footer{margin-top:0}
 @media(max-width:900px){.hero-hint{display:none}.hero-zoom{top:auto;bottom:70px;transform:none;flex-direction:row;right:var(--page-pad)}}
 @media(prefers-reduced-motion:reduce){.hero-hint{transition:none}}
 :root:not([data-theme=light]) .hero-vignette{background:linear-gradient(90deg,rgba(3,6,12,.9),rgba(3,6,12,.55) 44%,transparent 68%),radial-gradient(120% 96% at 66% 34%,transparent 30%,rgba(3,6,12,.88) 100%)}
+
+/* Record page: the sky banner is a header band; text never sits on it, the cover may overlap it */
+.rv-sky{height:150px}
+@media(min-width:1101px){.rv-sheet>:nth-child(2){padding-top:44px}}
+#recordView :is(h1,h2,h3,.rv-strip,.rv-author){position:relative;z-index:1}
+
+/* Scroll polish: no trapped wheel, no layout shift, themed slim scrollbars */
+html{scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--muted) 55%,transparent) transparent}
+:root[data-theme=dark]{scrollbar-color:#3a4f5c #0a1018}
+*{scrollbar-width:thin}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--muted) 50%,transparent);border-radius:8px;border:2px solid transparent;background-clip:padding-box}::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--muted) 75%,transparent);background-clip:padding-box;border:2px solid transparent}::-webkit-scrollbar-track{background:transparent}
+.facet-rail{overscroll-behavior:auto}
+@media(max-height:899px){.facet-rail{position:static;max-height:none;overflow:visible}}
+.hero:has(.hero-scene.hero-gl){touch-action:pan-y}
+/* Spectrum HUD keeps its own backing so it reads over sky or ground, in both themes */
+.hero-spectrum{padding:10px 12px 9px;border-radius:8px;background:rgba(6,11,20,.62);border:1px solid #ffffff1a}
+:root[data-theme=light] .hero-spectrum{background:rgba(19,40,58,.78);border-color:#ffffff30}
