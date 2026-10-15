@@ -903,3 +903,15 @@ html{scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:color-mix(in s
 :root[data-theme=dark] .route-body li a:hover,:root[data-theme=dark] .route-body li a:focus-visible{background:linear-gradient(120deg,#223a4a,#182833);border-color:var(--accent);box-shadow:0 10px 28px #0006}
 .route-body li a strong{color:var(--ink)}
 .route-body li a small{color:var(--muted)}
+
+/* Package 2 · Stage: live 3D in tiles and on the shelf */
+.tile-3d{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;transition:opacity .6s var(--ease-out);z-index:1}
+.tile-3d.on{opacity:1}
+.atlas-tile .subject-art{position:relative}
+.atlas-tile .subject-art.has-3d svg,.atlas-tile .subject-art.has-3d .art-grid{opacity:0;transition:opacity .5s}
+.spotlight-card{position:relative}
+.shelf-3d{position:absolute;pointer-events:none;opacity:0;transition:opacity .6s var(--ease-out);z-index:2}
+.shelf-3d.on{opacity:1}
+.spotlight-card.has-3d .catalog-cover{opacity:0}
+.spotlight-card.has-3d{cursor:grab}
+@media(prefers-reduced-motion:reduce){.tile-3d,.shelf-3d{transition:none}}

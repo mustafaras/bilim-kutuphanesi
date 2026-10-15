@@ -126,3 +126,10 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - **Koyu temada beyaz kartlar:** `.route-body li a{background:#fffefa}` sabit renkti (açık kart + açık başlık). Token'a bağlandı, koyu temaya özel gradyan/hover. Sabit açık arka plan taraması: başka eşleşme yok.
 - **Tipografi:** 8–10px mono etiketler 11px'e çıkarıldı.
 - **CI:** `validate_site.py` artık `sw.js FILES` kapsamını denetler (her üst düzey `.js`, `vendor/**.js`, `fonts/*.woff2`).
+
+## 15. Paket 2 — paylaşılan WebGL sahnesi (Stage) — sürüm v59
+
+- **`site/stage.js`:** tek three.js renderer, sayfadaki sıradan **2D canvas'lara** çizer (sabit tam sayfa canvas yerine): DOM ile kayar, `overflow`/z-sırasına uyar, yazının altında kalır, kaydırmada gecikmez. Tek WebGL bağlamı tüm karolara hizmet eder. Görünür olanlar render edilir (IntersectionObserver); boştakiler 30fps, üzerine gelinen tam hızda; `effects-paused`/reduced-motion'da tek kare (dirty bayrağı).
+- **Bento:** 8 alanın her biri canlı çizgi-gravür sahne (atom, DNA, kıta/ark globe, açık kitap + uçuşan sayfalar, kafes + sinyaller, halkalı gezegen, armiller küre, Nobel madalyası); imleçle eğilir, hover'da hızlanır. SVG gravür yedek kalır (`.has-3d` ile soluklaşır).
+- **Vitrin:** gerçek 3B kitaplar (kapak dokusu kayıttan canvas'ta çizilir: alan, başlık, yazar; sırt/arka/sayfa dokuları); imleçle eğilir, sürükleyerek çevrilir (atalet), sürükleme sonrası tıklama bastırılır (`click` capture), düz tıklama kaydı açar.
+- `Stage` sonraki paketler için (Nobel yıl galaksisi vb.) `register(canvas2d, factory)` API'sidir.
