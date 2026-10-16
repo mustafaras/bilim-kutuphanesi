@@ -237,12 +237,24 @@
  function roundedShape(m,w,h,r){const s=new m.Shape(),x=-w/2,y=-h/2;s.moveTo(x+r,y);s.lineTo(x+w-r,y);s.quadraticCurveTo(x+w,y,x+w,y+r);s.lineTo(x+w,y+h-r);s.quadraticCurveTo(x+w,y+h,x+w-r,y+h);s.lineTo(x+r,y+h);s.quadraticCurveTo(x,y+h,x,y+h-r);s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y);return s}
  function board(m,w,h,T,flipU){const g=new m.ExtrudeGeometry(roundedShape(m,w,h,.07),{depth:T,bevelEnabled:true,bevelSize:.016,bevelThickness:.016,bevelSegments:4,curveSegments:10});g.translate(0,0,-T/2);
   const pos=g.attributes.position,uv=g.attributes.uv;for(let i=0;i<pos.count;i++){let u=(pos.getX(i)+w/2)/w;if(flipU)u=1-u;uv.setXY(i,u,(pos.getY(i)+h/2)/h)}uv.needsUpdate=true;return g}
+ /* B1: edge wear (worn tan speckle along the edges / corners; `rough` mode paints rougher, i.e. lighter, pixels) and a fingerprint smudge as clearcoat normal */
+ function wearEdges(x,W,H,seed,mode){let s=seed|0;const rnd=()=>{s=(s*1664525+1013904223)|0;return((s>>>8)&0xffff)/65536};
+  x.save();for(let i=0;i<1100;i++){const side=(rnd()*4)|0,t=rnd(),d=Math.pow(rnd(),3.4)*20;let px,py;
+   if(side===0){px=t*W;py=d}else if(side===1){px=t*W;py=H-d}else if(side===2){px=d;py=t*H}else{px=W-d;py=t*H}
+   const corner=Math.min(Math.min(px,W-px),Math.min(py,H-py));const k=1-Math.min(1,corner/46)*.6,r=.5+rnd()*1.7;
+   x.fillStyle=mode==='rough'?`rgba(255,255,255,${(.25+.4*rnd())*k})`:`rgba(${216+rnd()*24|0},${196+rnd()*22|0},${150+rnd()*30|0},${(.06+.16*rnd())*k})`;x.beginPath();x.arc(px,py,r,0,7);x.fill()}x.restore()}
+ function smudgeNormal(m,seed){const N=256,c=document.createElement('canvas');c.width=c.height=N;const x=c.getContext('2d');x.fillStyle='#000';x.fillRect(0,0,N,N);
+  let s=seed|0;const rnd=()=>{s=(s*1664525+1013904223)|0;return((s>>>8)&0xffff)/65536};
+  x.strokeStyle='#fff';for(let f=0;f<3;f++){const cx=rnd()*N,cy=rnd()*N,rx=22+rnd()*26,ry=rx*(1.25+rnd()*.35),rot=rnd()*3.14;x.save();x.translate(cx,cy);x.rotate(rot);x.globalAlpha=.55;x.lineWidth=1.5;for(let r=3;r<1;r++);for(let k=2;k<rx;k+=3.2){x.beginPath();x.ellipse(0,0,k,k*ry/rx,0,0,6.283);x.stroke()}x.restore()}
+  const src=x.getImageData(0,0,N,N).data,out=x.createImageData(N,N),h=(i,j)=>src[(((j+N)%N)*N+((i+N)%N))*4]/255;
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){const dx=(h(i+1,j)-h(i-1,j))*2.2,dy=(h(i,j+1)-h(i,j-1))*2.2,l=Math.hypot(dx,dy,1),o=(j*N+i)*4;out.data[o]=(-dx/l*.5+.5)*255;out.data[o+1]=(dy/l*.5+.5)*255;out.data[o+2]=(1/l*.5+.5)*255;out.data[o+3]=255}
+  x.putImageData(out,0,0);const t=new m.CanvasTexture(c);t.wrapS=t.wrapT=m.RepeatWrapping;return t}
  function bookScene(m,it,r,real){
   const{scene,camera}=rig(m,30,7.2),g=new m.Group();scene.add(g);const idx=(typeof recordArtIndex==='function')?recordArtIndex(r):0;
   const envMap=studioEnv(m);if(envMap)scene.environment=envMap;
-  const col=canvasTex(m,512,720,(x,W,H)=>paintCover(x,W,H,r,idx,false),true),mask=canvasTex(m,512,720,(x,W,H)=>paintCover(x,W,H,r,idx,true),false);
-  const rough=canvasTex(m,512,720,(x,W,H)=>{paintCover(x,W,H,r,idx,true);const d=x.getImageData(0,0,W,H),q=d.data;for(let i=0;i<q.length;i+=4){const v=q[i];const rr=Math.round(215-v*.78);q[i]=q[i+1]=q[i+2]=rr}x.putImageData(d,0,0)},false);
-  const MT=matOf(idx),bump=grainBump(m,mask,MT.bind,(idx+1)*7919+String(r.id||'').length*131),cover=new m.MeshPhysicalMaterial({map:col,roughnessMap:rough,roughness:1,metalnessMap:mask,metalness:1,bumpMap:bump,bumpScale:2.6,clearcoat:MT.coat,clearcoatRoughness:MT.rough*.7,sheen:.8,sheenRoughness:.6,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:1.1});
+  const wseed=(idx+3)*2654435+String(r.id||'').length*977,col=canvasTex(m,512,720,(x,W,H)=>{paintCover(x,W,H,r,idx,false);wearEdges(x,W,H,wseed,'col')},true),mask=canvasTex(m,512,720,(x,W,H)=>paintCover(x,W,H,r,idx,true),false);
+  const rough=canvasTex(m,512,720,(x,W,H)=>{paintCover(x,W,H,r,idx,true);const d=x.getImageData(0,0,W,H),q=d.data;for(let i=0;i<q.length;i+=4){const v=q[i];const rr=Math.round(215-v*.78);q[i]=q[i+1]=q[i+2]=rr}x.putImageData(d,0,0);wearEdges(x,W,H,wseed,'rough')},false);
+  const MT=matOf(idx),bump=grainBump(m,mask,MT.bind,(idx+1)*7919+String(r.id||'').length*131),cover=new m.MeshPhysicalMaterial({map:col,roughnessMap:rough,roughness:1,metalnessMap:mask,metalness:1,bumpMap:bump,bumpScale:2.6,clearcoat:MT.coat,clearcoatRoughness:MT.rough*.7,clearcoatNormalMap:smudgeNormal(m,wseed),clearcoatNormalScale:new m.Vector2(.16,.16),anisotropy:.5,anisotropyRotation:Math.PI/2,sheen:.8,sheenRoughness:.6,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:1.1});
   const backCol=canvasTex(m,512,720,(x,W,H)=>{const gr=x.createLinearGradient(0,0,W,H);gr.addColorStop(0,COVER[idx%8]);gr.addColorStop(1,'#0d1822');x.fillStyle=gr;x.fillRect(0,0,W,H);noise(x,W,H,.14,5200);x.strokeStyle=GOLD;x.lineWidth=3;x.strokeRect(24,24,W-48,H-48);x.lineWidth=1.2;x.strokeRect(34,34,W-68,H-68);x.fillStyle=GOLD;x.font='600 64px Fraunces,Georgia,serif';x.textAlign='center';x.fillText('BK',W/2,H/2);x.font='600 15px "IBM Plex Mono",monospace';x.fillText('BİLİM KÜTÜPHANEM',W/2,H/2+42);x.fillStyle='rgba(246,239,220,.16)';for(let i=0;i<9;i++)x.fillRect(80,120+i*22,W-160-((i*53)%90),5)},true);
   const backM=new m.MeshPhysicalMaterial({map:backCol,roughness:.75,sheen:.7,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:.8});
   const clothSide=new m.MeshPhysicalMaterial({color:new m.Color(COVER[idx%8]).multiplyScalar(.7),roughness:.8,sheen:.8,sheenColor:new m.Color(0x8fa3b8)});
@@ -256,11 +268,24 @@
   /* page block with real page-edge texture + headbands */
   const edgeV=pageEdge(m,true),edgeH=pageEdge(m,false),paper=new m.MeshStandardMaterial({color:0xefe6cf,roughness:.95}),
    pagesMat=[new m.MeshStandardMaterial({map:edgeV,roughness:.92,bumpMap:edgeV,bumpScale:.6}),paper,new m.MeshStandardMaterial({map:edgeH,roughness:.92,bumpMap:edgeH,bumpScale:.6}),new m.MeshStandardMaterial({map:edgeH,roughness:.92}),paper,paper];
-  const pgGeo=new m.BoxGeometry(W-.2,Hh-.14,D-.1,1,1,8),pgPos=pgGeo.attributes.position;for(let i=0;i<pgPos.count;i++){if(pgPos.getX(i)>0){const u=pgPos.getZ(i)/((D-.1)/2);pgPos.setX(i,pgPos.getX(i)+.022*(1-u*u))}}pgGeo.computeVertexNormals();const pages=new m.Mesh(pgGeo,pagesMat);pages.position.set(xL+(W-.2)/2+.01,0,0);g.add(pages);
+  const pgGeo=new m.BoxGeometry(W-.2,Hh-.14,D-.1,28,1,8),pgPos=pgGeo.attributes.position,PX=(W-.2)/2,PY=(Hh-.14)/2;/* fore-edge bulge + gently wavy head/tail edges (±0.004), so the block reads as loose leaves, not a brick */for(let i=0;i<pgPos.count;i++){const u=pgPos.getZ(i)/((D-.1)/2),px=pgPos.getX(i);if(px>PX-1e-4)pgPos.setX(i,px+.022*(1-u*u));if(Math.abs(Math.abs(pgPos.getY(i))-PY)<1e-4)pgPos.setY(i,pgPos.getY(i)+Math.sign(pgPos.getY(i))*.004*Math.sin(px*13+u*5.3)*Math.cos(px*5.1-u*2))}pgGeo.computeVertexNormals();const pages=new m.Mesh(pgGeo,pagesMat);pages.position.set(xL+(W-.2)/2+.01,0,0);g.add(pages);
   [1,-1].forEach(s=>{const hb=new m.Mesh(new m.CylinderGeometry(.02,.02,D-.12,12),new m.MeshStandardMaterial({color:0xb8423a,roughness:.5}));hb.rotation.x=Math.PI/2;hb.position.set(xL+.03,s*(Hh/2-.085),0);g.add(hb)});
-  /* ribbon bookmark */
-  const rg=new m.PlaneGeometry(.07,1.05,1,14),rp=rg.attributes.position;for(let i=0;i<rp.count;i++){const y=rp.getY(i);rp.setZ(i,Math.sin((y+.5)*5)*.02);rp.setX(i,rp.getX(i)+Math.sin((y+.5)*3.2)*.025)}rg.computeVertexNormals();
-  const rp0=Float32Array.from(rp.array),ribbon=new m.Mesh(rg,new m.MeshPhysicalMaterial({color:0xa5262c,roughness:.4,sheen:1,sheenColor:new m.Color(0xff8a80),side:m.DoubleSide}));ribbon.position.set(xL+.55,-Hh/2-.38,.02);g.add(ribbon);
+  /* ribbon bookmark: 6-segment verlet chain hanging from the head of the block (gravity follows the book's pose; a fast yaw flicks the tail); the plane's rows are skinned onto the chain */
+  const rg=new m.PlaneGeometry(.07,1.05,1,14),RN=6,RL=1.05/RN,AX=xL+.55,AY=-Hh/2+.145,AZ=.02,chain=[];for(let i=0;i<=RN;i++)chain.push({x:AX,y:AY-i*RL,z:AZ,px:AX,py:AY-i*RL,pz:AZ});
+  const rpos=rg.attributes.position,rrow=new Float32Array(rpos.count),rside=new Float32Array(rpos.count);for(let i=0;i<rpos.count;i++){rrow[i]=(.525-rpos.getY(i))/1.05*RN;rside[i]=rpos.getX(i)}
+  const ribbon=new m.Mesh(rg,new m.MeshPhysicalMaterial({color:0xa5262c,roughness:.4,sheen:1,sheenColor:new m.Color(0xff8a80),side:m.DoubleSide}));ribbon.frustumCulled=false;g.add(ribbon);
+  const gdown=new m.Vector3(),qInv=new m.Quaternion();let lastYaw=null;
+  const stepRibbon=(dt,yawV,t)=>{dt=Math.min(dt,.033);g.updateMatrixWorld(true);g.getWorldQuaternion(qInv).invert();gdown.set(0,-1,0).applyQuaternion(qInv);
+   const G=7.5,wx=Math.sin(t*1.3)*.5+yawV*.9;
+   for(let i=1;i<=RN;i++){const n=chain[i],tail=i/RN,vx=(n.x-n.px)*.955,vy=(n.y-n.py)*.955,vz=(n.z-n.pz)*.955;n.px=n.x;n.py=n.y;n.pz=n.z;
+    n.x+=vx+(gdown.x*G+wx*tail)*dt*dt;n.y+=vy+gdown.y*G*dt*dt;n.z+=vz+(gdown.z*G+Math.cos(t*1.1+i)*.35*tail)*dt*dt}
+   for(let it2=0;it2<5;it2++){chain[0].x=AX;chain[0].y=AY;chain[0].z=AZ;
+    for(let i=0;i<RN;i++){const a=chain[i],b=chain[i+1];let dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z;const d=Math.hypot(dx,dy,dz)||1e-6,k=(d-RL)/d*(i===0?1:.5);
+     if(i===0){b.x-=dx*k;b.y-=dy*k;b.z-=dz*k}else{a.x+=dx*k;a.y+=dy*k;a.z+=dz*k;b.x-=dx*k;b.y-=dy*k;b.z-=dz*k}}
+    chain.forEach(n=>{if(n.z<.004&&n.x>xL-.05&&n.x<xL+W-.1&&n.y>-Hh/2)n.z=.004})}
+   for(let i=0;i<rpos.count;i++){const f=Math.min(RN-1e-4,rrow[i]),k=Math.floor(f),u=f-k,a=chain[k],b=chain[k+1];rpos.setXYZ(i,a.x+(b.x-a.x)*u+rside[i],a.y+(b.y-a.y)*u,a.z+(b.z-a.z)*u)}
+   rpos.needsUpdate=true;rg.computeVertexNormals()};
+  for(let i=0;i<30;i++)stepRibbon(.016,0,0);
   /* contact shadow: two soft layers */
   const shMap=(()=>{const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d'),gr=x.createRadialGradient(128,64,0,128,64,120);gr.addColorStop(0,'rgba(0,0,0,.62)');gr.addColorStop(.5,'rgba(0,0,0,.22)');gr.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=gr;x.fillRect(0,0,256,128);return new m.CanvasTexture(c)})();
   const shadow=new m.Mesh(new m.PlaneGeometry(3.8,1.3),new m.MeshBasicMaterial({map:shMap,transparent:true,depthWrite:false}));shadow.rotation.x=-Math.PI/2;shadow.position.y=-1.78;scene.add(shadow);
@@ -284,7 +309,7 @@
     const calm=mode==='read'?0:1,openT=mode==='read'||mode==='drag'?0:hov*.21;open+=(openT-open)*k7;zoom+=((mode==="read"?1.06:1)-zoom)*k7;
     hinge.rotation.y=-open;g.scale.setScalar(zoom);
     g.rotation.y=yaw;g.rotation.x=pitch+(mode==='auto'?it.py*.2*hov:0)+Math.sin(t*.9)*.015*calm;g.position.y=Math.sin(t*1.1)*.08*calm+hov*.12*calm;
-    ribbon.rotation.z=Math.sin(t*1.3)*.05+yaw*.02;{const a=rg.attributes.position;for(let i=0;i<a.count;i++){const y0=rp0[i*3+1],tail=Math.max(0,(-y0+.525)/1.05);a.setZ(i,rp0[i*3+2]+Math.sin(t*2.1+y0*6)*.014*tail);a.setX(i,rp0[i*3]+Math.sin(t*1.7+y0*4)*.012*tail)}a.needsUpdate=true}ribbon.position.x=xL+.55+Math.sin(t*1.2)*.01;shadow.material.opacity=(real?.4:.95)-it.hoverT*.2;key.intensity=dark()?2.3:2.0;rim.intensity=dark()?1.1:.7}}}
+    {const yv=lastYaw==null?0:(yaw-lastYaw)/Math.max(dt,.001);lastYaw=yaw;stepRibbon(dt,Math.max(-3,Math.min(3,yv))*.5,t)}shadow.material.opacity=(real?.4:.95)-it.hoverT*.2;key.intensity=dark()?2.3:2.0;rim.intensity=dark()?1.1:.7}}}
 
  /* ---------- mounting ---------- */
  function mountAtlas(){
