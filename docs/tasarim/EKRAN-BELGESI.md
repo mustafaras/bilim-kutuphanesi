@@ -97,3 +97,14 @@ Görüntüler `ekran/v91/`. Kutu çerçevesi kaldırıldı; sahne kenarlarda say
 | Takımyıldızı | ![](ekran/v91/takimyildizi-dark.png) | ![](ekran/v91/takimyildizi-light.png) |
 | Geçiş (uçuş ortası) | ![](ekran/v91/gecis-1-dark.png) | ![](ekran/v91/gecis-1-light.png) |
 | Ana sayfa hero | ![](ekran/v91/hero-dark.png) | ![](ekran/v91/hero-light.png) |
+
+---
+
+# v92 — Takımyıldızı: gerçek gezegenler
+Prosedürel gezegenler (gaz devi + halka, karasal, çöl, buz), merkez yıldızdan aydınlatma, aylar, anamorfik ışık çizgisi, çerçevesiz kenar. Görüntüler `ekran/v92/` (1440 px, SwiftShader).
+
+| Kayıt | Koyu | Açık |
+|---|---|---|
+| 1 | ![](ekran/v92/takimyildizi-0-dark.png) | ![](ekran/v92/takimyildizi-0-light.png) |
+| 2 | ![](ekran/v92/takimyildizi-1-dark.png) | ![](ekran/v92/takimyildizi-1-light.png) |
+| 3 | ![](ekran/v92/takimyildizi-2-dark.png) | ![](ekran/v92/takimyildizi-2-light.png) |

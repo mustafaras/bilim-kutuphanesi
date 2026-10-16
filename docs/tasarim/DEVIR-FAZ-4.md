@@ -303,3 +303,14 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - **Hero galaksisi açık tema:** fragment shader'da `ink` yolu (doygunluk `1.3`, `*.5`), alfa `x3.2`, nokta boyutu `.95` — pastel katkılı ışık yerine koyu mürekkep tozu.
 - **Ölçülemeyen:** gerçek akıcılık (SwiftShader'da kare >1 sn, toplam süre ölçümü anlamsız); yalnızca sıralama (`leave` ≈ 800 ms) doğrulandı.
 - Hâlâ çerçeveli: Nobel Silüet/Galaksi panelleri (`.nc-3d`).
+
+## 42. Paket 28 (v92) — Takımyıldızı: prosedürel gezegenler, gerçek aydınlatma, doğal hareket
+**Şikâyet:** gezegenlerin hepsi aynı turuncu bantlı top; kutu kenarı hâlâ sezilir; hareket yapay.
+- **Gezegen shader'ı (`PLN_F`)**: kayıt (`spine|i|kind` hash) → dört aile: gaz devi (bantlar + fbm türbülans + fırtına lekesi), karasal (okyanus/kıta/kutup buzu, dönen bulut katmanı, gece yüzünde şehir ışıkları, okyanus speküleri), çöl (krater çizgileri), buz (çatlaklar). Renkler kitabın sırt renginden türetilir (`tint`). Merkez yıldızdan **gerçek Lambert** aydınlatma: `uSun` her karede yıldızın görüş uzayı konumu; terminatör, gün/gece, kenarda atmosfer saçılması (terminatörde turuncuya kayar). Kamera uzayında hesap — `uTime` tüm gezegenlerde ortak, `uRot` her gezegende farklı.
+- **Halkalar** (`RING_F`): gaz devlerinin 2/3'ü, bantlı/boşluklu, yıldıza göre aydınlık. **Aylar**: her gezegende 1–3, MeshStandard, sürekli dönüşte.
+- **Yıldız:** ekran-yatay anamorfik ışık çizgisi (koyu tema); hover'da güçlenir.
+- **Fare derinliği:** imleç konumu dünya/gök eksenlerini ±.16/.09 rad yavaşça yaylandırır (`ptrYaw/ptrPitch`); sürüklerken kapalı.
+- **Kenar:** `mask-image: radial-gradient(closest-side, #000 48%, transparent)`; önceki elips hâlâ üst kenarı gösteriyordu.
+- Gezegen yarıçapı 13→19+, etiket kayması 24 px (CSS `!important` + `declutter` y).
+- **Doğrulama:** 3 kayıt × 2 tema, shader derleme hatası yok (console `error/warning` + `pageerror` süzüldü); `ui_audit.py` WebGL günlüklerini yok sayar, shader hatası için ayrı bak.
+- **Ölçülemeyen:** gerçek GPU akıcılığı; fbm 5 oktav × 3 çağrı/piksel × 8 gezegen (gezegen küçük ekranda <100 px, ucuz olmalı ama ölçülmedi).
