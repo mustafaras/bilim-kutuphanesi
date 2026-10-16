@@ -1307,3 +1307,7 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 /* Package 25 — Nobel Galaxy legible on the light theme (stars are drawn as ink, not additive glow) */
 :root[data-theme=light] .nc-3d:not(.nc-sky) .nc-3d-labels span{color:#2f4a5a;font-weight:600;text-shadow:0 0 6px rgba(255,253,247,.95),0 0 2px rgba(255,253,247,.95)}
 :root[data-theme=light] .nc-3d .nc-3d-hint,:root[data-theme=light] .nc-3d .nc-3d-note{color:#3d5360}
+/* Package 26 — gravity lens (black-hole effect) is opt-in from the hero zoom dock */
+.hero-zoom .hero-lens-btn{margin-top:4px;border-top:1px solid var(--scene-line);border-radius:0 0 50% 50%;font-size:17px;opacity:.75}
+.hero-zoom .hero-lens-btn[aria-pressed=true]{background:var(--scene-brass);color:#10202c;opacity:1;border-radius:50%}
+:root[data-theme=light] .hero-zoom .hero-lens-btn[aria-pressed=true]{background:#b8893f;color:#fff}
