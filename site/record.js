@@ -77,7 +77,7 @@
   withMorph(sourceArt,()=>{renderRecord();view.hidden=false;view.scrollTop=0;document.getElementById('recordTitle').focus({preventScroll:true})});
   if(!wasOpen)lockPage();
   if(urlHasRecord()!==r.id){if(wasOpen||urlHasRecord())writeParam(r.id);else{pushed=true;history.pushState({record:r.id},'',(()=>{const u=new URL(location.href);u.searchParams.set('record',r.id);return u})())}}}
- function close(){if(view.hidden!==false)return;current=null;view.hidden=true;sheet.innerHTML='';unlockPage();writeParam(null);document.getElementById('recordShareFallback').hidden=true;if(returnFocus&&returnFocus.isConnected)returnFocus.focus()}
+ function close(){if(view.hidden!==false)return;/* A2: tell the hero where the cover is, so a star-born record can fly back into its star */try{const cov=document.getElementById('recordCoverArt');if(cov&&current)document.dispatchEvent(new CustomEvent('bk:record-closing',{detail:{id:current.id,rect:cov.getBoundingClientRect()}}))}catch{}current=null;view.hidden=true;sheet.innerHTML='';unlockPage();writeParam(null);document.getElementById('recordShareFallback').hidden=true;if(returnFocus&&returnFocus.isConnected)returnFocus.focus()}
 
  /* Okuma yolları / yazar-keşif gezintisi — katalog üstüne süzgeç uygular. */
  function browse(kind){if(!current)return;const record=current;returnFocus=null;close();reset();if(kind==='author')authorFacet=record.author;else $('collection').value=record.collection;populateFilters();if(kind==='category')$('category').value=record.category;render();$('cards').scrollIntoView({block:'start'});const first=$('cards').querySelector('.title-detail');if(first)first.focus({preventScroll:true})}

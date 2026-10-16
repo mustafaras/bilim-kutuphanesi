@@ -150,7 +150,7 @@ window.NobelSkyline=(()=>{
    if(!drag){yaw+=vy;vy*=.92}
    const sway=(reduced.matches||root.classList.contains('effects-paused'))?0:Math.sin(time*.35)*.045;
    tx+=(txT-tx)*Math.min(1,dt*3.2);dist+=(distT-dist)*Math.min(1,dt*5);
-   const tgtX=0,ang=yaw+sway;camera.position.set(tgtX+Math.sin(ang)*dist*Math.cos(pitch),Math.sin(pitch)*dist+1.4,Math.cos(ang)*dist*Math.cos(pitch));camera.lookAt(tgtX,1.15,0);
+   const tgtX=0,ang=yaw+sway,arrK=window.BKMotion?BKMotion.arrival(panel):1,dd=dist*(1+.42*(1-arrK));/* A1: dollies in as the section arrives */camera.position.set(tgtX+Math.sin(ang)*dd*Math.cos(pitch),Math.sin(pitch)*dd+1.4,Math.cos(ang)*dd*Math.cos(pitch));camera.lookAt(tgtX,1.15,0);
    if(cmpYear>=0&&beam2.visible){beam2.position.set(X0+cmpYear*DX,3,0);beam2.lookAt(camera.position.x,3,camera.position.z);let st=0;for(let k=0;k<K;k++)if(keys[k].i===cmpYear)st+=cur[k];const e2=idx.get(String(Y0+cmpYear));chip2.textContent=(Y0+cmpYear)+' · '+(e2?e2.total:0);v3.set(X0+cmpYear*DX,st+.5,0);v3.project(camera);const w2=canvas.clientWidth,h2=canvas.clientHeight,cw2=(chip2.offsetWidth||90)/2+8;chip2.style.transform=`translate(${Math.max(cw2,Math.min(w2-cw2,(v3.x*.5+.5)*w2)).toFixed(1)}px,${((-v3.y*.5+.5)*h2).toFixed(1)}px)`}
    if(selYear>=0){const e=idx.get(String(Y0+selYear));beam.position.set(X0+selYear*DX,3,0);beam.lookAt(camera.position.x,3,camera.position.z);if(chip&&e){chip.hidden=false;chip.textContent=(Y0+selYear)+' · '+e.total}}else if(chip)chip.hidden=true;
    const w=canvas.clientWidth,h=canvas.clientHeight;grp.updateMatrixWorld(true);

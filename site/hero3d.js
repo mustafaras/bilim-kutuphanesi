@@ -184,7 +184,7 @@
     b.addEventListener('click',()=>flyField(i));labelBox.appendChild(b);labels.push({b,i,ang:i*(2*Math.PI/8)+.35+phase(RMAX*.62),x:0,y:0,vis:false})})}
 
   /* ---------- post-processing (bloom, dark theme) ---------- */
-  let composer=null,bloom=null,useBloom=false,grade=null,caSpike=0,well=0,wellT=0,lensS=0;
+  let bloomOff=false,composer=null,bloom=null,useBloom=false,grade=null,caSpike=0,well=0,wellT=0,lensS=0;
   /* gravity lens / singularity is opt-in (default off): the toggle lives in the zoom dock and is remembered */
   let lensOn=false;try{lensOn=localStorage.getItem('bk-hero-lens')==='on'}catch{}
   if(post){try{composer=new post.EffectComposer(renderer);composer.addPass(new post.RenderPass(scene,camera));bloom=new post.UnrealBloomPass(new THREE.Vector2(256,256),.56,.6,.24);composer.addPass(bloom);
@@ -264,7 +264,9 @@
    mats.forEach(m=>{m.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;m.needsUpdate=true});
    lanes.visible=!light;glow.material.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;glow.material.color.set(light?0xffd9a0:0xffffff);glow.material.needsUpdate=true;
    meteors.forEach(m=>{if(light)m.l.visible=false});
-   useBloom=!light&&!!composer;canvas.classList.toggle('screen',useBloom);renderer.setClearColor(0x000000,useBloom?1:0)}
+   syncBloom()}
+  /* bloom is used on the dark theme while the composer exists and the governor has not suspended it */
+  function syncBloom(){useBloom=root.dataset.theme!=='light'&&!!composer&&!bloomOff;canvas.classList.toggle('screen',useBloom);renderer.setClearColor(0x000000,useBloom?1:0)}
   const draw=()=>{if(useBloom)composer.render();else renderer.render(scene,camera);domeDraw()};
 
   /* ---------- camera: zoom-to-cursor, pan, intro, scroll ---------- */
@@ -338,8 +340,18 @@
    try{ghost=document.createElement('div');ghost.className='fly-ghost';ghost.setAttribute('aria-hidden','true');ghost.style.cssText=`--fc:#${FIELD[rec.g[i]].getHexString()};left:${sx}px;top:${sy}px`;ghost.innerHTML='<div class="card-illustration"></div>';document.body.appendChild(ghost);
     const tx0=innerWidth*.5-sx,ty0=innerHeight*.46-sy;
     if(ghost.animate)ghost.animate([{transform:'translate(-50%,-50%) scale(.2)',opacity:0},{transform:'translate(-50%,-50%) scale(1)',opacity:1,offset:.25},{transform:`translate(calc(-50% + ${tx0*.55}px),calc(-50% + ${ty0*.55}px)) scale(5.2)`,opacity:1}],{duration:560,easing:'cubic-bezier(.45,0,.2,1)',fill:'forwards'})}catch{ghost=null}
+   flyBack={id:r.id,sx,sy,col:'#'+FIELD[rec.g[i]].getHexString(),t:performance.now()};
    setTimeout(()=>{window.openRecord(r.id,ghost);blurT=0;if(ghost)setTimeout(()=>ghost.remove(),1100)},560)}
-  window.BKHero={fly:i=>fly(i),count:()=>rec.n};/* test hook (tools/motion_audit.py) */
+  /* A2: closing a record that was opened from a star flies its cover back into that star (mirror of the dive) */
+  let flyBack=null;
+  document.addEventListener('bk:record-closing',e=>{const fb=flyBack,d=e.detail;flyBack=null;
+   if(!fb||!d||d.id!==fb.id||performance.now()-fb.t>6e5||reduced.matches||paused()||!d.rect||!d.rect.width)return;
+   try{const g=document.createElement('div');g.className='fly-ghost fly-return';g.setAttribute('aria-hidden','true');g.style.cssText=`--fc:${fb.col};left:${fb.sx}px;top:${fb.sy}px;opacity:1`;g.innerHTML='<div class="card-illustration"></div>';document.body.appendChild(g);
+    const cx=d.rect.left+d.rect.width/2,cy=d.rect.top+d.rect.height/2,k=Math.max(1,d.rect.width/34);
+    const an=g.animate([{transform:`translate(calc(-50% + ${cx-fb.sx}px),calc(-50% + ${cy-fb.sy}px)) scale(${k})`,opacity:1},{transform:'translate(-50%,-50%) scale(.22)',opacity:.9,offset:.82},{transform:'translate(-50%,-50%) scale(.1)',opacity:0}],{duration:560,easing:'cubic-bezier(.45,0,.2,1)',fill:'forwards'});
+    an.onfinish=()=>g.remove();setTimeout(()=>g.remove(),900);
+    setTimeout(()=>{caSpike=Math.max(caSpike,1.4)},470)}catch{}});
+  window.BKHero={fly:i=>fly(i),count:()=>rec.n,gov:{level:()=>degrade,feed:(avg,now)=>govern(avg,now),lock:()=>recLock}};/* test hook (tools/motion_audit.py) */
   const rvEl=document.getElementById('recordView');if(rvEl&&typeof MutationObserver==='function')new MutationObserver(()=>{if(rvEl.hidden)zoomReset()}).observe(rvEl,{attributes:true,attributeFilter:['hidden']});
   hero.addEventListener('pointerleave',()=>{mouse.in=false;uniforms.uMouseOn.value=0;setHover(-1)});
 
@@ -380,8 +392,17 @@
    const dt=Math.min(.05,(now-tPrev)/1000||0);tPrev=now;
    if(!visible||document.hidden||paused()||reduced.matches)return;
    update(dt);draw();if(MO)MO.tick(dt*1000);
-   /* quality governor: bloom -> resolution -> fewer stars -> fewer still (weak GPUs / software rendering) */
-   if(degrade<4&&(++frames>=90||(frames>=4&&performance.now()-gStart>1400))){const avg=acc/frames;gStart=performance.now();if(avg>(degrade<2?.026:.04)){degrade++;if(MO)MO.quality.set(degrade);if(useBloom&&degrade===1){composer=null;useBloom=false;canvas.classList.remove('screen');renderer.setClearColor(0x000000,0)}else{const f=[1,1,1,.7,.55][degrade];quality=f;if(degrade>=3){const keep=degrade===3?.55:.3;dust.geometry.setDrawRange(0,Math.floor(GN*keep));lanes.geometry.setDrawRange(0,Math.floor(LN*keep))}layout()}}frames=0;acc=0}else acc+=dt}
+   /* quality governor (see govern): one measurement window = 90 frames or 1.4 s */
+   if(++frames>=90||(frames>=4&&performance.now()-gStart>1400)){const avg=acc/frames,now=performance.now();gStart=now;frames=0;acc=0;govern(avg,now)}else acc+=dt}
+  /* Quality governor with hysteresis. Slow windows step DOWN at once (bloom -> resolution -> fewer stars -> fewer still).
+     Fast windows step back UP one level at a time, only after 4 consecutive fast windows and 20 s since the last change;
+     a recovery that is undone within 15 s locks recovery for 2 minutes, so a borderline GPU never flip-flops. */
+  const QPX=[1.6,1.6,1,.7,.55],QKEEP=[1,1,1,.55,.3];let lastChange=-1e9,lastRec=-1e9,recLock=0,good=0;
+  function setLevel(l,now){degrade=l;bloomOff=l>=1;quality=QPX[l];dust.geometry.setDrawRange(0,Math.floor(GN*QKEEP[l]));lanes.geometry.setDrawRange(0,Math.floor(LN*QKEEP[l]));lastChange=now;if(MO)MO.quality.set(l);syncBloom();layout()}
+  function govern(avg,now){
+   if(degrade<4&&avg>(degrade<2?.026:.04)){good=0;if(now-lastRec<15000)recLock=now+120000;setLevel(degrade+1,now);return degrade}
+   if(degrade>0&&avg<.0115&&now>recLock&&now-lastChange>20000){if(++good>=4){good=0;lastRec=now;setLevel(degrade-1,now)}}else good=0;
+   return degrade}
   function still(){introDone=true;time=3.6;scrollS=scrollP;update(0.001);draw()}
 
   /* ---------- wiring ---------- */

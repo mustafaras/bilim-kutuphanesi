@@ -189,7 +189,7 @@
   x.save();x.translate(W/2+10,H/2);x.rotate(Math.PI/2);x.fillStyle='#f6efdc';x.textAlign='center';{const fl=TF.fitLine(x,displayTitle(r),{maxW:H-270,sizes:[34,30,27,24,21],font:z=>'400 '+z+'px Fraunces,Georgia,serif'});x.font='400 '+fl.size+'px Fraunces,Georgia,serif';x.fillText(fl.text,0,0)}x.restore();
   const tx=new m.CanvasTexture(c);tx.colorSpace=m.SRGBColorSpace;return tx}
 
- window.BKStage={info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
+ window.BKStage={tiles:()=>items.filter(i=>i.canvas.classList.contains('tile-3d')&&i.camera).map(i=>({z:+i.camera.position.z.toFixed(3),op:i.canvas.style.opacity,top:Math.round(i.host.getBoundingClientRect().top+scrollY)})),info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
 
  /* Image-based lighting: a tiny studio (soft boxes) baked once into a PMREM map; makes foil, cloth, clearcoat and gold read as real materials. */
  let ENV=null;
@@ -349,7 +349,12 @@
   if(env)made.scene.environment=env;
   try{SOLID[i](m,made.scene,g,col)}catch{}
   made.scene.add(new m.AmbientLight(0xffffff,.45));const key=new m.DirectionalLight(0xfff1d6,2);key.position.set(-3,4,5);made.scene.add(key);
-  const up0=made.update;made.update=(t,dt,it2)=>{if(up0)up0(t,dt,it2);made.camera.position.x=it2.px*.45*it2.hoverT;made.camera.position.y=-it2.py*.28*it2.hoverT;made.camera.lookAt(0,0,0)};
+  const up0=made.update,z0=made.camera.position.z,MO=window.BKMotion;
+  made.update=(t,dt,it2)=>{if(up0)up0(t,dt,it2);
+   /* A1: the object dollies in (and fades up) as its tile arrives from below the fold; A4: a click dives the camera into it before the filter applies */
+   const arr=MO?MO.arrival(it2.host):1,dv=it2.diveT0?(MO||{ease:{inOut3:x=>x}}).ease.inOut3(Math.min(1,(performance.now()-it2.diveT0)/420)):0;
+   made.camera.position.x=it2.px*.45*it2.hoverT*(1-dv);made.camera.position.y=-it2.py*.28*it2.hoverT*(1-dv);made.camera.position.z=z0*(1+.5*(1-arr))*(1-.52*dv);made.camera.lookAt(0,0,0);
+   it2.canvas.style.opacity=arr>=.999?'':String((.3+.7*arr).toFixed(3));if(dv>0&&dv<1)it2.dirty=true};
   return made}});
 
  /* ---------- mounting ---------- */
@@ -358,7 +363,11 @@
    if(tile.querySelector('.tile-3d'))return;const art=tile.querySelector('.subject-art'),i=Number((tile.className.match(/atlas-(\d)/)||[])[1]);if(!art||!ATLAS[i])return;
    const cv=document.createElement('canvas');cv.className='tile-3d';cv.setAttribute('aria-hidden','true');art.appendChild(cv);
    const col=(getComputedStyle(tile).getPropertyValue('--atlas-light')||'#d9bd8a').trim();
-   register(cv,(m)=>{try{return ATLAS[i](m,null,new m.Color(col))}catch{return null}},{host:tile,onReady:()=>art.classList.add('has-3d')})})}
+   const it=register(cv,(m)=>{try{return ATLAS[i](m,null,new m.Color(col))}catch{return null}},{host:tile,onReady:()=>art.classList.add('has-3d')});
+   /* A4: clicking a tile first dives the camera into its object (420 ms), then the click goes through as usual; modifier clicks, reduced motion and paused effects skip the dive */
+   tile.addEventListener('click',e=>{if(tile.__dived||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey||e.button>0)return;if(!it.ready||paused()||(typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches))return;
+    e.preventDefault();e.stopImmediatePropagation();tile.__dived=true;it.diveT0=performance.now();tile.classList.add('diving');it.dirty=true;kick();
+    setTimeout(()=>{tile.classList.remove('diving');tile.click();setTimeout(()=>{tile.__dived=false;it.diveT0=0},150)},420)},true)})}
  function mountShelf(){
   document.querySelectorAll('.spotlight-card').forEach(card=>{
    if(card.querySelector('.shelf-3d'))return;const rec=(typeof records!=='undefined')&&records.find(r=>r.id===card.dataset.detail),cover=card.querySelector('.catalog-cover');if(!rec||!cover)return;

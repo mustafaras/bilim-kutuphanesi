@@ -39,6 +39,8 @@
  document.addEventListener('pointermove',e=>{if(rm.matches||e.pointerType==='touch')return;const c=e.target.closest&&e.target.closest('.card,.spotlight-card');if(!c){if(pq&&pq.el){pq.el.style.removeProperty('--mx');pq.el.style.removeProperty('--my');pq=null}return}
   if(pq&&pq.el!==c){pq.el.style.removeProperty('--mx');pq.el.style.removeProperty('--my')}pq={el:c,x:e.clientX,y:e.clientY,raf:pq&&pq.el===c?pq.raf:0};
   if(!pq.raf)pq.raf=requestAnimationFrame(()=>{const q=pq;if(!q)return;q.raf=0;const r=q.el.getBoundingClientRect();q.el.style.setProperty('--mx',(((q.x-r.left)/Math.max(1,r.width)-.5)*2).toFixed(3));q.el.style.setProperty('--my',(((q.y-r.top)/Math.max(1,r.height)-.5)*2).toFixed(3))})},{passive:true});
- window.BKMotion={ease,damp,spring,quality,tick,clamp01};
+ /* A1: how far an element has "arrived" while scrolling (0 = still below the fold, 1 = settled around the middle of the viewport); scenes use it to dolly in as their section approaches, continuing the hero's camera path */
+ const arrival=(el,from=1.05,to=.46)=>{if(!el||rm.matches||document.documentElement.classList.contains('effects-paused'))return 1;const r=el.getBoundingClientRect(),c=(r.top+r.height/2)/Math.max(1,innerHeight||800);return ease.smooth((from-c)/(from-to))};
+ window.BKMotion={ease,damp,spring,quality,tick,clamp01,arrival};
  window.__bkPerf=perf;
 })();
