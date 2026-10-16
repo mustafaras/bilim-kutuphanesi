@@ -314,3 +314,13 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - Gezegen yarıçapı 13→19+, etiket kayması 24 px (CSS `!important` + `declutter` y).
 - **Doğrulama:** 3 kayıt × 2 tema, shader derleme hatası yok (console `error/warning` + `pageerror` süzüldü); `ui_audit.py` WebGL günlüklerini yok sayar, shader hatası için ayrı bak.
 - **Ölçülemeyen:** gerçek GPU akıcılığı; fbm 5 oktav × 3 çağrı/piksel × 8 gezegen (gezegen küçük ekranda <100 px, ucuz olmalı ama ölçülmedi).
+
+## 43. Paket 29 (v93) — Nobel bölümü çerçevesiz + Paket C (dilim)
+**İstek:** Silüet ve Galaksi panelleri "yapmacık" kutular; Paket C'yi ultra premium uygula.
+- **Çerçevesiz:** `.nobel-chronicle` (dış kart), `.nc-3d`, `.nc-sky` kenarlık / zemin / yarıçap / gölge kaldırıldı (`!important`, çünkü açık tema kuralları daha özgül); Silüet canvas'ı iki eksenli `mask-composite:intersect` kenar solması, Galaksi canvas'ı `radial-gradient(closest-side,#000 64%,transparent)`. Galaksi kamerası 15.4→17.2 (halkanın üstü kırpılıyordu).
+- **C1 Silüet (dilim):** kule yüzlerinde **yanıp sönen pencere ızgarası** (`onBeforeCompile`, dünya konumundan hash'li pencereler, kategori rengiyle) + fresnel kenar ışığı; seçili yıl ışık sütununa **yükselen kıvılcımlar**; hacimde yavaş **toz zerreleri**; hepsi açık temada normal karışım + koyu mürekkep. `reduced-motion`/`effects-paused`'ta durağan.
+- **C2:** alt kenarda **yıl kaydırıcı** (`.nc-sky-time`, native `input[type=range]`, klavye eşdeğeri hazır, ödülsüz yıllarda en yakın veri yılına yapışır); seçili yılın **ekran-okuyucu tablosu** (`table.sr-only`).
+- **C4 (dilim):** Galaksi'de seçili yılın **ödül sahibi kapsülleri** (`.nc-cap`): yıldızın yanında yaylı belirir, merkezden dışa 34/26 px itilir, `declutter` ile çakışmaz, tıklayınca `openRecord`.
+- **Önceden var olan hata düzeltildi:** Silüet tooltip'inde `catName` tanımsızdı (kule üstüne gelince `ReferenceError`); `nobelCatLabel` ile tanımlandı.
+- **Test tuzağı:** `#timeline` gibi viewport'tan uzun elemanın ekran görüntüsü canvas'ı parça parça (boş) yakalar; panel elemanını ayrı çek ya da pencereyi yükselt. Kısa wait'te canvas `opacity` geçişinde kalır.
+- **Yapılmadı:** C3 karşılaştırma modu, C5 görünümler arası morph, C6 dossier çizgisi, cam (transmission) kule, düzlemsel yansıma.
