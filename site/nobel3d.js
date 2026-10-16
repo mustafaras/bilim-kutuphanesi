@@ -176,6 +176,7 @@
    canvas.parentNode.addEventListener('dblclick',()=>{if(hover>=0&&window.openRecord)window.openRecord(rows[hover].id)});
    canvas.tabIndex=0;canvas.setAttribute('role','application');canvas.setAttribute('aria-label',t('ncGalaxyHint'));
    canvas.addEventListener('keydown',e=>{const cur=typeof nobelYear!=='undefined'&&nobelYear?Number(nobelYear):2025,step=(e.ctrlKey||e.metaKey)?10:1;let ny=cur;
+    if(e.key==='Escape'){canvas.blur();return}/* I1: Escape leaves the 3D canvas so Tab continues through the page */
     if(e.key==='ArrowRight')ny=cur+step;else if(e.key==='ArrowLeft')ny=cur-step;else if(e.key==='Home')ny=1901;else if(e.key==='End')ny=2026;else if(e.key==='PageUp')ny=cur+10;else if(e.key==='PageDown')ny=cur-10;else return;e.preventDefault();
     const ix=typeof nobelIndex!=='undefined'?nobelIndex:null;if(!ix)return;const dir=ny>=cur?1:-1;let best=null;for(let y=ny;y>=1901&&y<=2026;y+=dir){if(ix.has(String(y))){best=String(y);break}}if(best&&typeof selectNobelYear==='function')selectNobelYear(best,true)});
    canvas.parentNode.addEventListener('wheel',e=>{if(!(e.ctrlKey||e.metaKey))return;e.preventDefault();zoomT=Math.max(.7,Math.min(5,zoomT*Math.exp(-e.deltaY*.01)));wake()},{passive:false});
