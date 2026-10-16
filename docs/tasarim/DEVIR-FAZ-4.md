@@ -256,3 +256,12 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - Takımyıldızı: düğüme tıklayınca capture aşamasında durdurulur, kamera gezegene dalar (600ms) ve ardından gerçek tıklama yeniden gönderilir (`it.go`); reduced-motion'da doğrudan açılır.
 
 - v85: 3B kitap kapağı başlık bloğu `TOP=400..H-150` arasına otomatik sığar (44→22px), yazar başlıkta geçiyorsa basılmaz (Nobel belgelerinde çakışma). Sonraki oturum için `ALT-OTURUM-PROMPTU.md`.
+
+## 36. Paket A (v86) — Canvas metin çakışması sıfırlama
+**Neden:** 3B kitap kapağında uzun başlık yazar satırının üstüne biniyordu (v85'te yalnız `paintCover` yamandı); aynı sınıf hata başka canvas'larda da vardı.
+**Ne:**
+- `site/textfit.js` (yeni, `window.BKText`): `ellipsize`, `wrap` (tek uzun kelimeyi karakterden böler), `fitBlock` (boyut kademesi + satır sınırı + `…`), `fitLine` (önce küçül, sonra kırp), `authorInTitle`, `declutter` (DOM etiket çakışma çözümü).
+- Kullanıcılar: `stage.js` `paintCover`, raf `coverTexture` (artık yazar başlıkta geçiyorsa basılmıyor), `spineTexture` (kırpmadan önce küçülür), `record.js` paylaşım kartı (başlık 54→32px kademeli, yazar/katalog satırı kırpılır).
+- `constellation3d.js`: her 6. karede ve hover değişiminde etiketler `declutter` ile çözülür (hover > kameraya yakın); kaybeden `visibility:hidden`.
+- `tools/text_fit_audit.py`: gerçek boyama fonksiyonlarını (`window.BKStage` test kancası) kayıt yapan bağlamda çalıştırır; en kötü ~60 kayıt × 3 yüzey; güvenli alan taşması ve metin kutusu kesişimi varsa kırmızı. Yerel kapı (CI'da değil). Mutasyonla doğrulandı: `BOT` bozulunca FAIL verir.
+**Tuzaklar:** `textfit.js`, `stage.js`'ten ÖNCE yüklenmeli (index.html, sw.js FILES, pages.yml `node --check`). `stage.js` `BKText` yoksa sessizce çıkar. Madalya çevresel yazısı sabit metin (`· NOBEL · ARCHIVE · 1901 – 2026 ·`), dil bağımsız; uzatılırsa yay uzunluğu ölçülmeli. SVG `LA_LABEL` dizeleri sabit ve kısa (≤14 karakter, viewBox 140'ta ~56px), çeviri yok.
