@@ -29,7 +29,7 @@ with sync_playwright() as p:
             goto_sec(pg, ".spotlight-section"); shot("03-shelf")
             goto_sec(pg, "#timeline", 6000); shot("04-nobel-silhouette")
             for i, n in ((1, "chart"), (2, "galaxy")):
-                pg.locator(".nc-viewswitch button").nth(i).click(); pg.wait_for_timeout(6000); shot(f"05-nobel-{n}")
+                pg.evaluate(f"document.querySelectorAll('.nc-viewswitch button')[{i}].click()"); pg.wait_for_timeout(6000); shot(f"05-nobel-{n}")
             goto_sec(pg, "#catalog"); shot("06-catalog-cards")
             pg.evaluate("document.getElementById('viewList').click()"); pg.wait_for_timeout(1500); shot("07-catalog-list")
             pg.evaluate("document.getElementById('viewGrid').click()")
