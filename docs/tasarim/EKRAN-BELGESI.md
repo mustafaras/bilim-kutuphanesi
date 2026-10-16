@@ -130,3 +130,18 @@ Karşılaştırma modu, cam kuleler (anahtar), zemin ışık sızıntısı, Gala
 | Cam kuleler açık | ![](ekran/v94/cam-dark.png) | ![](ekran/v94/cam-light.png) |
 | Galaksi ışık hüzmeleri | ![](ekran/v94/galaksi-huzme-dark.png) | ![](ekran/v94/galaksi-huzme-light.png) |
 | Yıl dosyası çizgisi (Silüet) | ![](ekran/v94/yildosyasi-cizgi-silet-dark.png) | ![](ekran/v94/yildosyasi-cizgi-silet-light.png) |
+
+---
+
+# v95 — Gerçek veri morph'u, tam yansıma, küre yıldızlar
+Grafik ⇄ Silüet ⇄ Galaksi geçişinde 1.895 kaydın her biri aynı parçacık olarak yeni konumuna akar. Aşağıdaki kareler morph'un ortasından (durağan kare). Görüntüler `ekran/v95/`.
+
+| | |
+|---|---|
+| Galaksi → Silüet (ortada) | ![](ekran/v95/morph-dark-1.png) |
+| Silüet → Grafik (ortada) | ![](ekran/v95/morph-silet-grafik.png) |
+
+| | Koyu | Açık |
+|---|---|---|
+| Silüet (tam yansıma, yumuşak zemin) | ![](ekran/v95/silet-yansima-dark.png) | ![](ekran/v95/silet-yansima-light.png) |
+| Galaksi (küre yıldızlar) | ![](ekran/v95/galaksi-kure-dark.png) | ![](ekran/v95/galaksi-kure-light.png) |

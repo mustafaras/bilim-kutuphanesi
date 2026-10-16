@@ -1384,3 +1384,5 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 @keyframes nc-link-flow{to{stroke-dashoffset:-20}}
 :root[data-theme=light] .nc-link path{filter:none;stroke-opacity:.6}
 @media(prefers-reduced-motion:reduce){.nc-enter{animation:none}.nc-link.on path{animation:none}}
+/* Package 31 — record-particle morph overlay */
+.nc-morph{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:6}

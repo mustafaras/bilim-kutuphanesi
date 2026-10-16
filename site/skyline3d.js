@@ -44,14 +44,19 @@ window.NobelSkyline=(()=>{
   mat.onBeforeCompile=windows;
   /* optional glass towers: real transmission + clearcoat (heavier, so it is a toggle) */
   const glassMat=new THREE.MeshPhysicalMaterial({metalness:0,roughness:.12,transmission:.62,thickness:.45,ior:1.45,clearcoat:1,clearcoatRoughness:.08,iridescence:.35,iridescenceIOR:1.3,envMapIntensity:1.5,attenuationDistance:.7});glassMat.onBeforeCompile=windows;
-  const towers=new THREE.InstancedMesh(geo,mat,K),refl=new THREE.InstancedMesh(geo,new THREE.MeshBasicMaterial({transparent:true,opacity:.16,depthWrite:false,side:THREE.DoubleSide}),K);
+  const towers=new THREE.InstancedMesh(geo,mat,K),reflMat=new THREE.MeshStandardMaterial({metalness:.1,roughness:.35,transparent:true,opacity:.2,depthWrite:false,envMapIntensity:.8}),refl=new THREE.InstancedMesh(geo,reflMat,K);
+  /* floor reflection = an exact mirror of the city (same lit windows, fading with depth below the floor) */
+  reflMat.onBeforeCompile=sh=>{sh.uniforms.uTime=winU.uTime;sh.uniforms.uWin=winU.uWin;sh.uniforms.uRim=winU.uRim;
+   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWP;').replace('#include <project_vertex>','#include <project_vertex>\nvWP=(modelMatrix*instanceMatrix*vec4(transformed,1.0)).xyz;');
+   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vWP;uniform float uTime,uWin,uRim;').replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
+    {vec2 g=vec2((vWP.x+vWP.z*1.37)/.045,abs(vWP.y)/.105);vec2 c=floor(g),f=fract(g);float win=step(.2,f.y)*step(f.y,.8)*step(.18,f.x)*step(f.x,.84);float hh=fract(sin(dot(c,vec2(12.9898,78.233)))*43758.5453);float on=step(.42,hh)*(.55+.45*sin(uTime*.55+hh*40.));totalEmissiveRadiance+=diffuseColor.rgb*win*on*uWin*.8;}`).replace('#include <dithering_fragment>','#include <dithering_fragment>\ngl_FragColor.a*=exp(vWP.y*.62)*smoothstep(.0,.25,-vWP.y+.02);')};
   towers.frustumCulled=refl.frustumCulled=false;grp.add(towers,refl);
   const col=new THREE.Color(),base=CATC.map(h=>new THREE.Color(h)),M=new THREE.Matrix4(),Q=new THREE.Quaternion(),P=new THREE.Vector3(),S=new THREE.Vector3();
   const colorsDirty={v:true};let hoverYear=-1,selYear=-1,cmpYear=-1,cmpOn=false;
   function recolor(){const light=root.dataset.theme==='light';for(let k=0;k<K;k++){const {i,c}=keys[k];col.copy(base[c]);const hot=i===hoverYear,sel=i===selYear||i===cmpYear;if(light)col.multiplyScalar(hot||sel?1.0:.88);else col.multiplyScalar(hot?1.45:sel?1.3:.82);if(selYear>=0&&!sel&&!hot)col.lerp(new THREE.Color(light?0xdad2c0:0x1b2a36),light?.28:.32);towers.setColorAt(k,col);refl.setColorAt(k,col)}towers.instanceColor.needsUpdate=true;refl.instanceColor.needsUpdate=true;colorsDirty.v=false}
   /* floor, rulers, glow of the selected year */
   const floorMat=new THREE.MeshBasicMaterial({transparent:true,depthWrite:false,opacity:1}),floor=new THREE.Mesh(new THREE.PlaneGeometry(N*DX+6,7),floorMat);floor.rotation.x=-Math.PI/2;floor.position.y=-.004;grp.add(floor);
-  const floorTex=(()=>{const c=document.createElement('canvas');c.width=512;c.height=128;const x=c.getContext('2d'),g=x.createRadialGradient(256,64,10,256,64,256);g.addColorStop(0,'rgba(255,255,255,.34)');g.addColorStop(.6,'rgba(255,255,255,.08)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,512,128);return new THREE.CanvasTexture(c)})();floorMat.map=floorTex;
+  const floorTex=(()=>{const c=document.createElement('canvas');c.width=512;c.height=128;const x=c.getContext('2d'),g=x.createRadialGradient(256,64,10,256,64,256);g.addColorStop(0,'rgba(255,255,255,.34)');g.addColorStop(.6,'rgba(255,255,255,.08)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,512,128);x.globalCompositeOperation='destination-in';const vf=x.createLinearGradient(0,0,0,128);vf.addColorStop(0,'rgba(0,0,0,0)');vf.addColorStop(.32,'rgba(0,0,0,1)');vf.addColorStop(.68,'rgba(0,0,0,1)');vf.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=vf;x.fillRect(0,0,512,128);return new THREE.CanvasTexture(c)})();floorMat.map=floorTex;
   const lineMat=new THREE.LineBasicMaterial({transparent:true,opacity:.22,color:0x9fb8c8}),pts=[];
   for(let d=Math.ceil(Y0/10)*10;d<=Y1;d+=10){const x=X0+(d-Y0)*DX;pts.push(new THREE.Vector3(x,0,.3),new THREE.Vector3(x,0,-.3))}
   const rulers=[10,20,30,40].filter(v=>v<=maxTotal+4);rulers.forEach(v=>{const y=v*HS;pts.push(new THREE.Vector3(X0-.2,y,-.34),new THREE.Vector3(-X0+.2,y,-.34))});
@@ -132,9 +137,9 @@ window.NobelSkyline=(()=>{
    /* stacking order: bottom → top = category order */
    const acc=new Float32Array(N);
    for(let k=0;k<K;k++){const {i}=keys[k],h=Math.max(cur[k],.0001),x=X0+i*DX,y0=acc[i];acc[i]+=cur[k];
-    P.set(x,y0+h/2,0);S.set(BW,h,BD);M.compose(P,Q,S);towers.setMatrixAt(k,M);P.set(x,-(y0+h/2)*.5-.01,0);S.set(BW,h*.5,BD);M.compose(P,Q,S);refl.setMatrixAt(k,M)}
+    P.set(x,y0+h/2,0);S.set(BW,h,BD);M.compose(P,Q,S);towers.setMatrixAt(k,M);P.set(x,-(y0+h/2)-.004,0);S.set(BW,h,BD);M.compose(P,Q,S);refl.setMatrixAt(k,M)}
    towers.instanceMatrix.needsUpdate=true;refl.instanceMatrix.needsUpdate=true;return moving}
-  function theme(){const light=root.dataset.theme==='light';floorMat.color.setHex(light?0x2a3a46:0xffe6b0);floorMat.opacity=light?.10:.5;lineMat.color.setHex(light?0x13283a:0x9fb8c8);lineMat.opacity=light?.28:.22;refl.material.opacity=light?.05:.11;mat.envMapIntensity=light?1.0:1.3;mat.metalness=light?.15:.3;mat.roughness=light?.3:.2;key.intensity=light?2.4:2.0;rim.intensity=light?.5:.95;winU.uWin.value=light?.5:1.5;winU.uRim.value=light?.18:.55;rainMat.blending=dustMat.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;rainMat.color.setHex(light?0x8a5a22:0xffe6b0);dustMat.color.setHex(light?0x2a3a46:0xffe9c0);dustMat.opacity=light?.3:.5;rainMat.needsUpdate=dustMat.needsUpdate=true;beam.material.opacity=light?.55:1;beam2.material.opacity=beam.material.opacity;beam2.material.color.setHex(light?0x3a62a8:0x9ec6ff);bleed.material.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;bleed.material.opacity=light?.22:.55;bleed.material.needsUpdate=true;beam.material.color.setHex(light?0xb07a38:0xffffff);colorsDirty.v=true;theme.l=light}
+  function theme(){const light=root.dataset.theme==='light';floorMat.color.setHex(light?0x2a3a46:0xffe6b0);floorMat.opacity=light?.10:.5;lineMat.color.setHex(light?0x13283a:0x9fb8c8);lineMat.opacity=light?.28:.22;refl.material.opacity=light?.1:.22;mat.envMapIntensity=light?1.0:1.3;mat.metalness=light?.15:.3;mat.roughness=light?.3:.2;key.intensity=light?2.4:2.0;rim.intensity=light?.5:.95;winU.uWin.value=light?.5:1.5;winU.uRim.value=light?.18:.55;rainMat.blending=dustMat.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;rainMat.color.setHex(light?0x8a5a22:0xffe6b0);dustMat.color.setHex(light?0x2a3a46:0xffe9c0);dustMat.opacity=light?.3:.5;rainMat.needsUpdate=dustMat.needsUpdate=true;beam.material.opacity=light?.55:1;beam2.material.opacity=beam.material.opacity;beam2.material.color.setHex(light?0x3a62a8:0x9ec6ff);bleed.material.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;bleed.material.opacity=light?.22:.55;bleed.material.needsUpdate=true;beam.material.color.setHex(light?0xb07a38:0xffffff);colorsDirty.v=true;theme.l=light}
   function frame(now){raf=0;if(!visible||document.hidden)return;const dt=Math.min(.05,(now-(frame.l||now))/1000||0);frame.l=now;time+=dt;
    if((root.dataset.theme==='light')!==theme.l)theme();syncSel();
    const moving=layout(dt);if(colorsDirty.v)recolor();
@@ -159,7 +164,15 @@ window.NobelSkyline=(()=>{
   new MutationObserver(()=>{theme();wake()}).observe(root,{attributes:true,attributeFilter:['data-theme','class']});
   document.addEventListener('library:language',()=>{canvas.setAttribute('aria-label',t('nsLabel'))});
   theme();syncSel();recolor();canvas.classList.add('on');wake();
+  /* morph support: where would each record sit in the city? (one block per record, stacked inside its year × category segment) */
+  const keyAt=new Int32Array(N*CAT).fill(-1);for(let k=0;k<K;k++)keyAt[keys[k].i*CAT+keys[k].c]=k;
+  function projectRecords(list,out){const r=canvas.getBoundingClientRect(),acc=new Float32Array(N),baseOf=new Float32Array(N*CAT);
+   for(let k=0;k<K;k++){const i=keys[k].i;baseOf[i*CAT+keys[k].c]=acc[i];acc[i]+=cur[k]}
+   grp.updateMatrixWorld(true);camera.updateMatrixWorld();const alpha=new Float32Array(list.length);
+   for(let j=0;j<list.length;j++){const e=list[j],yi=Math.max(0,Math.min(N-1,e.year-Y0)),id=yi*CAT+e.c,k=keyAt[id],h=k>=0?cur[k]:0,y=baseOf[id]+(e.n?((e.l+.5)/e.n)*h:0);
+    v3.set(X0+yi*DX+(e.jx||0)*BW*.4,y,(e.jz||0)*BD*.35);grp.localToWorld(v3);v3.project(camera);out[j*2]=r.left+(v3.x*.5+.5)*r.width;out[j*2+1]=r.top+(-v3.y*.5+.5)*r.height;alpha[j]=(catOn[e.c]&&h>0)?1:.12}
+   return alpha}
   let anchorLocal=null;
-  inst={wake,sync:()=>{syncSel();wake()},enter(){if(reduced.matches)return;dist=distT*1.34;pitch=Math.min(.95,pitch+.18);wake()},anchor(){if(selYear<0||!anchorLocal)return null;const r=canvas.getBoundingClientRect();return{x:r.left+anchorLocal.x,y:r.top+anchorLocal.y}}};return inst}
+  inst={wake,projectRecords,get Y0(){return Y0},sync:()=>{syncSel();wake()},enter(){if(reduced.matches)return;dist=distT*1.34;pitch=Math.min(.95,pitch+.18);wake()},anchor(){if(selYear<0||!anchorLocal)return null;const r=canvas.getBoundingClientRect();return{x:r.left+anchorLocal.x,y:r.top+anchorLocal.y}}};return inst}
  return{init,get inst(){return inst}}
 })();
