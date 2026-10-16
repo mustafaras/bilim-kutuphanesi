@@ -67,10 +67,10 @@
    rows.forEach((r,i)=>{const y=Number(r.year),t=(y-MIN)/SPAN,th=t*Math.PI*2*TURNS+gauss()*.05,rad=1.3+t*4.2+gauss()*(.17+.07*t);pos[i*3]=Math.cos(th)*rad;pos[i*3+1]=gauss()*.14;pos[i*3+2]=Math.sin(th)*rad;
     const kc=typeof nobelCat==='function'?nobelCat(r):6;kat[i]=kc;color.set(CATC[kc]);col[i*3]=color.r;col[i*3+1]=color.g;col[i*3+2]=color.b;siz[i]=r.collection==='awards'?.24:.15;yr[i]=y;idx[i]=i;tw[i]=rnd()});
    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('aC',new THREE.BufferAttribute(col,3));geo.setAttribute('aS',new THREE.BufferAttribute(siz,1));geo.setAttribute('aYr',new THREE.BufferAttribute(yr,1));geo.setAttribute('aI',new THREE.BufferAttribute(idx,1));geo.setAttribute('aT',new THREE.BufferAttribute(tw,1));geo.setAttribute('aK',new THREE.BufferAttribute(kat,1));
-   const U={uTime:{value:0},uScale:{value:600},uSel:{value:0},uPick:{value:-99},uOn:{value:new Float32Array(7).fill(1)}};
+   const U={uTime:{value:0},uScale:{value:600},uSel:{value:0},uPick:{value:-99},uOn:{value:new Float32Array(7).fill(1)},uLight:{value:0}};
    const mat=new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
     vertexShader:`attribute vec3 aC;attribute float aS,aYr,aI,aT,aK;uniform float uTime,uScale,uSel,uPick;uniform float uOn[7];varying vec3 vC;varying float vA;void main(){vec4 mv=modelViewMatrix*vec4(position,1.);gl_Position=projectionMatrix*mv;float sel=abs(aYr-uSel)<.5?1.:0.;float pk=abs(aI-uPick)<.5?1.:0.;float tw=.82+.18*sin(uTime*(.7+aT*2.)+aT*50.);float on=uOn[int(aK+.5)];gl_PointSize=clamp(aS*uScale/-mv.z*tw*(1.+sel*1.4+pk*2.6)*(.35+.9*on),1.5,40.);vC=mix(aC,vec3(1.),pk*.7);vA=(tw*(uSel>0.?(.55+sel*1.6):1.)+pk)*(.08+.92*on);}`,
-    fragmentShader:`varying vec3 vC;varying float vA;void main(){float d=length(gl_PointCoord-.5);float a=smoothstep(.5,0.,d);a=a*a*.8+(1.-smoothstep(0.,.14,d))*.9;float rim=smoothstep(.5,.3,d)*.25;gl_FragColor=vec4(vC*1.35+rim*vC,clamp(a*vA,0.,1.));}`});
+    fragmentShader:`uniform float uLight;varying vec3 vC;varying float vA;void main(){float d=length(gl_PointCoord-.5);if(uLight>.5){/* light theme: opaque ink-like stars (normal blending, deepened colour, crisp core + faint halo) instead of additive glow that washes out on parchment */float lum=dot(vC,vec3(.3,.59,.11));vec3 c=mix(vec3(lum),vC,1.18)*.8;float core=1.-smoothstep(.16,.26,d);float halo=smoothstep(.5,.12,d)*.28;gl_FragColor=vec4(c,clamp((core*.95+halo)*vA,0.,1.));return;}float a=smoothstep(.5,0.,d);a=a*a*.8+(1.-smoothstep(0.,.14,d))*.9;float rim=smoothstep(.5,.3,d)*.25;gl_FragColor=vec4(vC*1.35+rim*vC,clamp(a*vA,0.,1.));}`});
    const stars=new THREE.Points(geo,mat);stars.frustumCulled=false;grp.add(stars);
    /* spiral guide + selected-year ring */
    const guide=[];for(let i=0;i<=240;i++){const t=i/240,th=t*Math.PI*2*TURNS;guide.push(new THREE.Vector3(Math.cos(th)*(1.3+t*4.2),0,Math.sin(th)*(1.3+t*4.2)))}
@@ -89,6 +89,9 @@
    const beamG=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(1,0,0)]),beam=new THREE.Line(beamG,new THREE.LineBasicMaterial({color:0xfff0cf,transparent:true,opacity:.0,blending:THREE.AdditiveBlending}));beam.visible=false;grp.add(beam);
    const ring2=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(Array.from({length:65},(_,i)=>new THREE.Vector3(Math.cos(i/64*Math.PI*2)*.8,0,Math.sin(i/64*Math.PI*2)*.8))),new THREE.LineBasicMaterial({color:0xfff0cf,transparent:true,opacity:.0,blending:THREE.AdditiveBlending}));ring2.visible=false;grp.add(ring2);
    const core=new THREE.Sprite(new THREE.SpriteMaterial({map:glow,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.55}));core.scale.set(2.6,2.6,1);grp.add(core);
+   /* every additive helper (guide, glows, ticks, beam, rings, dust) is re-tinted for the light theme in draw() */
+   const themed=[];grp.traverse(o=>{const mt=o.material;if(mt&&mt!==mat&&mt.blending===THREE.AdditiveBlending)themed.push({mt,c:mt.color?mt.color.clone():null,op:mt.opacity,sprite:!!o.isSprite})});let litNow=null;
+   const applyTheme=()=>{const lt=root.dataset.theme==='light';if(lt===litNow)return;litNow=lt;core.visible=!lt;U.uLight.value=lt?1:0;mat.blending=lt?THREE.NormalBlending:THREE.AdditiveBlending;mat.needsUpdate=true;themed.forEach(t=>{t.mt.blending=lt?THREE.NormalBlending:THREE.AdditiveBlending;if(t.c)t.mt.color.copy(t.c).multiplyScalar(lt?.42:1);t.mt.needsUpdate=true})};
    /* decade labels */
    const decs=[1900,1920,1940,1960,1980,2000,2020].filter(d=>d<=2026);ui.labels.innerHTML=decs.map(d=>`<span>${d}</span>`).join('');const lab=[...ui.labels.children];let labFrame=0;
    /* camera / interaction state */
@@ -108,11 +111,11 @@
    canvas.parentNode.addEventListener('dblclick',()=>{if(hover>=0&&window.openRecord)window.openRecord(rows[hover].id)});
    canvas.parentNode.addEventListener('wheel',e=>{if(!(e.ctrlKey||e.metaKey))return;e.preventDefault();zoomT=Math.max(.7,Math.min(5,zoomT*Math.exp(-e.deltaY*.01)));wake()},{passive:false});
    ui.ctl.addEventListener('click',e=>{const b=e.target.closest?e.target.closest('[data-z]'):null;if(!b)return;if(b.dataset.z==='in')zoomT=Math.min(5,zoomT*1.4);else if(b.dataset.z==='out')zoomT=Math.max(.7,zoomT/1.4);else{zoomT=1;panT.set(0,0,0);yaw=0;pitch=0}wake()});
-   function draw(dt){time+=dt;U.uTime.value=time;select();for(let q=0;q<7;q++)U.uOn.value[q]=NF.on[q]?1:0;if(!drag){yaw+=vYaw;vYaw*=.94;if(Math.abs(vYaw)<1e-4)vYaw=0}
+   function draw(dt){applyTheme();time+=dt;U.uTime.value=time;select();for(let q=0;q<7;q++)U.uOn.value[q]=NF.on[q]?1:0;if(!drag){yaw+=vYaw;vYaw*=.94;if(Math.abs(vYaw)<1e-4)vYaw=0}
     const k=Math.min(1,dt*5);zoom+=(zoomT-zoom)*k;pan.lerp(panT,k);
     /* scroll-linked entrance: the galaxy dollies in and swings round as the section arrives (continuity with the hero galaxy) */
     const pr=panel.getBoundingClientRect(),sp=Math.max(0,Math.min(1,(innerHeight-pr.top)/(innerHeight*.85))),se=sp*sp*(3-2*sp),dolly=.6+.4*se;
-    camera.position.set(pan.x,pan.y+1.4/(zoom*dolly),13.5/(zoom*dolly)+pan.z*.2);camera.lookAt(pan.x*.6,0,pan.z*.6);
+    camera.position.set(pan.x,pan.y+1.6/(zoom*dolly),15.4/(zoom*dolly)+pan.z*.2);camera.lookAt(pan.x*.6,0,pan.z*.6);
     grp.rotation.y=yaw+(1-se)*1.25+(reduced.matches||root.classList.contains('effects-paused')?0:time*.045);grp.rotation.x=-.95+pitch;core.material.opacity=.45+.08*Math.sin(time*.8);if(ring2.visible){const ph=(time*.9)%1;ring2.scale.setScalar(1+ph*1.8);ring2.material.opacity=.7*(1-ph);beam.material.opacity=.22+.1*Math.sin(time*2.2);ring.scale.setScalar(1+.08*Math.sin(time*3))}
     const w=canvas.clientWidth,h=canvas.clientHeight;grp.updateMatrixWorld(true);lab.forEach((el,i)=>{const a=anchor(decs[i]);v.copy(a);grp.localToWorld(v);v.project(camera);el.style.transform=`translate(${((v.x*.5+.5)*w).toFixed(1)}px,${((-v.y*.5+.5)*h).toFixed(1)}px)`;el.style.opacity=v.z<1?1:0});if(window.BKText&&++labFrame%6===0){const L=lab.filter(el=>el.style.opacity==='1').map((el,i)=>{const b=el.getBoundingClientRect();return{el,x:b.left+b.width/2,y:b.top,w:b.width,h:b.height,prio:i}});lab.forEach(el=>{el.style.visibility=''});window.BKText.declutter(L,2)}
     renderer.render(scene,camera)}

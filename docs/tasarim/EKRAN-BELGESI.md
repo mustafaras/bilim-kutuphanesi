@@ -64,3 +64,13 @@ Fizik, Kimya, Tıp, Edebiyat, Barış, Ekonomi. Çevresel yazı ölçülerek yay
 | Ekonomi | ![](ekran/v88/madalya-5-dark.png) | ![](ekran/v88/madalya-5-light.png) |
 
 Bilinen zayıflık: güvercin amblemi küçük ölçekte net okunmuyor.
+
+---
+
+# v89 — Nobel Galaksi açık temada
+Kullanıcı görüntüsüyle bildirilen sorun: açık temada Galaksi beyaz bir lekeye dönüşüyordu. Düzeltme: açık temada opak mürekkep yıldızlar, kategori renkleri efsane çipleriyle eşleşiyor, kadraj panele sığıyor. Görüntüler `ekran/v89/`.
+
+| | Koyu | Açık |
+|---|---|---|
+| Galaksi (tüm bölüm) | ![](ekran/v89/galaxy-dark.png) | ![](ekran/v89/galaxy-light.png) |
+| Silüet (çip kelepçeli) | ![](ekran/v89/skyline-dark.png) | ![](ekran/v89/skyline-light.png) |
