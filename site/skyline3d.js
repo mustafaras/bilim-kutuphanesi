@@ -12,7 +12,7 @@ window.NobelSkyline=(()=>{
   let THREE;try{THREE=await import('./vendor/three.module.min.js')}catch{return null}
   const idx=typeof nobelIndex!=='undefined'&&nobelIndex?nobelIndex:(typeof buildNobelIndex==='function'?buildNobelIndex():null);if(!idx||!idx.size)return null;
   const years=[...idx.keys()].sort(),Y0=Number(years[0]),Y1=Number(years.at(-1)),N=Y1-Y0+1,CAT=7;
-  const canvas=panel.querySelector('canvas'),labels=panel.querySelector('.nc-3d-labels'),tip=panel.querySelector('.nc-3d-tip'),legend=panel.querySelector('.nc-sky-legend'),ctl=panel.querySelector('.nc-3d-ctl'),chip=panel.querySelector('.nc-sky-chip');
+  const canvas=panel.querySelector('canvas'),labels=panel.querySelector('.nc-3d-labels'),tip=panel.querySelector('.nc-3d-tip'),ctl=panel.querySelector('.nc-3d-ctl'),chip=panel.querySelector('.nc-sky-chip');
   const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setClearColor(0,0);
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(30,2,.1,120),grp=new THREE.Group();scene.add(grp);
   /* data */
@@ -20,7 +20,7 @@ window.NobelSkyline=(()=>{
   const counts=[],catTotal=new Array(CAT).fill(0);
   for(let i=0;i<N;i++){const e=idx.get(String(Y0+i));counts.push(e?e.cats.slice():new Array(CAT).fill(0));if(e)e.cats.forEach((c,k)=>catTotal[k]+=c)}
   const keys=[];for(let i=0;i<N;i++)for(let c=0;c<CAT;c++)if(counts[i][c]>0)keys.push({i,c});
-  const K=keys.length,cur=new Float32Array(K),catOn=new Array(CAT).fill(true);
+  const K=keys.length,cur=new Float32Array(K),catOn=(window.NobelFilter&&window.NobelFilter.on)||new Array(CAT).fill(true);document.addEventListener('nobel:filter',()=>wake());
   /* studio environment (soft boxes → PMREM) so the glass towers reflect something */
   const env=(()=>{try{const es=new THREE.Scene();es.background=new THREE.Color(0x06080d);const bx=(w,h,x,y,z,c,k)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color:new THREE.Color(c).multiplyScalar(k),side:THREE.DoubleSide}));m.position.set(x,y,z);m.lookAt(0,0,0);es.add(m)};
    bx(10,5,-5,6,6,0xfff0d6,5);bx(4,9,8,1,3,0xd6e4ff,3);bx(14,2,0,-6,2,0xffdca8,1.2);bx(7,4,0,7,-6,0xffffff,2.4);bx(8,5,0,2,9,0xfff4dc,2.4);const pm=new THREE.PMREMGenerator(renderer),t=pm.fromScene(es,.03).texture;pm.dispose();return t}catch{return null}})();
@@ -45,15 +45,8 @@ window.NobelSkyline=(()=>{
   /* labels (decades + rulers) */
   const decs=[];for(let d=Math.ceil(Y0/10)*10;d<=Y1;d+=10)decs.push(d);
   labels.innerHTML=decs.map(d=>`<span data-d="${d}">${d}</span>`).join('')+rulers.map(v=>`<span class="r" data-r="${v}">${v}</span>`).join('');const lab=[...labels.children];
-  /* legend */
-  const catName=i=>typeof nobelCatLabel==='function'?nobelCatLabel(i):String(i);
-  function drawLegend(){legend.innerHTML=CATC.slice(0,6).map((c,i)=>`<button type="button" data-c="${i}" aria-pressed="${catOn[i]}" style="--c:${c}"><i></i><span>${catName(i)}</span><small>${catTotal[i]}</small></button>`).join('')}
-  drawLegend();document.addEventListener('library:language',drawLegend);
-  legend.addEventListener('click',e=>{const b=e.target.closest?e.target.closest('[data-c]'):null;if(!b)return;const c=Number(b.dataset.c),on=catOn.filter(Boolean).length;
-   if(e.altKey||e.shiftKey||on===6){catOn.fill(false);catOn[c]=true}else{catOn[c]=!catOn[c];if(!catOn.some(Boolean))catOn.fill(true)}
-   drawLegend();wake()});
   /* camera state */
-  let yaw=-.2,pitch=.2,dist=22.5,distT=22.5,tx=0,txT=0,vy=0,drag=null,mouse={x:0,y:0,in:false},visible=true,raf=0,t0=performance.now(),time=0;
+  let yaw=0,pitch=.2,dist=18.6,distT=18.6,tx=0,txT=0,vy=0,drag=null,mouse={x:0,y:0,in:false},visible=true,raf=0,t0=performance.now(),time=0;
   const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),v3=new THREE.Vector3();
   function size(){const w=canvas.clientWidth||800,h=canvas.clientHeight||460,dpr=Math.min(devicePixelRatio||1,1.5);renderer.setPixelRatio(dpr);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
   const wake=()=>{if(!raf&&visible)raf=requestAnimationFrame(frame)};
@@ -65,14 +58,14 @@ window.NobelSkyline=(()=>{
   function pick(){if(!mouse.in||drag){if(hoverYear!==-1){hoverYear=-1;colorsDirty.v=true;showTip(-1)}return}
    const r=canvas.getBoundingClientRect();ndc.set(((mouse.x-r.left)/r.width)*2-1,-(((mouse.y-r.top)/r.height)*2-1));ray.setFromCamera(ndc,camera);const hit=ray.intersectObject(towers,false)[0];
    let i=-1,c=-1;if(hit&&hit.instanceId!=null){const k=keys[hit.instanceId];i=k.i;c=k.c}
-   if(i!==hoverYear){hoverYear=i;colorsDirty.v=true;showTip(i,c)}else if(i>=0)placeTip();canvas.style.cursor=i>=0?'pointer':'grab'}
+   if(i!==hoverYear){hoverYear=i;colorsDirty.v=true;showTip(i,c);document.dispatchEvent(new CustomEvent('nobel:hover',{detail:i>=0?Y0+i:0}))}else if(i>=0)placeTip();canvas.style.cursor=i>=0?'pointer':'grab'}
   /* interaction */
   panel.addEventListener('pointermove',e=>{mouse={x:e.clientX,y:e.clientY,in:true};if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>4)drag.moved=true;yaw=Math.max(-1.15,Math.min(1.15,yaw+dx*.005));pitch=Math.max(.08,Math.min(.95,pitch+dy*.004));vy=dx*.005;drag.x=e.clientX;drag.y=e.clientY;if(hoverYear!==-1){hoverYear=-1;colorsDirty.v=true;showTip(-1)}}else pick();wake()},{passive:true});
   panel.addEventListener('pointerleave',()=>{mouse.in=false;pick()});
   panel.addEventListener('pointerdown',e=>{if(e.button>0||(e.target.closest&&e.target.closest('.nc-3d-ctl,.nc-sky-legend')))return;drag={x:e.clientX,y:e.clientY,moved:false};try{panel.setPointerCapture(e.pointerId)}catch{}});
   addEventListener('pointerup',()=>{const d=drag;drag=null;if(d&&!d.moved&&hoverYear>=0&&typeof selectNobelYear==='function'){selectNobelYear(String(Y0+hoverYear),true);syncSel()}wake()});
   panel.addEventListener('wheel',e=>{if(!(e.ctrlKey||e.metaKey))return;e.preventDefault();distT=Math.max(10,Math.min(42,distT*Math.exp(e.deltaY*.0016)));wake()},{passive:false});
-  ctl.addEventListener('click',e=>{const b=e.target.closest?e.target.closest('[data-z]'):null;if(!b)return;if(b.dataset.z==='in')distT=Math.max(10,distT/1.3);else if(b.dataset.z==='out')distT=Math.min(42,distT*1.3);else{distT=22.5;yaw=-.2;pitch=.2}wake()});
+  ctl.addEventListener('click',e=>{const b=e.target.closest?e.target.closest('[data-z]'):null;if(!b)return;if(b.dataset.z==='in')distT=Math.max(10,distT/1.3);else if(b.dataset.z==='out')distT=Math.min(42,distT*1.3);else{distT=18.6;yaw=0;pitch=.2}wake()});
   canvas.tabIndex=0;canvas.setAttribute('role','application');canvas.setAttribute('aria-label',t('nsLabel'));
   canvas.addEventListener('keydown',e=>{const y=typeof nobelYear!=='undefined'&&nobelYear?Number(nobelYear):Y1;let ny=y;if(e.key==='ArrowRight')ny=Math.min(Y1,y+1);else if(e.key==='ArrowLeft')ny=Math.max(Y0,y-1);else if(e.key==='Home')ny=Y0;else if(e.key==='End')ny=Y1;else if(e.key==='PageUp')ny=Math.min(Y1,y+10);else if(e.key==='PageDown')ny=Math.max(Y0,y-10);else return;e.preventDefault();if(typeof selectNobelYear==='function'&&idx.has(String(ny)))selectNobelYear(String(ny),true);syncSel();wake()});
   /* frame */
@@ -91,7 +84,7 @@ window.NobelSkyline=(()=>{
    if(!drag){yaw+=vy;vy*=.92}
    const sway=(reduced.matches||root.classList.contains('effects-paused'))?0:Math.sin(time*.35)*.045;
    tx+=(txT-tx)*Math.min(1,dt*3.2);dist+=(distT-dist)*Math.min(1,dt*5);
-   const tgtX=selYear>=0?tx*.1:0,ang=yaw+sway;camera.position.set(tgtX+Math.sin(ang)*dist*Math.cos(pitch),Math.sin(pitch)*dist+1.4,Math.cos(ang)*dist*Math.cos(pitch));camera.lookAt(tgtX,1.7,0);
+   const tgtX=0,ang=yaw+sway;camera.position.set(tgtX+Math.sin(ang)*dist*Math.cos(pitch),Math.sin(pitch)*dist+1.4,Math.cos(ang)*dist*Math.cos(pitch));camera.lookAt(tgtX,1.15,0);
    if(selYear>=0){const e=idx.get(String(Y0+selYear));beam.position.set(X0+selYear*DX,3,0);beam.lookAt(camera.position.x,3,camera.position.z);if(chip&&e){chip.hidden=false;chip.textContent=(Y0+selYear)+' · '+e.total}}else if(chip)chip.hidden=true;
    const w=canvas.clientWidth,h=canvas.clientHeight;grp.updateMatrixWorld(true);
    lab.forEach(el=>{if(el.dataset.d){v3.set(X0+(Number(el.dataset.d)-Y0)*DX,0,.55)}else{v3.set(X0-.35,Number(el.dataset.r)*HS,-.34)}v3.project(camera);el.style.transform=`translate(${((v3.x*.5+.5)*w).toFixed(1)}px,${((-v3.y*.5+.5)*h).toFixed(1)}px)`;el.style.opacity=v3.z<1?1:0});
