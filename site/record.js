@@ -90,11 +90,12 @@
   for(let i=0;i<130;i++){g.globalAlpha=.2+rnd()*.55;g.fillStyle='#FAF6EC';g.beginPath();g.arc(rnd()*1200,rnd()*430,.4+rnd()*1.5,0,7);g.fill()}g.globalAlpha=1;
   g.fillStyle='#E8CE9E';g.beginPath();g.arc(1010,150,5,0,7);g.fill();g.strokeStyle='#E8CE9E44';g.beginPath();g.ellipse(1010,150,88,30,-.5,0,7);g.stroke();
   g.fillStyle=SPINE[recordArtIndex(r)];g.fillRect(84,148,8,196);
-  g.fillStyle='#E8CE9E';g.font='500 21px "IBM Plex Mono",monospace';g.fillText((catalogNo(r)+' · '+(r.year||t('brand'))).toUpperCase(),122,170);
-  g.fillStyle='#FAF6EC';g.font='400 54px Fraunces,Georgia,serif';let line='',y=238;for(const word of String(displayTitle(r)).split(' ')){const test=line?line+' '+word:word;if(g.measureText(test).width>880&&line){g.fillText(line,122,y);line=word;y+=68;if(y>420)break}else line=test}if(line&&y<=420)g.fillText(line,122,y);
-  g.fillStyle='#9FB8C8';g.font='400 26px Inter,system-ui,sans-serif';g.fillText(String(r.author).slice(0,70),124,Math.min(y+ (line?68:0)+30,470));
+  g.fillStyle='#E8CE9E';g.font='500 21px "IBM Plex Mono",monospace';g.fillText(window.BKText.ellipsize(g,(catalogNo(r)+' · '+(r.year||t('brand'))).toUpperCase(),900),122,170);
+  const TF=window.BKText,tb=TF.fitBlock(g,displayTitle(r),{maxW:900,maxH:230,sizes:[54,48,44,40,36,32],lh:1.26,font:z=>'400 '+z+'px Fraunces,Georgia,serif'});
+  g.fillStyle='#FAF6EC';g.font='400 '+tb.size+'px Fraunces,Georgia,serif';tb.lines.forEach((l,i)=>g.fillText(l,122,206+tb.size+i*tb.lh));
+  if(!TF.authorInTitle(displayTitle(r),r.author)){const fa=TF.fitLine(g,String(r.author||''),{maxW:900,sizes:[26,24,22,20],font:z=>'400 '+z+'px Inter,system-ui,sans-serif'});g.fillStyle='#9FB8C8';g.font='400 '+fa.size+'px Inter,system-ui,sans-serif';g.fillText(fa.text,124,Math.min(206+tb.size+tb.lines.length*tb.lh+22,486))}
   g.fillStyle='#FAF6EC';g.font='400 30px Fraunces,Georgia,serif';g.fillText(t('brand'),84,566);
-  g.fillStyle='#9FB8C8';g.font='400 17px "IBM Plex Mono",monospace';g.fillText('DEC +41°16′ · RA 12h 30m · '+label(r.collection),360,566);
+  g.fillStyle='#9FB8C8';g.font='400 17px "IBM Plex Mono",monospace';g.fillText(window.BKText.ellipsize(g,'DEC +41°16′ · RA 12h 30m · '+label(r.collection),740),360,566);
   try{c.toBlob(blob=>{if(!blob)return;const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bilim-kutuphanem-'+catalogNo(r)+'.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast(t('shareCardDone'))},'image/png')}catch{}}
 
  function onPop(){const id=urlHasRecord();const openNow=view.hidden===false;if(id&&records.some(r=>r.id===id)){if(!openNow||current.id!==id)open(id)}else if(!id&&openNow)close()}

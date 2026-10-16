@@ -7,6 +7,7 @@
    Falls back silently (the SVG engravings / CSS covers stay) without WebGL. Honors reduced-motion and the motion toggle. */
 (()=>{
  if(typeof document==='undefined'||!document.getElementById('collectionGrid'))return;
+ const TF=window.BKText;if(!TF)return;
  const root=document.documentElement,reduced=typeof matchMedia==='function'?matchMedia('(prefers-reduced-motion: reduce)'):{matches:false};
  const hasGL=()=>{try{const c=document.createElement('canvas');return!!(c.getContext('webgl2')||c.getContext('webgl'))}catch{return false}};
  if(!hasGL())return;
@@ -145,15 +146,14 @@
   const W=512,H=720,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d'),base=COVER[idx%8];
   const g=x.createLinearGradient(0,0,W,H);g.addColorStop(0,base);g.addColorStop(1,'#101c26');x.fillStyle=g;x.fillRect(0,0,W,H);
   x.strokeStyle='rgba(232,206,158,.55)';x.lineWidth=2;x.strokeRect(26,26,W-52,H-52);
-  x.fillStyle='rgba(232,206,158,.9)';x.font='600 22px "IBM Plex Mono",monospace';x.fillText(String(label(r.category)).replace(/^\d+ - /,'').toUpperCase().slice(0,30),48,76);
+  {const fl=TF.fitLine(x,String(label(r.category)).replace(/^\d+ - /,'').toUpperCase(),{maxW:W-96,sizes:[22,20,18,16],font:z=>'600 '+z+'px "IBM Plex Mono",monospace'});x.fillStyle='rgba(232,206,158,.9)';x.font='600 '+fl.size+'px "IBM Plex Mono",monospace';x.fillText(fl.text,48,76)}
   x.fillRect(48,92,W-96,2);
   x.strokeStyle='rgba(232,206,158,.35)';x.lineWidth=1.5;for(let i=0;i<5;i++){x.beginPath();x.arc(W/2,250,36+i*26,0,Math.PI*2);x.stroke()}
   x.fillStyle='rgba(255,236,196,.95)';[[0,-1],[.9,.4],[-.8,.5],[.4,1.2],[-.3,-.3]].forEach(([a,b],i)=>{x.beginPath();x.arc(W/2+a*90,250+b*60,3+i%2*1.5,0,Math.PI*2);x.fill()});
-  x.fillStyle='#f6efdc';x.font='400 44px Fraunces,Georgia,serif';
-  const words=String(displayTitle(r)).split(/\s+/),lines=[];let cur='';for(const w of words){const t=(cur+' '+w).trim();if(x.measureText(t).width>W-100&&cur){lines.push(cur);cur=w}else cur=t}lines.push(cur);
-  lines.slice(0,5).forEach((l,i)=>x.fillText(i===4&&lines.length>5?l+'…':l,48,420+i*54));
-  x.fillStyle='rgba(246,239,220,.8)';x.font='400 24px Inter,sans-serif';x.fillText(String(r.author||'').slice(0,34),48,H-96);
-  x.fillStyle='rgba(232,206,158,.8)';x.font='600 18px "IBM Plex Mono",monospace';x.fillText('BK · '+String(r.format||'').toUpperCase(),48,H-52);
+  const TOPc=400,BOTc=H-150,ft=TF.fitBlock(x,displayTitle(r),{maxW:W-96,maxH:BOTc-TOPc,sizes:[44,40,36,32,28,25,22],lh:1.22});
+  x.fillStyle='#f6efdc';x.font='400 '+ft.size+'px Fraunces,Georgia,serif';ft.lines.forEach((l,i)=>x.fillText(l,48,TOPc+ft.size+i*ft.lh));
+  if(!TF.authorInTitle(displayTitle(r),r.author)){const fa=TF.fitLine(x,String(r.author||''),{maxW:W-96,sizes:[24,22,20,18],font:z=>'400 '+z+'px Inter,sans-serif'});x.fillStyle='rgba(246,239,220,.8)';x.font='400 '+fa.size+'px Inter,sans-serif';x.fillText(fa.text,48,H-96)}
+  x.fillStyle='rgba(232,206,158,.8)';x.font='600 18px "IBM Plex Mono",monospace';x.fillText(TF.ellipsize(x,'BK · '+String(r.format||'').toUpperCase(),W-96),48,H-52);
   const t=new m.CanvasTexture(c);t.anisotropy=4;t.colorSpace=m.SRGBColorSpace;return t}
  function pagesTexture(m){const c=document.createElement('canvas');c.width=64;c.height=256;const x=c.getContext('2d');x.fillStyle='#efe6d0';x.fillRect(0,0,64,256);for(let i=0;i<256;i+=3){x.fillStyle=i%6?'rgba(120,100,70,.18)':'rgba(120,100,70,.32)';x.fillRect(0,i,64,1)}const t=new m.CanvasTexture(c);t.wrapS=t.wrapT=m.RepeatWrapping;t.colorSpace=m.SRGBColorSpace;return t}
 
@@ -162,8 +162,10 @@
   x.fillStyle='rgba(246,239,220,.18)';for(let i=0;i<9;i++)x.fillRect(80,120+i*22,W-160-((i*53)%90),5);
   const t=new m.CanvasTexture(c);t.colorSpace=m.SRGBColorSpace;return t}
  function spineTexture(m,r,idx){const W=128,H=720,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle=COVER[idx%8];x.fillRect(0,0,W,H);x.fillStyle='rgba(232,206,158,.7)';x.fillRect(0,40,W,2);x.fillRect(0,H-42,W,2);
-  x.save();x.translate(W/2+10,H/2);x.rotate(Math.PI/2);x.fillStyle='#f6efdc';x.font='400 34px Fraunces,Georgia,serif';x.textAlign='center';let t=String(displayTitle(r));while(x.measureText(t).width>H-270&&t.length>6)t=t.slice(0,-2);x.fillText(t.length<String(displayTitle(r)).length?t+'…':t,0,0);x.restore();
+  x.save();x.translate(W/2+10,H/2);x.rotate(Math.PI/2);x.fillStyle='#f6efdc';x.textAlign='center';{const fl=TF.fitLine(x,displayTitle(r),{maxW:H-270,sizes:[34,30,27,24,21],font:z=>'400 '+z+'px Fraunces,Georgia,serif'});x.font='400 '+fl.size+'px Fraunces,Georgia,serif';x.fillText(fl.text,0,0)}x.restore();
   const tx=new m.CanvasTexture(c);tx.colorSpace=m.SRGBColorSpace;return tx}
+
+ window.BKStage={paintCover,coverTexture,spineTexture}; /* test hook for tools/text_fit_audit.py */
 
  /* Image-based lighting: a tiny studio (soft boxes) baked once into a PMREM map; makes foil, cloth, clearcoat and gold read as real materials. */
  let ENV=null;
@@ -182,16 +184,16 @@
   const F=mask?'#fff':GOLD,T=mask?'#9a9a9a':'#f6efdc';
   x.strokeStyle=F;x.lineWidth=3;x.strokeRect(24,24,W-48,H-48);x.lineWidth=1.2;x.strokeRect(34,34,W-68,H-68);
   [[24,24],[W-24,24],[24,H-24],[W-24,H-24]].forEach(([cx,cy])=>{x.beginPath();x.arc(cx,cy,9,0,Math.PI*2);x.stroke()});
-  x.fillStyle=F;x.font='600 21px "IBM Plex Mono",monospace';x.fillText(String(label(r.category)).replace(/^\d+ - /,'').toUpperCase().slice(0,30),52,84);x.fillRect(52,100,W-104,2);
+  {const cat=String(label(r.category)).replace(/^\d+ - /,'').toUpperCase(),fl=TF.fitLine(x,cat,{maxW:W-104,sizes:[21,19,17,15],font:z=>'600 '+z+'px "IBM Plex Mono",monospace'});x.fillStyle=F;x.font='600 '+fl.size+'px "IBM Plex Mono",monospace';x.fillText(fl.text,52,84);x.fillRect(52,100,W-104,2)}
   x.strokeStyle=F;x.globalAlpha=mask?.9:.5;x.lineWidth=1.4;for(let i=0;i<6;i++){x.beginPath();x.arc(W/2,262,34+i*24,0,Math.PI*2);x.stroke()}
   for(let i=0;i<8;i++){const a=i/8*Math.PI*2;x.beginPath();x.moveTo(W/2+Math.cos(a)*34,262+Math.sin(a)*34);x.lineTo(W/2+Math.cos(a)*150,262+Math.sin(a)*150);x.stroke()}x.globalAlpha=1;
   x.fillStyle=F;[[0,-1],[.9,.4],[-.8,.5],[.4,1.2],[-.3,-.3]].forEach(([a,b],i)=>{x.beginPath();x.arc(W/2+a*90,262+b*60,3.4+i%2*1.8,0,Math.PI*2);x.fill()});
-  /* title block: auto-fit between y=392 and y=H-150 so it can never reach the author line */
-  const TOP=400,BOT=H-150,fitTitle=()=>{const words=String(displayTitle(r)).split(/\s+/);for(const size of [44,40,36,32,28,25,22]){x.font='400 '+size+'px Fraunces,Georgia,serif';const lines=[];let cur='';for(const w of words){const t=(cur+' '+w).trim();if(x.measureText(t).width>W-112&&cur){lines.push(cur);cur=w}else cur=t}lines.push(cur);const lh=size*1.2;if(lines.length*lh<=BOT-TOP||size===22){const max=Math.max(1,Math.floor((BOT-TOP)/lh));return{size,lh,lines:lines.length>max?[...lines.slice(0,max-1),lines[max-1].replace(/\s*\S*$/,'')+'…']:lines}}}};
-  const ft=fitTitle();x.fillStyle=T;x.font='400 '+ft.size+'px Fraunces,Georgia,serif';ft.lines.forEach((l,i)=>x.fillText(l,52,TOP+ft.size+i*ft.lh));
-  const sameAsTitle=String(displayTitle(r)).toLowerCase().includes(String(r.author||'').toLowerCase().slice(0,18));
-  if(!sameAsTitle){x.fillStyle=mask?'#777':'rgba(246,239,220,.82)';x.font='400 24px Inter,sans-serif';let au=String(r.author||'');while(x.measureText(au).width>W-112&&au.length>6)au=au.slice(0,-2);x.fillText(au===String(r.author||'')?au:au+'…',52,H-100)}
-  x.fillStyle=F;x.font='600 17px "IBM Plex Mono",monospace';x.fillText('BK · '+String(r.format||'').toUpperCase(),52,H-58);x.fillRect(52,H-82,W-104,1.5)}
+  /* title block: auto-fit between y=400 and y=H-150 (TextFit) so it can never reach the author line */
+  const TOP=400,BOT=H-150,ft=TF.fitBlock(x,displayTitle(r),{maxW:W-112,maxH:BOT-TOP,sizes:[44,40,36,32,28,25,22],lh:1.2});
+  x.fillStyle=T;x.font='400 '+ft.size+'px Fraunces,Georgia,serif';ft.lines.forEach((l,i)=>x.fillText(l,52,TOP+ft.size+i*ft.lh));
+  const sameAsTitle=TF.authorInTitle(displayTitle(r),r.author);
+  if(!sameAsTitle){const fa=TF.fitLine(x,String(r.author||''),{maxW:W-112,sizes:[24,22,20,18],font:z=>'400 '+z+'px Inter,sans-serif'});x.fillStyle=mask?'#777':'rgba(246,239,220,.82)';x.font='400 '+fa.size+'px Inter,sans-serif';x.fillText(fa.text,52,H-100)}
+  x.fillStyle=F;x.font='600 17px "IBM Plex Mono",monospace';x.fillText(TF.ellipsize(x,'BK · '+String(r.format||'').toUpperCase(),W-104),52,H-58);x.fillRect(52,H-82,W-104,1.5)}
  function canvasTex(m,W,H,draw,srgb){const c=document.createElement('canvas');c.width=W;c.height=H;draw(c.getContext('2d'),W,H);const t=new m.CanvasTexture(c);t.anisotropy=8;if(srgb)t.colorSpace=m.SRGBColorSpace;return t}
  function pageEdge(m,vertical){return canvasTex(m,vertical?512:64,vertical?64:512,(x,W,H)=>{x.fillStyle='#efe5cb';x.fillRect(0,0,W,H);const n=vertical?W:H;for(let i=0;i<n;i+=1){const a=.05+Math.random()*.2;x.fillStyle=`rgba(${110+Math.random()*30|0},${90+Math.random()*30|0},60,${a})`;vertical?x.fillRect(i,0,1,H):x.fillRect(0,i,W,1)}const g=vertical?x.createLinearGradient(0,0,W,0):x.createLinearGradient(0,0,0,H);g.addColorStop(0,'rgba(80,60,30,.25)');g.addColorStop(.15,'rgba(80,60,30,0)');g.addColorStop(.85,'rgba(80,60,30,0)');g.addColorStop(1,'rgba(80,60,30,.25)');x.fillStyle=g;x.fillRect(0,0,W,H)},true)}
  function roundedShape(m,w,h,r){const s=new m.Shape(),x=-w/2,y=-h/2;s.moveTo(x+r,y);s.lineTo(x+w-r,y);s.quadraticCurveTo(x+w,y,x+w,y+r);s.lineTo(x+w,y+h-r);s.quadraticCurveTo(x+w,y+h,x+w-r,y+h);s.lineTo(x+r,y+h);s.quadraticCurveTo(x,y+h,x,y+h-r);s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y);return s}

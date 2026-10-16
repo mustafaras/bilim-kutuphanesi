@@ -111,7 +111,7 @@
    const keyL=new m.DirectionalLight(0xfff0d6,2.2);keyL.position.set(-300,260,420);scene.add(keyL);const rimL=new m.DirectionalLight(0x9fc4ff,.9);rimL.position.set(400,-100,-200);scene.add(rimL);scene.add(new m.AmbientLight(0xffffff,.35));
    const coreLight=new m.PointLight(0xffe2b0,60000,0,2);world.add(coreLight);
 
-   let w=1,h=1,yaw=0,pitch=0,vyaw=0,vpitch=0,tyaw=0,tpitch=0,drag=null,hover=-1,raf=0,visible=true,t0=performance.now(),idle=true,lastTheme='',leanX=0,leanY=0,distK=1;
+   let w=1,h=1,yaw=0,pitch=0,vyaw=0,vpitch=0,tyaw=0,tpitch=0,drag=null,hover=-1,declFrame=0,declHover=-2,raf=0,visible=true,t0=performance.now(),idle=true,lastTheme='',leanX=0,leanY=0,distK=1;
    const resize=()=>{const r=box.getBoundingClientRect();w=Math.max(2,r.width);h=Math.max(2,r.height);renderer.setSize(w,h,false);camera.aspect=w/h;
     const visH=Math.max(H,W/camera.aspect)*1.02,d=(visH/2)/Math.tan(camera.fov*Math.PI/360);camera.userData.d=d;camera.position.set(0,0,d);camera.updateProjectionMatrix();camera.lookAt(0,0,0)};
    const ro=typeof ResizeObserver==='function'?new ResizeObserver(resize):null;if(ro)ro.observe(box);resize();
@@ -160,6 +160,11 @@
     world.updateMatrixWorld(true);
     /* re-project the DOM layer */
     items.forEach((it,i)=>{v.copy(it.base).applyMatrix4(world.matrixWorld).project(camera);const x=(v.x*.5+.5)*100,y=(1-(v.y*.5+.5))*100;it.el.style.left=x.toFixed(2)+'%';it.el.style.top=y.toFixed(2)+'%';it.el.style.zIndex=String(Math.round((1-v.z)*500));it.el.style.opacity=String(Math.min(1,it.sc*1.2)*(hover>=0&&hover!==i?.55:1))});
+    /* label collision avoidance (every 6th frame / on hover change): hovered > nearer to camera; the loser is hidden, never overlapped */
+    if(window.BKText&&(++declFrame%6===0||declHover!==hover)){declHover=hover;const bw=box.clientWidth,bh=box.clientHeight,list=[];
+     items.forEach((it,i)=>{const lb=it.lab||(it.lab=it.el.querySelector('.rv-node-label'));if(!lb)return;const px=parseFloat(it.el.style.left)/100*bw,py=parseFloat(it.el.style.top)/100*bh;
+      list.push({el:lb,x:px,y:py+15+9,w:lb.offsetWidth||80,h:lb.offsetHeight||22,prio:(hover===i||it.el.matches(':hover,:focus-visible')?1e6:0)+parseFloat(it.el.style.zIndex||0)})});
+     window.BKText.declutter(list,3)}
     renderer.render(scene,camera)}
    function loop(now){raf=0;if(!visible||document.hidden||!box.isConnected){if(!box.isConnected)destroy();return}paint(now);raf=requestAnimationFrame(loop)}
    const kick=()=>{if(!raf)raf=requestAnimationFrame(loop)};
