@@ -25,6 +25,13 @@ try:
         pg.goto(url + "?leak=" + str(time.time()), wait_until="load")
         pg.wait_for_function('typeof records!=="undefined"&&records.length&&window.BKStage', timeout=90000); pg.wait_for_timeout(6000)
         count = lambda: pg.evaluate("document.querySelectorAll('canvas').length")
+        pg.wait_for_function("document.querySelectorAll('.tile-3d.on').length>=4", timeout=90000)   # atlas tiles mount lazily: baseline only after they exist
+        def cycle(i):
+            pg.evaluate(f"openRecord(records[{3 + i % 6}].id)"); pg.wait_for_timeout(1800)
+            if i % 2 == 0:
+                pg.evaluate("(()=>{const b=document.querySelector('.rv-3d-toggle');if(b)b.click()})()"); pg.wait_for_timeout(2500)
+            pg.evaluate("document.getElementById('recordBack').click()"); pg.wait_for_timeout(900)
+        for i in range(2): cycle(i)          # warm-up: first record opens create the per-session helpers
         base = count(); snaps = []
         for i in range(a.rounds):
             pg.evaluate(f"openRecord(records[{3 + i % 6}].id)"); pg.wait_for_timeout(1800)
