@@ -24,11 +24,23 @@ with sync_playwright() as p:
         for y in (0, 150, 300, 450, 600, 800):
             pg.evaluate(f"scrollTo(0,{y})"); pg.wait_for_timeout(2500)
             pg.screenshot(path=str(out / f"scroll-{theme}-{y:04d}.png"))
+        ai = []
+        for y in (0, 1200, 2000):
+            pg.evaluate(f"scrollTo(0,{y})"); pg.wait_for_timeout(1200); ai.append(pg.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--atlas-in')"))
+        print(theme, "--atlas-in at scroll 0/1200/2000:", ai)
+        if not (float(ai[0]) < 0.05 and float(ai[-1]) > 0.5): problems.append(f"{theme}: --atlas-in does not follow scroll {ai}")
         pg.evaluate("scrollTo(0,0)"); pg.wait_for_timeout(2500)
-        pg.evaluate("BKHero.fly(37)")
-        for i in range(9):
-            pg.wait_for_timeout(260); pg.screenshot(path=str(out / f"dive-{theme}-{i}.png"))
-        pg.wait_for_timeout(2500); pg.screenshot(path=str(out / f"dive-{theme}-record.png"))
+        # in-page sampler (screenshots are far slower than the dive on software GL): ghost rect + record state every frame
+        pg.evaluate("""window.__dive=[];(function s(t0){const g=document.querySelector('.fly-ghost'),r=g?g.getBoundingClientRect():null;
+          window.__dive.push({t:Math.round(performance.now()-t0),ghost:!!g,w:r?Math.round(r.width):0,h:r?Math.round(r.height):0,x:r?Math.round(r.left+r.width/2):0,rec:!document.getElementById('recordView').hidden});
+          if(performance.now()-t0<2600)requestAnimationFrame(()=>s(t0))})(performance.now());BKHero.fly(37)""")
+        pg.wait_for_timeout(3000)
+        d = pg.evaluate("window.__dive"); gh = [r for r in d if r["ghost"]]
+        first_rec = next((r["t"] for r in d if r["rec"]), None)
+        print(theme, f"dive: {len(d)} frames, ghost frames {len(gh)}, max ghost {max([r['w'] for r in gh] or [0])}px, record opened at {first_rec}ms")
+        if not gh: problems.append(f"{theme}: no ghost cover during the dive")
+        if first_rec is None: problems.append(f"{theme}: record never opened")
+        pg.screenshot(path=str(out / f"dive-{theme}-record.png"))
         pg.evaluate("document.getElementById('recordBack').click()"); pg.wait_for_timeout(2500)
         pg.evaluate("document.getElementById('timeline').scrollIntoView()"); pg.wait_for_timeout(4000)
         names = ["silet", "grafik", "galaksi"]
@@ -41,7 +53,7 @@ with sync_playwright() as p:
                 vis = pg.evaluate("""[...document.querySelectorAll('.nc-3d,.nc-chart')].filter(e=>getComputedStyle(e).display!=='none'&&e.getBoundingClientRect().height>20).map(e=>Math.round(e.getBoundingClientRect().height))""")
                 if len(vis) != 1: problems.append(f"{theme} view {names[i]}: {len(vis)} stages visible {vis}")
         if errs: problems.append(f"{theme} console errors: {errs[:3]}")
-        print(theme, "done")
+        pg.context.close(); print(theme, "done")
     b.close()
 print("FAIL" if problems else "OK: one stage per view, no console errors", *problems, sep="\n - " if problems else "")
 sys.exit(1 if problems else 0)

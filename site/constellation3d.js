@@ -209,8 +209,8 @@
     sU.uTime.value=time;coreU.uTime.value=time;
     /* orbit: drag + inertia + idle sway */
     if(!drag){tyaw+=vyaw;tpitch+=vpitch;vyaw*=.93;vpitch*=.93;tyaw=Math.max(-.9,Math.min(.9,tyaw));tpitch=Math.max(-.5,Math.min(.5,tpitch));
-     if(idle){tyaw+=((Math.sin(time*.22)*.2)-tyaw)*.006;tpitch+=((Math.cos(time*.17)*.07)-tpitch)*.006}}
-    yaw+=(tyaw-yaw)*.12;pitch+=(tpitch-pitch)*.12;ptrYaw+=((drag?0:ptr.x*.16)-ptrYaw)*Math.min(1,dt*2.2);ptrPitch+=((drag?0:ptr.y*.09)-ptrPitch)*Math.min(1,dt*2.2);
+     if(idle){tyaw+=((Math.sin(time*.22)*.2)-tyaw)*Math.min(1,dt*.36);tpitch+=((Math.cos(time*.17)*.07)-tpitch)*Math.min(1,dt*.36)}}
+    {const dp=window.BKMotion?BKMotion.damp:(c,t,l,d)=>t+(c-t)*Math.exp(-l*d);yaw=dp(yaw,tyaw,7.7,dt);pitch=dp(pitch,tpitch,7.7,dt)}ptrYaw+=((drag?0:ptr.x*.16)-ptrYaw)*Math.min(1,dt*2.2);ptrPitch+=((drag?0:ptr.y*.09)-ptrPitch)*Math.min(1,dt*2.2);
     world.rotation.y=yaw+ptrYaw;world.rotation.x=pitch+ptrPitch;sky.rotation.y=-(yaw+ptrYaw)*.4;sky.rotation.x=-(pitch+ptrPitch)*.4;
     neb.forEach(n=>{n.s.material.rotation+=n.rot*dt});
     rings.forEach((r,i)=>{r.rotation.z+=.0012*(i?-1:1)});

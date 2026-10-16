@@ -51,7 +51,7 @@
      float glint=tw*smoothstep(.45,.5,1.-length(fract(vP*3.2)-.5))*(.4+glow);
      a+=glint*.9*dist;
      a+=glow*.07*(1.-uLight*.4)*dist;
-     a+=streak*(.16+.85*line+.3*grid)*(.75+.25*sin(vP.y*2.6-uTime*1.8))*dist*1.6;col=mix(col,warm,clamp(streak*1.4,0.,1.));
+     a+=streak*(.16+.85*line+.3*grid)*(.75+.25*sin(vP.y*2.6-uTime*1.8))*dist*2.6;col=mix(col,warm,clamp(streak*2.2,0.,1.));
      a*=1.+uEnergy*.5;
      gl_FragColor=vec4(col,clamp(a,0.,1.)*(uLight>.5?.9:1.));}`});
   mat.extensions={derivatives:true};

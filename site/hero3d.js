@@ -226,7 +226,7 @@
   function domeFrame(dt,cw,ch){
    if(!dome)return false;const hz=window.BKHorizon;if(!hz||!hz.w||!cw)return false;
    dome.cam.right=cw;dome.cam.top=ch;dome.cam.updateProjectionMatrix();
-   const s=clamp(hz.w/1440,.75,1.3)*40;dome.g.scale.setScalar(s);dome.g.position.set(hz.ox,ch-hz.oy-s*.12,0);
+   const s=clamp(hz.w/1440,.8,1.35)*56;dome.g.scale.setScalar(s);dome.g.position.set(hz.ox,ch-hz.oy-s*.12,0);
    /* the slit slowly tracks across the sky (a real dome follows its target), the lamp breathes */
    dome.dom.rotation.y=dome.ry+Math.sin(time*.045)*.42;
    const breathe=.62+.38*Math.sin(time*1.4+1.2);dome.lampK=breathe;
