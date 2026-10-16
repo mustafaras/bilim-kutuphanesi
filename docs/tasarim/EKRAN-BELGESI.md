@@ -86,3 +86,14 @@ Fare galaksinin üstündeyken oluşan büyük mercek girdabı artık **varsayıl
 | Açık | ![](ekran/v90/hero-mercek-kapali-light.png) | ![](ekran/v90/hero-mercek-acik-light.png) |
 
 Bilinen sorun: açık temada hero galaksisi çok soluk (ayrı iş).
+
+---
+
+# v91 — Çerçevesiz takımyıldızı, yumuşak geçiş, açık tema hero
+Görüntüler `ekran/v91/`. Kutu çerçevesi kaldırıldı; sahne kenarlarda sayfaya karışıyor. Tıklama: 1,25 sn'lik yavaş uçuş + kayıt çapraz solması (hareket durağan karede görülemez; `gecis-1-*` uçuşun ortasındaki kare).
+
+| | Koyu | Açık |
+|---|---|---|
+| Takımyıldızı | ![](ekran/v91/takimyildizi-dark.png) | ![](ekran/v91/takimyildizi-light.png) |
+| Geçiş (uçuş ortası) | ![](ekran/v91/gecis-1-dark.png) | ![](ekran/v91/gecis-1-light.png) |
+| Ana sayfa hero | ![](ekran/v91/hero-dark.png) | ![](ekran/v91/hero-light.png) |

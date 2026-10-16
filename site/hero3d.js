@@ -49,10 +49,10 @@
     if(uFocus>-.5){f=aG<-.5?.6:(abs(aG-uFocus)<.5?2.:.32);}
     pick=abs(aI-uPick)<.5?1.:0.;vBig=smoothstep(.07,.12,aS);`:'mv=modelViewMatrix*vec4(position,1.);'}
     gl_Position=projectionMatrix*mv;
-    float sz=mix(1.,.68,uLight)*aS*uScale/-mv.z*tw*(f>1.5?1.4:1.)*(1.+pick*3.2+ring*2.2+g*.7);sz=sz<9.?sz:9.+(sz-9.)*.22;gl_PointSize=clamp(sz,1.,34.);vC=mix(aC,vec3(1.),clamp(pick*.75+ring*.5,0.,1.));vA=tw*min(f,1.5)+pick+ring*1.4+g*.4;}`;
+    float sz=mix(1.,.95,uLight)*aS*uScale/-mv.z*tw*(f>1.5?1.4:1.)*(1.+pick*3.2+ring*2.2+g*.7);sz=sz<9.?sz:9.+(sz-9.)*.22;gl_PointSize=clamp(sz,1.,34.);vC=mix(aC,vec3(1.),clamp(pick*.75+ring*.5,0.,1.));vA=tw*min(f,1.5)+pick+ring*1.4+g*.4;}`;
   const frag=rot=>`varying vec3 vC;varying float vA;${rot?'varying float vBig;':''}uniform float uGain,uLight,uFade;void main(){vec2 c=gl_PointCoord-.5;float d=length(c);float a=smoothstep(.5,0.,d);a*=a;
    ${rot?'a=max(a,(exp(-abs(c.x)*46.)*exp(-abs(c.y)*4.)+exp(-abs(c.y)*46.)*exp(-abs(c.x)*4.))*.55*vBig*(1.-d*1.6));':''}
-   vec3 col=vC*uGain*mix(1.,.4,uLight);gl_FragColor=vec4(col,clamp(a*vA*uFade*mix(1.,2.,uLight),0.,1.));}`;
+   vec3 base=vC*uGain;float lum=dot(base,vec3(.3,.59,.11));vec3 ink=mix(vec3(lum),base,1.3)*.5;/* light theme: deepened, saturated ink instead of pale additive light */vec3 col=mix(base,ink,uLight);gl_FragColor=vec4(col,clamp(a*vA*uFade*mix(1.,3.2,uLight),0.,1.));}`;
   const pointMat=(rot,gain)=>{const m=new THREE.ShaderMaterial({vertexShader:vert(rot),fragmentShader:frag(rot),uniforms:{...uniforms,uGain:{value:gain}},transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});mats.push(m);return m};
   const attr=(g,n,a,s)=>g.setAttribute(n,new THREE.BufferAttribute(a,s));
 

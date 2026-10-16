@@ -1311,3 +1311,11 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 .hero-zoom .hero-lens-btn{margin-top:4px;border-top:1px solid var(--scene-line);border-radius:0 0 50% 50%;font-size:17px;opacity:.75}
 .hero-zoom .hero-lens-btn[aria-pressed=true]{background:var(--scene-brass);color:#10202c;opacity:1;border-radius:50%}
 :root[data-theme=light] .hero-zoom .hero-lens-btn[aria-pressed=true]{background:#b8893f;color:#fff}
+/* Package 27 — frameless constellation: the sky dissolves into the page instead of sitting in a boxed card; click = slow fly-in + crossfade */
+.rv-constellation-wrap .rv-constellation,:root[data-theme=light] .rv-constellation-wrap .rv-constellation{border:0!important;border-radius:0!important;background:none!important;box-shadow:none!important;overflow:visible}
+.rv-constellation.rv-3d .rv-gl{-webkit-mask-image:radial-gradient(ellipse 64% 70% at 50% 50%,#000 56%,transparent 100%);mask-image:radial-gradient(ellipse 64% 70% at 50% 50%,#000 56%,transparent 100%)}
+#recordSheet{transition:opacity .5s cubic-bezier(.4,0,.2,1)}
+#recordSheet.rv-leaving{opacity:0}
+.rv-constellation.rv-3d.warp::after{animation:rv-dive-glow 1.25s cubic-bezier(.4,0,.2,1) both!important}
+@keyframes rv-dive-glow{0%{opacity:0}60%{opacity:.55}100%{opacity:.75}}
+@media(prefers-reduced-motion:reduce){#recordSheet{transition:none}}

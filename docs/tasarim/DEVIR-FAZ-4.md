@@ -295,3 +295,11 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - Yakınlaştırma dock'una 4. düğme (`.hero-lens-btn`, ◎, `aria-pressed`); i18n `heroLens` (TR/EN).
 - Not: fare yaklaşınca parçacıkların hafifçe çekilmesi (`uMouseOn`) etkileşimin parçası olarak kaldı; yalnız mercek ve tekillik opsiyonel.
 - Bulgu (yapılmadı): açık temada hero galaksisi çok soluk (katkılı karışım parşömende kayboluyor) — Paket 25'teki Nobel Galaksi düzeltmesi gibi bir "mürekkep" yolu gerekir.
+
+## 41. Paket 27 (v91) — çerçevesiz takımyıldızı, yumuşak geçiş, açık tema hero
+- **Çerçevesiz takımyıldızı:** `.rv-constellation` kenarlık / yarıçap / zemin / gölge kaldırıldı (CSS, `!important`); canvas `mask-image` radyal gradyanla kenarlara doğru sayfaya karışır. Canvas boyutu kutuyla aynı kalmalı (renderer `setSize` kutudan okur), bu yüzden büyütme yerine maske kullanıldı.
+- **Yumuşak geçiş:** tıklama artık 1250 ms (`DIVE_MS`, `easeIO`): kamera yaya yakın düz hatla gezegene uçar, FOV 38→48 açılır, seçili gezegen büyür, diğerleri/etiketler/tüpler solar; %62'de `#recordSheet.rv-leaving` (opacity transition .5 sn), bitince `finishDive()` tıklamayı kayıt yönlendiricisine geri verir, yeni kayıt yeniden belirir. `finishDive` aynı zamanda `setTimeout(DIVE_MS+450)` ile çalışır: sekme gizli / canvas ekran dışıyken tıklama asılı kalmaz (kayıt sayfasında `IntersectionObserver` boyamayı durdurur). Eski parlama (`rv-warp`) yumuşak `rv-dive-glow`a çevrildi.
+- **Açık tema gezegenler:** `planetTexture` ikinci (açık, `lerp(white,.52)`) dokusu; sırt rengi koyu kitaplarda gezegenler siyah top gibiydi. Çekirdek halkası açıkta `.08`.
+- **Hero galaksisi açık tema:** fragment shader'da `ink` yolu (doygunluk `1.3`, `*.5`), alfa `x3.2`, nokta boyutu `.95` — pastel katkılı ışık yerine koyu mürekkep tozu.
+- **Ölçülemeyen:** gerçek akıcılık (SwiftShader'da kare >1 sn, toplam süre ölçümü anlamsız); yalnızca sıralama (`leave` ≈ 800 ms) doğrulandı.
+- Hâlâ çerçeveli: Nobel Silüet/Galaksi panelleri (`.nc-3d`).
