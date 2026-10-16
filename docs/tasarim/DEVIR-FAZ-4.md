@@ -254,3 +254,5 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 
 - Galaksi: büyütülmüş/parlatılmış yıldızlar (çekirdek+kenar), arka plan toz diski, on yıl çentikleri, seçili yıl için çekirdekten ışın + yayılan çift halka. Grafik: cam çubuklar (yatay parlaklık gradyanı), hover'da yıl sütunu parlar/yükselir + dikey ışın, seçili yıl nabız atar.
 - Takımyıldızı: düğüme tıklayınca capture aşamasında durdurulur, kamera gezegene dalar (600ms) ve ardından gerçek tıklama yeniden gönderilir (`it.go`); reduced-motion'da doğrudan açılır.
+
+- v85: 3B kitap kapağı başlık bloğu `TOP=400..H-150` arasına otomatik sığar (44→22px), yazar başlıkta geçiyorsa basılmaz (Nobel belgelerinde çakışma). Sonraki oturum için `ALT-OTURUM-PROMPTU.md`.
