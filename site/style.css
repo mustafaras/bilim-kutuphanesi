@@ -1464,3 +1464,6 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 #recordCiteCopy.wave::after{content:"";position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;pointer-events:none;background:radial-gradient(circle,rgba(255,236,190,.95),rgba(232,206,158,.55) 45%,rgba(232,206,158,0) 70%);animation:cite-wave .9s cubic-bezier(.2,.7,.2,1) both}
 @keyframes cite-wave{from{transform:scale(1);opacity:.95}to{transform:scale(34);opacity:0}}
 @media(prefers-reduced-motion:reduce){#recordCiteCopy.wave::after{animation:none;opacity:0}}
+/* chart view: the wide plot scrolls inside its own box instead of stretching the whole Nobel block (found by the 768px screen tour) */
+.nobel-chronicle,.nobel-chronicle>*{min-width:0;max-width:100%}
+.nobel-chronicle .nc-chart,.nobel-chronicle .nc-scroll{min-width:0;max-width:100%;box-sizing:border-box}

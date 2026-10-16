@@ -21,7 +21,8 @@ with sync_playwright() as p:
             tag = f"{w}-{theme}"
             pg = b.new_context(viewport={"width": w, "height": 900}, service_workers="block").new_page()
             errs = []; pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("console", lambda m: errs.append(m.text[:200]) if m.type == "error" else None)
-            pg.goto(a.url + "?tour=" + str(time.time()), wait_until="load"); pg.evaluate(f"document.documentElement.dataset.theme='{theme}'")
+            pg.add_init_script(f"try{{localStorage.setItem('bk-theme','{theme}')}}catch(e){{}}")   # the site's own theme key (setting data-theme directly gets overridden on narrow widths)
+            pg.goto(a.url + "?tour=" + str(time.time()), wait_until="load")
             pg.wait_for_function('typeof records!=="undefined"&&records.length', timeout=90000); pg.wait_for_timeout(9000)
             shot = lambda name: pg.screenshot(path=str(out / f"{tag}-{name}.png"))
             shot("01-hero")

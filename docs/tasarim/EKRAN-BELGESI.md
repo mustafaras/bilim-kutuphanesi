@@ -162,3 +162,15 @@ Yazılımsal GL (SwiftShader) durağan kareleri; hareket ve GPU hızı doğrulan
 |---|---|---|
 | Hero + büyütülmüş kubbe | ![](ekran/v98/scroll-dark-0000.png) | ![](ekran/v98/scroll-light-0000.png) |
 | Kayıt (başlıkta çerçeve yok) | ![](ekran/v98/dive-dark-record.png) | ![](ekran/v98/dive-light-record.png) |
+
+## v99 — B, E, F, G, H, I ve ekran turu
+Tam tur: `ekran/v99/{1440,1100,768}-{dark,light}-NN-*.png` (18 ekran × 6 yapılandırma). Öne çıkanlar:
+
+| | Koyu | Açık |
+|---|---|---|
+| Atlas (katı PBR nesneler) | ![](ekran/v99/1440-dark-02-atlas.png) | ![](ekran/v99/1440-light-02-atlas.png) |
+| 3B kitap (aşınma, kurdele) | ![](ekran/v99/1440-dark-14-record-3d.png) | ![](ekran/v99/1440-light-14-record-3d.png) |
+| Takımyıldızı | ![](ekran/v99/1440-dark-15-record-constellation.png) | ![](ekran/v99/1440-light-15-record-constellation.png) |
+| Palet (blur + 3B önizleme) | ![](ekran/v99/1440-dark-17-palette-results.png) | ![](ekran/v99/1440-light-17-palette-results.png) |
+| Boş durum | ![](ekran/v99/1440-dark-08-catalog-empty.png) | ![](ekran/v99/1440-light-08-catalog-empty.png) |
+| Nobel grafik, 768px (taşma düzeltildi) | ![](ekran/v99/768-dark-05-nobel-chart.png) | ![](ekran/v99/768-light-05-nobel-chart.png) |
