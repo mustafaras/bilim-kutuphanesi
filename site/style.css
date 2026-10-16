@@ -1349,3 +1349,38 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 /* light theme: laureate badges sit directly on the page now (no card behind them) — ink-mixed text instead of a brightness filter */
 :root[data-theme=light] .nc-badge{filter:none;color:color-mix(in srgb,var(--c) 38%,#13283a);border-color:color-mix(in srgb,var(--c) 60%,transparent);background:color-mix(in srgb,var(--c) 16%,transparent)}
 .nobel-chronicle{overflow-x:clip!important;overflow-y:visible}
+/* Package 30 — Silüet compare mode, glass toggle, decade delta */
+.nc-sky-time .nc-tgl{flex:none;padding:7px 11px;border-radius:999px;border:1px solid rgba(159,184,200,.3);background:rgba(8,16,26,.45);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:inherit;font:600 10.5px/1 var(--mono);letter-spacing:.08em;white-space:nowrap;cursor:pointer}
+.nc-sky-time .nc-tgl[aria-pressed=true]{background:var(--nc-brass,#e8c58a);color:#10202c;border-color:transparent}
+:root[data-theme=light] .nc-sky-time .nc-tgl{background:rgba(255,253,247,.75);border-color:rgba(19,43,59,.2)}
+:root[data-theme=light] .nc-sky-time .nc-tgl[aria-pressed=true]{background:#b07a38;color:#fff}
+.nc-sky-time{width:min(760px,calc(100% - 180px))}
+.nc-sky-chip2{background:#9ec6ff!important;color:#0c1b2e!important}
+:root[data-theme=light] .nc-sky-chip2{background:#3a62a8!important;color:#fff!important}
+.nc-cmp{position:absolute;left:50%;top:14px;translate:-50% 0;z-index:4;width:min(420px,calc(100% - 32px));padding:12px 14px 12px;border-radius:16px;background:rgba(7,14,24,.72);border:1px solid rgba(190,215,210,.2);-webkit-backdrop-filter:blur(14px) saturate(1.3);backdrop-filter:blur(14px) saturate(1.3);color:#eef0e8;box-shadow:0 24px 60px -26px #000c;animation:nc-cmp-in .5s cubic-bezier(.2,.8,.2,1) both}
+.nc-cmp[hidden]{display:none}
+@keyframes nc-cmp-in{from{opacity:0;transform:translateY(-10px) scale(.97)}}
+.nc-cmp .hd{display:flex;align-items:center;gap:10px;font:400 26px/1 var(--serif,Georgia)}
+.nc-cmp .hd .b{color:#9ec6ff}.nc-cmp .hd i{font:600 15px var(--mono);opacity:.6}.nc-cmp .hd .x{margin-left:auto;width:26px;height:26px;border-radius:50%;border:1px solid #ffffff2a;background:transparent;color:inherit;font:400 16px/1 var(--mono);cursor:pointer}
+.nc-cmp .tot{display:flex;align-items:baseline;justify-content:space-between;margin:8px 0 10px;font:500 12px var(--mono);letter-spacing:.06em;color:#b4c0cc}.nc-cmp .tot em{font-style:normal;font-weight:700}
+.nc-cmp .r{display:grid;grid-template-columns:78px 1fr 22px 46px 22px 1fr;align-items:center;gap:6px;padding:3px 0;font:500 11px/1.2 var(--mono)}
+.nc-cmp .r .n{color:var(--c);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nc-cmp .bar{height:6px;border-radius:6px;background:#ffffff14;position:relative;overflow:hidden}.nc-cmp .bar i{position:absolute;top:0;bottom:0;background:var(--c);border-radius:6px}
+.nc-cmp .bar.a i{right:0}.nc-cmp .bar.b i{left:0;opacity:.7}
+.nc-cmp .v{text-align:center;color:#d7dee5}.nc-cmp .d{text-align:center;font-weight:700}
+.nc-cmp .up,.nc-3d-tip .dlt.up{color:#7fcdb4}.nc-cmp .dn,.nc-3d-tip .dlt.dn{color:#e59a6e}
+.nc-3d-tip .dlt{font-style:normal;font:600 11px/1.3 var(--mono);letter-spacing:.04em}
+:root[data-theme=light] .nc-cmp{background:rgba(255,253,247,.9);color:#13283a;border-color:rgba(19,43,59,.16);box-shadow:0 24px 60px -30px rgba(60,40,20,.45)}
+:root[data-theme=light] .nc-cmp .hd .b{color:#3a62a8}:root[data-theme=light] .nc-cmp .tot{color:#566b75}:root[data-theme=light] .nc-cmp .v{color:#2c4252}:root[data-theme=light] .nc-cmp .bar{background:rgba(19,43,59,.1)}
+:root[data-theme=light] .nc-cmp .up,:root[data-theme=light] .nc-3d-tip .dlt.up{color:#1f7a63}:root[data-theme=light] .nc-cmp .dn,:root[data-theme=light] .nc-3d-tip .dlt.dn{color:#b04e1f}
+@media(max-width:760px){.nc-sky-time{flex-wrap:wrap;justify-content:center}.nc-sky-time input{order:5;flex:1 0 100%}.nc-cmp .r{grid-template-columns:62px 1fr 18px 40px 18px 1fr}}
+/* Package 30 — view transition choreography + year-dossier light line */
+.nc-enter{animation:nc-enter .8s cubic-bezier(.2,.8,.2,1) both}
+@keyframes nc-enter{0%{opacity:0;filter:blur(12px);transform:translateY(18px) scale(1.025)}60%{opacity:1}100%{opacity:1;filter:blur(0);transform:none}}
+.nc-link{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:2}
+.nc-link path{fill:none;stroke:url(#ncLinkGrad);stroke:var(--nc-brass,#e8c58a);stroke-width:1.25;stroke-linecap:round;stroke-opacity:.55;stroke-dasharray:3 7;filter:drop-shadow(0 0 4px var(--nc-brass,#e8c58a));opacity:0;transition:opacity .4s}
+.nc-link.on path{opacity:1;animation:nc-link-draw 1.1s ease-out both,nc-link-flow 2.2s linear infinite}
+@keyframes nc-link-draw{from{stroke-dasharray:1 2000;stroke-opacity:.9}to{stroke-dasharray:3 7}}
+@keyframes nc-link-flow{to{stroke-dashoffset:-20}}
+:root[data-theme=light] .nc-link path{filter:none;stroke-opacity:.6}
+@media(prefers-reduced-motion:reduce){.nc-enter{animation:none}.nc-link.on path{animation:none}}

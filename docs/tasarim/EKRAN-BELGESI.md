@@ -118,3 +118,15 @@ Dış kart ve panel çerçeveleri kalktı; sahne sayfaya karışıyor. Silüet: 
 |---|---|---|
 | Silüet (1984 seçili) | ![](ekran/v93/silet-dark.png) | ![](ekran/v93/silet-light.png) |
 | Galaksi (kapsüller) | ![](ekran/v93/galaksi-dark.png) | ![](ekran/v93/galaksi-light.png) |
+
+---
+
+# v94 — Paket C'nin kalanı
+Karşılaştırma modu, cam kuleler (anahtar), zemin ışık sızıntısı, Galaksi ışık hüzmeleri + difraksiyon, yıl dosyasına bağlanan çizgi, görünüm geçiş koreografisi. Görüntüler `ekran/v94/`.
+
+| | Koyu | Açık |
+|---|---|---|
+| Karşılaştırma (1969 ⇄ 2022) | ![](ekran/v94/karsilastirma-dark.png) | ![](ekran/v94/karsilastirma-light.png) |
+| Cam kuleler açık | ![](ekran/v94/cam-dark.png) | ![](ekran/v94/cam-light.png) |
+| Galaksi ışık hüzmeleri | ![](ekran/v94/galaksi-huzme-dark.png) | ![](ekran/v94/galaksi-huzme-light.png) |
+| Yıl dosyası çizgisi (Silüet) | ![](ekran/v94/yildosyasi-cizgi-silet-dark.png) | ![](ekran/v94/yildosyasi-cizgi-silet-light.png) |
