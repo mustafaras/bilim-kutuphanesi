@@ -25,8 +25,13 @@
  function constellationHtml(r,nodes){
   if(!nodes.length)return '';
   const W=1000,H=560,cx=500,cy=284;
-  const pts=nodes.map((n,i)=>{const ang=(-90+i*(360/nodes.length)+(i%2?6:-6))*Math.PI/180,rad=(i%2?218:138)+(i*37%22);return{x:Math.max(96,Math.min(904,Math.round(cx+Math.cos(ang)*rad*1.5))),y:Math.max(78,Math.min(486,Math.round(cy+Math.sin(ang)*rad*0.92)))}});
   const rels=nodes.map(n=>relation(r,n));
+  /* E4: deterministic spring layout — each relation pulls its node toward the centre with a stiffness set by its weight (author > year > language > field), nodes repel each other, cooled over 160 steps; same record = same picture */
+  const pts=(()=>{const n=rels.length,P=rels.map((rl,i)=>{const ang=(-90+i*(360/n)+(i%2?6:-6))*Math.PI/180,rad=(i%2?218:138)+(i*37%22);return{x:cx+Math.cos(ang)*rad*1.5,y:cy+Math.sin(ang)*rad*.92}}),rest=rels.map(rl=>268-118*rl.w);
+   for(let it=0;it<160;it++){const cool=1-it/160;for(let i=0;i<n;i++){const p=P[i];let fx=0,fy=0;const dx=(p.x-cx)/1.5,dy=(p.y-cy)/.92,d=Math.hypot(dx,dy)||1,f=(rest[i]-d)*.12;fx+=dx/d*f*1.5;fy+=dy/d*f*.92;
+    for(let j=0;j<n;j++)if(j!==i){const ex=(p.x-P[j].x)/1.5,ey=(p.y-P[j].y)/.92,ed=Math.max(16,Math.hypot(ex,ey)),rf=26000/(ed*ed);fx+=ex/ed*rf*1.5;fy+=ey/ed*rf*.92}
+    p.x=Math.max(96,Math.min(904,p.x+fx*cool));p.y=Math.max(78,Math.min(486,p.y+fy*cool))}}
+   return P.map(p=>({x:Math.round(p.x),y:Math.round(p.y)}))})();
   const lines=pts.map((p,i)=>{const mx=(cx+p.x)/2,my=(cy+p.y)/2,dx=p.y-cy,dy=cx-p.x,len=Math.hypot(dx,dy)||1,bend=(i%2?1:-1)*Math.min(46,len*.16);return `<path class="rel-${rels[i].k}" d="M${cx} ${cy} Q${Math.round(mx+dx/len*bend)} ${Math.round(my+dy/len*bend)} ${p.x} ${p.y}" pathLength="1" style="--w:${rels[i].w};animation-delay:${.25+i*.07}s"></path>`}).join('');
   const twinkles=[[120,60],[310,44],[520,70],[770,40],[905,96],[60,300],[950,320],[240,470],[700,500],[860,470],[420,510],[150,180]].map(([x,y],i)=>`<circle class="tk" cx="${x}" cy="${y}" r="${(1+(i%3)*.5).toFixed(1)}" style="animation-delay:${(i*.7)%4}s"></circle>`).join('');
   const buttons=pts.map((p,i)=>`<button type="button" class="rv-node spine-${recordArtIndex(nodes[i])} rel-${rels[i].k}" data-detail="${esc(nodes[i].id)}" style="left:${(p.x/W*100).toFixed(2)}%;top:${(p.y/H*100).toFixed(2)}%;--d:${(i*.55).toFixed(2)}s;animation-delay:${.35+i*.07}s" aria-label="${esc(displayTitle(nodes[i])+' — '+nodes[i].author+' · '+t('rel_'+rels[i].k))}"><span class="rv-dot" aria-hidden="true"></span><span class="rv-node-label"><b>${esc(displayTitle(nodes[i]))}</b><i>${esc([nodes[i].author,nodes[i].year].filter(Boolean).join(' · '))}</i></span></button>`).join('');
