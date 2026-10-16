@@ -156,3 +156,9 @@ Yazılımsal GL (SwiftShader) durağan kareleri; hareket ve GPU hızı doğrulan
 | Scroll kamera yolu (420px) | ![](ekran/v96/hero-scroll-dark.png) | ![](ekran/v96/hero-scroll-light.png) |
 | Silüet (tam yansıma) | ![](ekran/v96/silet-yansima-dark.png) | ![](ekran/v96/silet-yansima-light.png) |
 | Galaksi (instanced küre yıldızlar) | ![](ekran/v96/galaksi-kure-dark.png) | ![](ekran/v96/galaksi-kure-light.png) |
+
+## v98 — doğrulama turu
+| | Koyu | Açık |
+|---|---|---|
+| Hero + büyütülmüş kubbe | ![](ekran/v98/scroll-dark-0000.png) | ![](ekran/v98/scroll-light-0000.png) |
+| Kayıt (başlıkta çerçeve yok) | ![](ekran/v98/dive-dark-record.png) | ![](ekran/v98/dive-light-record.png) |

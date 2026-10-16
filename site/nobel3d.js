@@ -194,7 +194,7 @@
      v.copy(an);grp.localToWorld(v);v.project(camera);anchorLocal={x:(v.x*.5+.5)*w,y:(-v.y*.5+.5)*h}}
     if(capItems.length){const cc=new THREE.Vector3(0,0,0);grp.localToWorld(cc);cc.project(camera);const cx0=(cc.x*.5+.5)*w,cy0=(-cc.y*.5+.5)*h;
      capItems.forEach(c=>{v.set(pos[c.i*3],pos[c.i*3+1],pos[c.i*3+2]);grp.localToWorld(v);v.project(camera);const sx=(v.x*.5+.5)*w,sy=(-v.y*.5+.5)*h;let dx=sx-cx0,dy=sy-cy0;const L=Math.hypot(dx,dy)||1;dx/=L;dy/=L;
-      const tx=sx+dx*34,ty=sy+dy*26;c.x+=(tx-c.x)*.18;c.y+=(ty-c.y)*.18;if(!c.init){c.x=sx;c.y=sy;c.init=true}c.el.style.transform=`translate(${c.x.toFixed(1)}px,${c.y.toFixed(1)}px)`;c.el.style.opacity=v.z<1?'':'0'});
+      const tx=sx+dx*34,ty=sy+dy*26;c.x+=(tx-c.x)*Math.min(1,dt*11.9);c.y+=(ty-c.y)*Math.min(1,dt*11.9);if(!c.init){c.x=sx;c.y=sy;c.init=true}c.el.style.transform=`translate(${c.x.toFixed(1)}px,${c.y.toFixed(1)}px)`;c.el.style.opacity=v.z<1?'':'0'});
      if(window.BKText&&++capFrame%6===0){const L=capItems.map((c,k)=>{const bb=c.el.getBoundingClientRect();return{el:c.el,x:bb.left+bb.width/2,y:bb.top,w:bb.width,h:bb.height,prio:100-k}});capItems.forEach(c=>{c.el.style.visibility=''});window.BKText.declutter(L,4)}}
     renderer.render(scene,camera)}
    function frame(now){raf=0;const dt=Math.min(.05,(now-(frame.l||now))/1000||0);frame.l=now;if(view!=='galaxy'||!visible||document.hidden)return;draw(dt);const still=reduced.matches||root.classList.contains('effects-paused');if(!still||drag||Math.abs(vYaw)>1e-4||Math.abs(zoomT-zoom)>.002)raf=requestAnimationFrame(frame)}

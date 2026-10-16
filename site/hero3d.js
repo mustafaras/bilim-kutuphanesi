@@ -226,7 +226,7 @@
   function domeFrame(dt,cw,ch){
    if(!dome)return false;const hz=window.BKHorizon;if(!hz||!hz.w||!cw)return false;
    dome.cam.right=cw;dome.cam.top=ch;dome.cam.updateProjectionMatrix();
-   const s=clamp(hz.w/1440,.75,1.3)*40;dome.g.scale.setScalar(s);dome.g.position.set(hz.ox,ch-hz.oy-s*.12,0);
+   const s=clamp(hz.w/1440,.8,1.35)*56;dome.g.scale.setScalar(s);dome.g.position.set(hz.ox,ch-hz.oy-s*.12,0);
    /* the slit slowly tracks across the sky (a real dome follows its target), the lamp breathes */
    dome.dom.rotation.y=dome.ry+Math.sin(time*.045)*.42;
    const breathe=.62+.38*Math.sin(time*1.4+1.2);dome.lampK=breathe;
@@ -339,6 +339,7 @@
     const tx0=innerWidth*.5-sx,ty0=innerHeight*.46-sy;
     if(ghost.animate)ghost.animate([{transform:'translate(-50%,-50%) scale(.2)',opacity:0},{transform:'translate(-50%,-50%) scale(1)',opacity:1,offset:.25},{transform:`translate(calc(-50% + ${tx0*.55}px),calc(-50% + ${ty0*.55}px)) scale(5.2)`,opacity:1}],{duration:560,easing:'cubic-bezier(.45,0,.2,1)',fill:'forwards'})}catch{ghost=null}
    setTimeout(()=>{window.openRecord(r.id,ghost);blurT=0;if(ghost)setTimeout(()=>ghost.remove(),1100)},560)}
+  window.BKHero={fly:i=>fly(i),count:()=>rec.n};/* test hook (tools/motion_audit.py) */
   const rvEl=document.getElementById('recordView');if(rvEl&&typeof MutationObserver==='function')new MutationObserver(()=>{if(rvEl.hidden)zoomReset()}).observe(rvEl,{attributes:true,attributeFilter:['hidden']});
   hero.addEventListener('pointerleave',()=>{mouse.in=false;uniforms.uMouseOn.value=0;setHover(-1)});
 
