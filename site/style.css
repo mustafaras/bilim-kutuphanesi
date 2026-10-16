@@ -1387,7 +1387,7 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 /* Package 31 — record-particle morph overlay */
 .nc-morph{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:6}
 /* Package 32 — C closure: chart view frameless + same stage height as the 3D views (no layout jump), controls locked while records fly */
-.nobel-chronicle .nc-chart,:root[data-theme=light] .nobel-chronicle .nc-chart{background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0 0 12px;min-height:clamp(380px,54vw,580px);display:flex;flex-direction:column;justify-content:flex-end}
+.nobel-chronicle .nc-chart,:root[data-theme=light] .nobel-chronicle .nc-chart{background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0 0 12px;min-height:clamp(380px,54vw,600px);display:flex;flex-direction:column;justify-content:flex-end}
 .nobel-chronicle .nc-strip{height:clamp(260px,38vw,430px)}.nobel-chronicle .nc-gridlines{height:clamp(260px,38vw,430px)}
 @media(max-width:760px){.nobel-chronicle .nc-chart{min-height:420px}.nobel-chronicle .nc-strip,.nobel-chronicle .nc-gridlines{height:300px}}
 .nc-morphing .nc-3d,.nc-morphing .nc-chart,.nc-morphing .nc-viewswitch{pointer-events:none}
@@ -1397,3 +1397,4 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 .fly-ghost .card-illustration{position:absolute;inset:0;background:linear-gradient(158deg,color-mix(in srgb,var(--fc) 78%,#fff 8%),color-mix(in srgb,var(--fc) 34%,#0b1a2a));border:1px solid #e8ce9e99;box-shadow:inset 3px 0 0 #0003}
 .fly-ghost .card-illustration::after{content:"";position:absolute;inset:7px 6px auto 9px;height:2px;background:#fffefaa8;box-shadow:0 5px 0 #fffefa66,0 10px 0 #fffefa40}
 @media(prefers-reduced-motion:reduce){#catalog .section-head,#catalog .search-bar{translate:none;scale:none}.fly-ghost{display:none}}
+.nobel-chronicle .nc-chart[hidden],.nobel-chronicle .nc-3d[hidden]{display:none!important}
