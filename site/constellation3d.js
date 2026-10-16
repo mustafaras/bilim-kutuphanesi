@@ -144,6 +144,7 @@
     const hv=hover>=0?items[hover]:null,tl=hv?hv.base:null;
     const lx=tl?tl.x*.08:0,ly=tl?tl.y*.08:0;leanX+=(lx-leanX)*Math.min(1,dt*3);leanY+=(ly-leanY)*Math.min(1,dt*3);distK+=((hv?.9:1)-distK)*Math.min(1,dt*3);
     const d=camera.userData.d*(1.25-.25*intro)*distK;camera.position.set(leanX,leanY,d);camera.lookAt(leanX*.5,leanY*.5,0);
+    if(dive){const k=ease((now-dive.t)/600);v.copy(items[dive.i].base).applyMatrix4(world.matrixWorld);camera.position.lerp(new m.Vector3(v.x,v.y,v.z+70),k);camera.lookAt(v.x*k+leanX*.5*(1-k),v.y*k+leanY*.5*(1-k),0);coreU.uHot.value=1+k}
     const pulse=1+.06*Math.sin(time*2.1);core.scale.set(pulse*(.6+.4*intro),pulse*(.6+.4*intro),1);core.lookAt(camera.position);coreU.uHot.value+=((hv?1:0)-coreU.uHot.value)*Math.min(1,dt*4);
     /* planets */
     planets.forEach((p,i)=>{const it=items[i],on=hover===i,tgt=on?1:0;it.hot+=(tgt-it.hot)*Math.min(1,dt*6);
@@ -171,6 +172,8 @@
    const up=()=>{if(!drag)return;drag=null;box.classList.remove('dragging');setTimeout(()=>{idle=true},2600)};
    box.addEventListener('pointerdown',down);box.addEventListener('pointermove',move);box.addEventListener('pointerup',up);box.addEventListener('pointercancel',up);
    box.addEventListener('dblclick',()=>{tyaw=0;tpitch=0;vyaw=vpitch=0});
+   let dive=null;
+   items.forEach((it,i)=>{it.el.addEventListener('click',e=>{if(it.go){it.go=false;return}if(dive||reduced.matches)return;e.preventDefault();e.stopImmediatePropagation();dive={i,t:performance.now()};box.classList.add('warp');setTimeout(()=>{it.go=true;it.el.click()},600)},true)});
    items.forEach((it,i)=>{const on=()=>{hover=i;it.el.classList.add('hot')},off=()=>{if(hover===i)hover=-1;it.el.classList.remove('hot')};it.el.addEventListener('mouseenter',on);it.el.addEventListener('focus',on);it.el.addEventListener('mouseleave',off);it.el.addEventListener('blur',off);
     it.el.addEventListener('pointerdown',()=>{box.classList.add('warp')},{capture:true})});
    const kb=e=>{if(!box.contains(document.activeElement))return;const k=e.key;if(k==='ArrowLeft'&&e.shiftKey)tyaw-=.12;else if(k==='ArrowRight'&&e.shiftKey)tyaw+=.12;else if(k==='ArrowUp'&&e.shiftKey)tpitch-=.1;else if(k==='ArrowDown'&&e.shiftKey)tpitch+=.1;else return;e.preventDefault()};
