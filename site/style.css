@@ -1293,3 +1293,14 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 :root[data-theme=light] .rv-constellation.rv-3d .rv-node-label{background:rgba(255,253,247,.72);border-color:rgba(19,43,59,.14);color:#13283a}
 :root[data-theme=light] .rv-constellation.rv-3d .rv-node.hot .rv-node-label{background:#fffdf7;border-color:var(--spine,#a15c39);box-shadow:0 12px 30px rgba(60,40,20,.25)}
 :root[data-theme=light] .rv-constellation.rv-3d.warp::after{background:radial-gradient(circle,rgba(161,92,57,.3),transparent 60%)}
+
+/* Package 24: glass bars in the flat chart */
+.nc-year i{position:relative;background-image:linear-gradient(90deg,rgba(255,255,255,.34),rgba(255,255,255,.04) 42%,rgba(0,0,0,.2));box-shadow:inset 0 1px 0 rgba(255,255,255,.35);transition:filter .25s}
+.nc-year{transition:transform .25s var(--ease-out),filter .25s}
+.nc-year:hover:not(.is-empty){filter:brightness(1.22) saturate(1.2);transform:translateY(-3px);z-index:3}
+.nc-year:hover:not(.is-empty)::before{content:'';position:absolute;left:50%;bottom:0;top:-200px;width:1px;background:linear-gradient(to top,var(--nc-brass),transparent);opacity:.7;pointer-events:none}
+.nc-year.selected{filter:brightness(1.18);box-shadow:0 0 22px -2px color-mix(in srgb,var(--nc-brass) 70%,transparent)}
+.nc-year.selected::after{animation:nc-pulse 2.4s ease-in-out infinite}
+@keyframes nc-pulse{50%{transform:translateY(2px) scale(1.2)}}
+.nc-strip{background:linear-gradient(to top,color-mix(in srgb,var(--nc-brass) 7%,transparent),transparent 55%)}
+@media(prefers-reduced-motion:reduce){.nc-year.selected::after{animation:none}}

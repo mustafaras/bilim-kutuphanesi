@@ -249,3 +249,8 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - Etiketler sakin: tek satır kapsül, hover/odakta açılır (başlık+yazar). Düğmeye basınca sıcak flaş (`.warp`).
 
 - v83: 3B kitap sırt bantları uçlara taşındı (±1.2/±1.3), başlık genişliği H-270; başlık bantlara değmez.
+
+## 35. Paket 24 (v84)
+
+- Galaksi: büyütülmüş/parlatılmış yıldızlar (çekirdek+kenar), arka plan toz diski, on yıl çentikleri, seçili yıl için çekirdekten ışın + yayılan çift halka. Grafik: cam çubuklar (yatay parlaklık gradyanı), hover'da yıl sütunu parlar/yükselir + dikey ışın, seçili yıl nabız atar.
+- Takımyıldızı: düğüme tıklayınca capture aşamasında durdurulur, kamera gezegene dalar (600ms) ve ardından gerçek tıklama yeniden gönderilir (`it.go`); reduced-motion'da doğrudan açılır.

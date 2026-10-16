@@ -65,12 +65,12 @@
    const MIN=1901,SPAN=125,TURNS=1.7,anchor=y=>{const t=(y-MIN)/SPAN,th=t*Math.PI*2*TURNS,rad=1.3+t*4.2;return new THREE.Vector3(Math.cos(th)*rad,0,Math.sin(th)*rad)};
    const color=new THREE.Color(),kat=new Float32Array(N);
    rows.forEach((r,i)=>{const y=Number(r.year),t=(y-MIN)/SPAN,th=t*Math.PI*2*TURNS+gauss()*.05,rad=1.3+t*4.2+gauss()*(.17+.07*t);pos[i*3]=Math.cos(th)*rad;pos[i*3+1]=gauss()*.14;pos[i*3+2]=Math.sin(th)*rad;
-    const kc=typeof nobelCat==='function'?nobelCat(r):6;kat[i]=kc;color.set(CATC[kc]);col[i*3]=color.r;col[i*3+1]=color.g;col[i*3+2]=color.b;siz[i]=r.collection==='awards'?.15:.095;yr[i]=y;idx[i]=i;tw[i]=rnd()});
+    const kc=typeof nobelCat==='function'?nobelCat(r):6;kat[i]=kc;color.set(CATC[kc]);col[i*3]=color.r;col[i*3+1]=color.g;col[i*3+2]=color.b;siz[i]=r.collection==='awards'?.24:.15;yr[i]=y;idx[i]=i;tw[i]=rnd()});
    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('aC',new THREE.BufferAttribute(col,3));geo.setAttribute('aS',new THREE.BufferAttribute(siz,1));geo.setAttribute('aYr',new THREE.BufferAttribute(yr,1));geo.setAttribute('aI',new THREE.BufferAttribute(idx,1));geo.setAttribute('aT',new THREE.BufferAttribute(tw,1));geo.setAttribute('aK',new THREE.BufferAttribute(kat,1));
    const U={uTime:{value:0},uScale:{value:600},uSel:{value:0},uPick:{value:-99},uOn:{value:new Float32Array(7).fill(1)}};
    const mat=new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
-    vertexShader:`attribute vec3 aC;attribute float aS,aYr,aI,aT,aK;uniform float uTime,uScale,uSel,uPick;uniform float uOn[7];varying vec3 vC;varying float vA;void main(){vec4 mv=modelViewMatrix*vec4(position,1.);gl_Position=projectionMatrix*mv;float sel=abs(aYr-uSel)<.5?1.:0.;float pk=abs(aI-uPick)<.5?1.:0.;float tw=.82+.18*sin(uTime*(.7+aT*2.)+aT*50.);float on=uOn[int(aK+.5)];gl_PointSize=clamp(aS*uScale/-mv.z*tw*(1.+sel*1.1+pk*2.6)*(.35+.9*on),1.,30.);vC=mix(aC,vec3(1.),pk*.7);vA=(tw*(uSel>0.?(.55+sel*1.6):1.)+pk)*(.08+.92*on);}`,
-    fragmentShader:`varying vec3 vC;varying float vA;void main(){float d=length(gl_PointCoord-.5);float a=smoothstep(.5,0.,d);a*=a;gl_FragColor=vec4(vC*1.25,clamp(a*vA,0.,1.));}`});
+    vertexShader:`attribute vec3 aC;attribute float aS,aYr,aI,aT,aK;uniform float uTime,uScale,uSel,uPick;uniform float uOn[7];varying vec3 vC;varying float vA;void main(){vec4 mv=modelViewMatrix*vec4(position,1.);gl_Position=projectionMatrix*mv;float sel=abs(aYr-uSel)<.5?1.:0.;float pk=abs(aI-uPick)<.5?1.:0.;float tw=.82+.18*sin(uTime*(.7+aT*2.)+aT*50.);float on=uOn[int(aK+.5)];gl_PointSize=clamp(aS*uScale/-mv.z*tw*(1.+sel*1.4+pk*2.6)*(.35+.9*on),1.5,40.);vC=mix(aC,vec3(1.),pk*.7);vA=(tw*(uSel>0.?(.55+sel*1.6):1.)+pk)*(.08+.92*on);}`,
+    fragmentShader:`varying vec3 vC;varying float vA;void main(){float d=length(gl_PointCoord-.5);float a=smoothstep(.5,0.,d);a=a*a*.8+(1.-smoothstep(0.,.14,d))*.9;float rim=smoothstep(.5,.3,d)*.25;gl_FragColor=vec4(vC*1.35+rim*vC,clamp(a*vA,0.,1.));}`});
    const stars=new THREE.Points(geo,mat);stars.frustumCulled=false;grp.add(stars);
    /* spiral guide + selected-year ring */
    const guide=[];for(let i=0;i<=240;i++){const t=i/240,th=t*Math.PI*2*TURNS;guide.push(new THREE.Vector3(Math.cos(th)*(1.3+t*4.2),0,Math.sin(th)*(1.3+t*4.2)))}
@@ -79,6 +79,15 @@
    const glow=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),r=g.createRadialGradient(32,32,0,32,32,32);r.addColorStop(0,'rgba(255,240,200,.9)');r.addColorStop(1,'rgba(255,240,200,0)');g.fillStyle=r;g.fillRect(0,0,64,64);return new THREE.CanvasTexture(c)})();
    /* category nebulae along the spiral */
    [[.15,0],[.35,1],[.55,2],[.75,3],[.9,4]].forEach(([tt,ci],q)=>{const a=anchor(1901+tt*SPAN),sp2=new THREE.Sprite(new THREE.SpriteMaterial({map:glow,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.16,color:new THREE.Color(CATC[ci])}));sp2.position.copy(a);sp2.scale.set(2.8,2.8,1);grp.add(sp2)});
+   /* background dust disc */
+   {const DN=900,dpos=new Float32Array(DN*3);for(let i=0;i<DN;i++){const a=rnd()*Math.PI*2,r2=.6+Math.pow(rnd(),.7)*6.8;dpos[i*3]=Math.cos(a)*r2;dpos[i*3+1]=gauss()*.25;dpos[i*3+2]=Math.sin(a)*r2}
+    const dg=new THREE.BufferGeometry();dg.setAttribute('position',new THREE.BufferAttribute(dpos,3));grp.add(new THREE.Points(dg,new THREE.PointsMaterial({color:0x9fb8c8,size:.025,transparent:true,opacity:.35,depthWrite:false,blending:THREE.AdditiveBlending})))}
+   /* decade ticks: short radial strokes at every decade on the spiral */
+   {const tp=[];for(let d=1910;d<=2020;d+=10){const a0=anchor(d),dir=a0.clone().normalize();tp.push(a0.clone().addScaledVector(dir,-.12),a0.clone().addScaledVector(dir,.22))}
+    grp.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(tp),new THREE.LineBasicMaterial({color:0xcfdde6,transparent:true,opacity:.35,blending:THREE.AdditiveBlending})))}
+   /* selected-year beam from the core */
+   const beamG=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(1,0,0)]),beam=new THREE.Line(beamG,new THREE.LineBasicMaterial({color:0xfff0cf,transparent:true,opacity:.0,blending:THREE.AdditiveBlending}));beam.visible=false;grp.add(beam);
+   const ring2=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(Array.from({length:65},(_,i)=>new THREE.Vector3(Math.cos(i/64*Math.PI*2)*.8,0,Math.sin(i/64*Math.PI*2)*.8))),new THREE.LineBasicMaterial({color:0xfff0cf,transparent:true,opacity:.0,blending:THREE.AdditiveBlending}));ring2.visible=false;grp.add(ring2);
    const core=new THREE.Sprite(new THREE.SpriteMaterial({map:glow,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.55}));core.scale.set(2.6,2.6,1);grp.add(core);
    /* decade labels */
    const decs=[1900,1920,1940,1960,1980,2000,2020].filter(d=>d<=2026);ui.labels.innerHTML=decs.map(d=>`<span>${d}</span>`).join('');const lab=[...ui.labels.children];
@@ -86,7 +95,7 @@
    let yaw=0,pitch=0,vYaw=0,zoom=1,zoomT=1,pan=new THREE.Vector3(),panT=new THREE.Vector3(),sel=0,drag=null,hover=-1,mouse={x:0,y:0,in:false},visible=true,raf=0,t0=performance.now(),time=0;
    const v=new THREE.Vector3(),wake=()=>{if(!raf)raf=requestAnimationFrame(frame)};
    function size(){const w=canvas.clientWidth||600,h=canvas.clientHeight||400,dpr=Math.min(devicePixelRatio||1,1.6);renderer.setPixelRatio(dpr);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();U.uScale.value=renderer.domElement.height/(2*Math.tan(20*Math.PI/180))}
-   function select(){const y=typeof nobelYear!=='undefined'?Number(nobelYear):0;if(y===sel)return;sel=y;U.uSel.value=y;if(y){const a=anchor(y);ring.position.copy(a);ring.visible=true;panT.copy(a).multiplyScalar(.45);zoomT=Math.max(zoomT,1.25)}else ring.visible=false}
+   function select(){const y=typeof nobelYear!=='undefined'?Number(nobelYear):0;if(y===sel)return;sel=y;U.uSel.value=y;if(y){const a=anchor(y);ring.position.copy(a);ring.visible=true;ring2.position.copy(a);ring2.visible=true;beam.visible=true;beamG.setFromPoints([new THREE.Vector3(0,0,0),a.clone()]);panT.copy(a).multiplyScalar(.45);zoomT=Math.max(zoomT,1.25)}else{ring.visible=false;ring2.visible=false;beam.visible=false}}
    function pick(){if(!mouse.in||drag){set(-1);return}const rect=canvas.getBoundingClientRect();let best=-1,bd=13*13;grp.updateMatrixWorld(true);
     for(let i=0;i<N;i++){v.set(pos[i*3],pos[i*3+1],pos[i*3+2]);grp.localToWorld(v);v.project(camera);if(v.z>1)continue;const sx=(v.x*.5+.5)*rect.width+rect.left,sy=(-v.y*.5+.5)*rect.height+rect.top,d=(sx-mouse.x)**2+(sy-mouse.y)**2;if(d<bd){bd=d;best=i}}set(best)}
    function set(i){if(i===hover)return;hover=i;U.uPick.value=i<0?-99:i;document.dispatchEvent(new CustomEvent('nobel:hover',{detail:i<0?0:Number(rows[i].year)}));const tip=ui.tip;if(i<0){tip.hidden=true;return}const r=rows[i],c=typeof nobelCat==='function'?nobelCat(r):6;tip.innerHTML=`<small style="--c:${CATC[c]}">${esc(r.year)} · ${esc(typeof nobelCatLabel==='function'?nobelCatLabel(c):'')}</small><strong>${esc(r.collection==='awards'?r.author:displayTitle(r))}</strong>${r.collection==='awards'?`<span>${esc(displayTitle(r))}</span>`:`<span>${esc(r.author||'')}</span>`}`;tip.hidden=false;place()}
@@ -104,7 +113,7 @@
     /* scroll-linked entrance: the galaxy dollies in and swings round as the section arrives (continuity with the hero galaxy) */
     const pr=panel.getBoundingClientRect(),sp=Math.max(0,Math.min(1,(innerHeight-pr.top)/(innerHeight*.85))),se=sp*sp*(3-2*sp),dolly=.6+.4*se;
     camera.position.set(pan.x,pan.y+1.4/(zoom*dolly),13.5/(zoom*dolly)+pan.z*.2);camera.lookAt(pan.x*.6,0,pan.z*.6);
-    grp.rotation.y=yaw+(1-se)*1.25+(reduced.matches||root.classList.contains('effects-paused')?0:time*.045);grp.rotation.x=-.95+pitch;core.material.opacity=.3+.06*Math.sin(time*.8);
+    grp.rotation.y=yaw+(1-se)*1.25+(reduced.matches||root.classList.contains('effects-paused')?0:time*.045);grp.rotation.x=-.95+pitch;core.material.opacity=.45+.08*Math.sin(time*.8);if(ring2.visible){const ph=(time*.9)%1;ring2.scale.setScalar(1+ph*1.8);ring2.material.opacity=.7*(1-ph);beam.material.opacity=.22+.1*Math.sin(time*2.2);ring.scale.setScalar(1+.08*Math.sin(time*3))}
     const w=canvas.clientWidth,h=canvas.clientHeight;grp.updateMatrixWorld(true);lab.forEach((el,i)=>{const a=anchor(decs[i]);v.copy(a);grp.localToWorld(v);v.project(camera);el.style.transform=`translate(${((v.x*.5+.5)*w).toFixed(1)}px,${((-v.y*.5+.5)*h).toFixed(1)}px)`;el.style.opacity=v.z<1?1:0});
     renderer.render(scene,camera)}
    function frame(now){raf=0;const dt=Math.min(.05,(now-(frame.l||now))/1000||0);frame.l=now;if(view!=='galaxy'||!visible||document.hidden)return;draw(dt);const still=reduced.matches||root.classList.contains('effects-paused');if(!still||drag||Math.abs(vYaw)>1e-4||Math.abs(zoomT-zoom)>.002)raf=requestAnimationFrame(frame)}
