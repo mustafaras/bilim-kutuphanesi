@@ -35,11 +35,13 @@ with sync_playwright() as p:
     pg.evaluate("BKHero.gov.feed(.005, performance.now()+1e7)")  # keep state sane
     # ---- A1 atlas arrival
     top = pg.evaluate("document.getElementById('collectionGrid').getBoundingClientRect().top+scrollY")
-    pg.evaluate(f"scrollTo(0,{int(top)-900*1.0})"); pg.wait_for_timeout(2500); far = pg.evaluate("BKStage.tiles()")
-    pg.evaluate(f"scrollTo(0,{int(top)-250})"); pg.wait_for_timeout(2500); near = pg.evaluate("BKStage.tiles()")
+    # tiles off-screen are never rendered (stale camera), so compare the first row just after it enters the viewport vs once it has settled
+    first = lambda ts: [t for t in sorted(ts, key=lambda t: t["top"])][:3]
+    pg.evaluate(f"scrollTo(0,{int(top)-830})"); pg.wait_for_timeout(3500); far = first(pg.evaluate("BKStage.tiles()"))
+    pg.evaluate(f"scrollTo(0,{int(top)-260})"); pg.wait_for_timeout(3500); near = first(pg.evaluate("BKStage.tiles()"))
     zf = sum(t["z"] for t in far) / len(far); zn = sum(t["z"] for t in near) / len(near)
-    note(f"A1 mean camera z far {zf:.2f} -> near {zn:.2f}")
-    if not zf > zn * 1.08: problems.append(f"A1 atlas camera does not dolly in while arriving: {zf:.2f} -> {zn:.2f}")
+    note(f"A1 first-row camera z entering {zf:.2f} -> settled {zn:.2f}; opacity {[t['op'] for t in far]} -> {[t['op'] for t in near]}")
+    if not zf > zn * 1.15: problems.append(f"A1 atlas camera does not dolly in while arriving: {zf:.2f} -> {zn:.2f}")
     # ---- A4 atlas dive
     pg.evaluate(f"scrollTo(0,{int(top)-120})"); pg.wait_for_timeout(2500)
     pg.evaluate("window.__clicks=0;const ct=document.getElementById('collectionGrid');ct.addEventListener('click',()=>window.__clicks++)")
