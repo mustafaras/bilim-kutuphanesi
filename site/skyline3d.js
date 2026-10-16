@@ -31,7 +31,7 @@ window.NobelSkyline=(()=>{
   const mat=new THREE.MeshStandardMaterial({metalness:.28,roughness:.22,envMapIntensity:1.25});
   /* every tower face carries a grid of windows that flicker on and off (hash per window), tinted by the category colour, plus a fresnel edge: the stacked bars read as a lit glass city */
   const winU={uTime:{value:0},uWin:{value:1.5},uRim:{value:.5}};
-  mat.onBeforeCompile=sh=>{sh.uniforms.uTime=winU.uTime;sh.uniforms.uWin=winU.uWin;sh.uniforms.uRim=winU.uRim;
+  const windows=sh=>{sh.uniforms.uTime=winU.uTime;sh.uniforms.uWin=winU.uWin;sh.uniforms.uRim=winU.uRim;
    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWP;').replace('#include <project_vertex>','#include <project_vertex>\nvWP=(modelMatrix*instanceMatrix*vec4(transformed,1.0)).xyz;');
    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vWP;uniform float uTime,uWin,uRim;').replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
     {vec2 g=vec2((vWP.x+vWP.z*1.37)/.045,vWP.y/.105);vec2 c=floor(g),f=fract(g);
@@ -41,11 +41,14 @@ window.NobelSkyline=(()=>{
      totalEmissiveRadiance+=diffuseColor.rgb*win*on*uWin;
      float fr=pow(1.-abs(dot(normalize(vNormal),normalize(vViewPosition))),2.6);
      totalEmissiveRadiance+=diffuseColor.rgb*fr*uRim;}`)};
+  mat.onBeforeCompile=windows;
+  /* optional glass towers: real transmission + clearcoat (heavier, so it is a toggle) */
+  const glassMat=new THREE.MeshPhysicalMaterial({metalness:0,roughness:.12,transmission:.62,thickness:.45,ior:1.45,clearcoat:1,clearcoatRoughness:.08,iridescence:.35,iridescenceIOR:1.3,envMapIntensity:1.5,attenuationDistance:.7});glassMat.onBeforeCompile=windows;
   const towers=new THREE.InstancedMesh(geo,mat,K),refl=new THREE.InstancedMesh(geo,new THREE.MeshBasicMaterial({transparent:true,opacity:.16,depthWrite:false,side:THREE.DoubleSide}),K);
   towers.frustumCulled=refl.frustumCulled=false;grp.add(towers,refl);
   const col=new THREE.Color(),base=CATC.map(h=>new THREE.Color(h)),M=new THREE.Matrix4(),Q=new THREE.Quaternion(),P=new THREE.Vector3(),S=new THREE.Vector3();
-  const colorsDirty={v:true};let hoverYear=-1,selYear=-1;
-  function recolor(){const light=root.dataset.theme==='light';for(let k=0;k<K;k++){const {i,c}=keys[k];col.copy(base[c]);const hot=i===hoverYear,sel=i===selYear;if(light)col.multiplyScalar(hot||sel?1.0:.88);else col.multiplyScalar(hot?1.45:sel?1.3:.82);if(selYear>=0&&!sel&&!hot)col.lerp(new THREE.Color(light?0xdad2c0:0x1b2a36),light?.28:.32);towers.setColorAt(k,col);refl.setColorAt(k,col)}towers.instanceColor.needsUpdate=true;refl.instanceColor.needsUpdate=true;colorsDirty.v=false}
+  const colorsDirty={v:true};let hoverYear=-1,selYear=-1,cmpYear=-1,cmpOn=false;
+  function recolor(){const light=root.dataset.theme==='light';for(let k=0;k<K;k++){const {i,c}=keys[k];col.copy(base[c]);const hot=i===hoverYear,sel=i===selYear||i===cmpYear;if(light)col.multiplyScalar(hot||sel?1.0:.88);else col.multiplyScalar(hot?1.45:sel?1.3:.82);if(selYear>=0&&!sel&&!hot)col.lerp(new THREE.Color(light?0xdad2c0:0x1b2a36),light?.28:.32);towers.setColorAt(k,col);refl.setColorAt(k,col)}towers.instanceColor.needsUpdate=true;refl.instanceColor.needsUpdate=true;colorsDirty.v=false}
   /* floor, rulers, glow of the selected year */
   const floorMat=new THREE.MeshBasicMaterial({transparent:true,depthWrite:false,opacity:1}),floor=new THREE.Mesh(new THREE.PlaneGeometry(N*DX+6,7),floorMat);floor.rotation.x=-Math.PI/2;floor.position.y=-.004;grp.add(floor);
   const floorTex=(()=>{const c=document.createElement('canvas');c.width=512;c.height=128;const x=c.getContext('2d'),g=x.createRadialGradient(256,64,10,256,64,256);g.addColorStop(0,'rgba(255,255,255,.34)');g.addColorStop(.6,'rgba(255,255,255,.08)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,512,128);return new THREE.CanvasTexture(c)})();floorMat.map=floorTex;
@@ -54,6 +57,14 @@ window.NobelSkyline=(()=>{
   const rulers=[10,20,30,40].filter(v=>v<=maxTotal+4);rulers.forEach(v=>{const y=v*HS;pts.push(new THREE.Vector3(X0-.2,y,-.34),new THREE.Vector3(-X0+.2,y,-.34))});
   grp.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),lineMat));
   const beam=new THREE.Mesh(new THREE.PlaneGeometry(DX*2.6,6),new THREE.MeshBasicMaterial({map:(()=>{const c=document.createElement('canvas');c.width=16;c.height=128;const x=c.getContext('2d'),g=x.createLinearGradient(0,128,0,0);g.addColorStop(0,'rgba(255,240,200,.55)');g.addColorStop(1,'rgba(255,240,200,0)');x.fillStyle=g;x.fillRect(0,0,16,128);return new THREE.CanvasTexture(c)})(),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide}));beam.position.y=3;beam.visible=false;grp.add(beam);
+  const beam2=beam.clone();beam2.material=beam.material.clone();beam2.visible=false;grp.add(beam2);
+  const chip2=document.createElement('div');chip2.className='nc-sky-chip nc-sky-chip2';chip2.hidden=true;chip2.setAttribute('aria-hidden','true');panel.appendChild(chip2);
+  /* coloured light pooling on the floor under the towers: every year bleeds its dominant prize colours into the reflective ground */
+  const bleedC=document.createElement('canvas');bleedC.width=N;bleedC.height=32;const bleedX=bleedC.getContext('2d'),bleedTex=new THREE.CanvasTexture(bleedC);bleedTex.minFilter=bleedTex.magFilter=THREE.LinearFilter;
+  const bleed=new THREE.Mesh(new THREE.PlaneGeometry(N*DX,BD*2.6),new THREE.MeshBasicMaterial({map:bleedTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.55}));bleed.rotation.x=-Math.PI/2;bleed.position.set(0,.004,.05);grp.add(bleed);
+  function paintBleed(){const im=bleedX.createImageData(N,32),d=im.data;for(let i=0;i<N;i++){let r=0,g=0,b=0,w=0;for(let c=0;c<CAT;c++){const n=catOn[c]?counts[i][c]:0;if(!n)continue;r+=base[c].r*n;g+=base[c].g*n;b+=base[c].b*n;w+=n}const tot=w?Math.min(1,w/(maxTotal*.55)):0;
+    for(let y=0;y<32;y++){const a=Math.exp(-Math.pow((y-16)/7.5,2))*(.2+.8*tot),k=(y*N+i)*4;d[k]=w?r/w*255:0;d[k+1]=w?g/w*255:0;d[k+2]=w?b/w*255:0;d[k+3]=a*255}}bleedX.putImageData(im,0,0);bleedTex.needsUpdate=true}
+  paintBleed();document.addEventListener('nobel:filter',paintBleed);
   /* sparks rising out of the selected year's tower + slow ambient motes in the volume */
   const dotTex=(()=>{const c=document.createElement('canvas');c.width=c.height=32;const g=c.getContext('2d'),r=g.createRadialGradient(16,16,0,16,16,16);r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(.35,'rgba(255,255,255,.7)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,32,32);return new THREE.CanvasTexture(c)})();
   const RN=110,rainP=new Float32Array(RN*3),rainS=Float32Array.from({length:RN*3},()=>Math.random());
@@ -67,20 +78,36 @@ window.NobelSkyline=(()=>{
   const decs=[];for(let d=Math.ceil(Y0/10)*10;d<=Y1;d+=10)decs.push(d);
   labels.innerHTML=decs.map(d=>`<span data-d="${d}">${d}</span>`).join('')+rulers.map(v=>`<span class="r" data-r="${v}">${v}</span>`).join('');const lab=[...labels.children];let labFrame=0;
   /* year slider (drag = year changes, camera follows, tower lights up) + a screen-reader table of the selected year */
-  const tl=document.createElement('div');tl.className='nc-sky-time';tl.innerHTML=`<span>${Y0}</span><input type="range" min="${Y0}" max="${Y1}" step="1" value="${Y1}" aria-label="${esc(t('nsSlider'))}"><span>${Y1}</span>`;panel.appendChild(tl);
+  const tl=document.createElement('div');tl.className='nc-sky-time';tl.innerHTML=`<button type="button" class="nc-tgl nc-cmp-btn" aria-pressed="false">⇄ ${esc(t('nsCompare'))}</button><span>${Y0}</span><input type="range" min="${Y0}" max="${Y1}" step="1" value="${Y1}" aria-label="${esc(t('nsSlider'))}"><span>${Y1}</span><button type="button" class="nc-tgl nc-glass-btn" aria-pressed="false">◇ ${esc(t('nsGlass'))}</button>`;panel.appendChild(tl);
+  const cmpBtn=tl.querySelector('.nc-cmp-btn'),glassBtn=tl.querySelector('.nc-glass-btn'),cmpCard=document.createElement('aside');cmpCard.className='nc-cmp';cmpCard.hidden=true;cmpCard.setAttribute('aria-live','polite');panel.appendChild(cmpCard);
   const slider=tl.querySelector('input'),srTab=document.createElement('table');srTab.className='sr-only';panel.appendChild(srTab);
   const paintSlider=()=>{const lo=(Number(slider.value)-Y0)/(Y1-Y0)*100;slider.style.setProperty('--p',lo+'%')};
   slider.addEventListener('input',()=>{const y=String(slider.value);paintSlider();if(idx.has(y)&&typeof selectNobelYear==='function'){selectNobelYear(y,true);syncSel();wake()}else{/* years without prizes: snap to the nearest year that has data */let best=null;for(const k of years){if(best===null||Math.abs(Number(k)-Number(y))<Math.abs(Number(best)-Number(y)))best=k}if(best&&typeof selectNobelYear==='function'){selectNobelYear(best,true);syncSel();wake()}}});
   slider.addEventListener('pointerdown',e=>e.stopPropagation());
+  /* compare mode: pick a second year → side-by-side panel with per-category differences */
+  function pctTxt(a,b){if(!a)return b?'+∞':'0%';const p=Math.round((b-a)/a*100);return(p>0?'+':'')+p+'%'}
+  function updateCompare(){const on=cmpOn&&selYear>=0&&cmpYear>=0&&selYear!==cmpYear;cmpCard.hidden=!on;beam2.visible=on;chip2.hidden=!on;if(!on){colorsDirty.v=true;return}
+   const A=idx.get(String(Y0+selYear)),B=idx.get(String(Y0+cmpYear));if(!A||!B){cmpCard.hidden=true;return}
+   const mx=Math.max(...A.cats.slice(0,6),...B.cats.slice(0,6),1);
+   cmpCard.innerHTML=`<div class="hd"><b>${Y0+selYear}</b><i aria-hidden="true">⇄</i><b class="b">${Y0+cmpYear}</b><button type="button" class="x" aria-label="${esc(t('nsCmpOff'))}">×</button></div>
+    <p class="tot"><span>${A.total}</span><em class="${B.total>=A.total?'up':'dn'}">${pctTxt(A.total,B.total)}</em><span>${B.total}</span></p>`+
+    A.cats.slice(0,6).map((n,k)=>{const m=B.cats[k],d=m-n;return`<div class="r" style="--c:${CATC[k]}"><span class="n">${esc(catName(k))}</span><span class="bar a"><i style="width:${n/mx*100}%"></i></span><span class="v">${n}</span><span class="d ${d>0?'up':d<0?'dn':''}">${d>0?'▲':d<0?'▼':'•'}${Math.abs(d)}</span><span class="v">${m}</span><span class="bar b"><i style="width:${m/mx*100}%"></i></span></div>`}).join('');
+   colorsDirty.v=true}
+  function setCmp(on){cmpOn=on;cmpBtn.setAttribute('aria-pressed',String(on));if(!on){cmpYear=-1}updateCompare();wake()}
+  cmpBtn.addEventListener('click',()=>setCmp(!cmpOn));cmpCard.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('.x'))setCmp(false)});
+  glassBtn.addEventListener('click',()=>{const on=glassBtn.getAttribute('aria-pressed')!=='true';glassBtn.setAttribute('aria-pressed',String(on));towers.material=on?glassMat:mat;towers.material.needsUpdate=true;colorsDirty.v=true;wake()});
+  tl.addEventListener('pointerdown',e=>e.stopPropagation());cmpCard.addEventListener('pointerdown',e=>e.stopPropagation());
   /* camera state */
   let yaw=0,pitch=.2,dist=18.6,distT=18.6,tx=0,txT=0,vy=0,drag=null,mouse={x:0,y:0,in:false},visible=true,raf=0,t0=performance.now(),time=0;
   const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),v3=new THREE.Vector3();
   function size(){const w=canvas.clientWidth||800,h=canvas.clientHeight||460,dpr=Math.min(devicePixelRatio||1,1.5);renderer.setPixelRatio(dpr);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
   const wake=()=>{if(!raf&&visible)raf=requestAnimationFrame(frame)};
-  function syncSel(){const y=typeof nobelYear!=='undefined'&&nobelYear?Number(nobelYear):-1,i=y>0?y-Y0:-1;if(i!==selYear){selYear=i;colorsDirty.v=true;if(i>=0){txT=X0+i*DX}beam.visible=i>=0;if(i>=0){slider.value=Y0+i;paintSlider();const e=idx.get(String(Y0+i));if(e)srTab.innerHTML=`<caption>${Y0+i}</caption>`+e.cats.map((n,k)=>n?`<tr><th>${esc(catName(k))}</th><td>${n}</td></tr>`:'').join('')}}}
+  function syncSel(){const y=typeof nobelYear!=='undefined'&&nobelYear?Number(nobelYear):-1,i=y>0?y-Y0:-1;if(i!==selYear){selYear=i;colorsDirty.v=true;if(i>=0){txT=X0+i*DX}beam.visible=i>=0;updateCompare();if(i>=0){slider.value=Y0+i;paintSlider();const e=idx.get(String(Y0+i));if(e)srTab.innerHTML=`<caption>${Y0+i}</caption>`+e.cats.map((n,k)=>n?`<tr><th>${esc(catName(k))}</th><td>${n}</td></tr>`:'').join('')}}}
   /* tooltip */
   function showTip(i,c){if(i<0){tip.hidden=true;return}const e=idx.get(String(Y0+i));if(!e){tip.hidden=true;return}
-   tip.innerHTML=`<small style="--c:${CATC[c>=0?c:0]}">${Y0+i} · ${e.total} ${esc(t('records'))}</small>`+e.cats.map((n,k)=>n?`<span class="row" style="--c:${CATC[k]}"><i></i>${esc(catName(k))}<b>${n}</b></span>`:'').join('')+`<em>${esc(t('nsClick'))}</em>`;tip.hidden=false;placeTip()}
+   let ps=0,pn=0;for(let k=1;k<=10;k++){const e2=idx.get(String(Y0+i-k));if(e2){ps+=e2.total;pn++}}const dp=pn?Math.round((e.total-ps/pn)/(ps/pn)*100):null;
+   const dl=dp==null?'':`<em class="dlt ${dp>=0?'up':'dn'}">Δ ${dp>=0?'+':''}${dp}% · ${esc(t('nsVsDecade'))}</em>`;
+   tip.innerHTML=`<small style="--c:${CATC[c>=0?c:0]}">${Y0+i} · ${e.total} ${esc(t('records'))}</small>`+e.cats.map((n,k)=>n?`<span class="row" style="--c:${CATC[k]}"><i></i>${esc(catName(k))}<b>${n}</b></span>`:'').join('')+dl+`<em>${esc(cmpOn?t('nsCmpPick'):t('nsClick'))}</em>`;tip.hidden=false;placeTip()}
   function placeTip(){const r=panel.getBoundingClientRect();tip.style.transform=`translate(${Math.max(8,Math.min(mouse.x-r.left+16,r.width-230))}px,${Math.max(8,Math.min(mouse.y-r.top+16,r.height-190))}px)`}
   function pick(){if(!mouse.in||drag){if(hoverYear!==-1){hoverYear=-1;colorsDirty.v=true;showTip(-1)}return}
    const r=canvas.getBoundingClientRect();ndc.set(((mouse.x-r.left)/r.width)*2-1,-(((mouse.y-r.top)/r.height)*2-1));ray.setFromCamera(ndc,camera);const hit=ray.intersectObject(towers,false)[0];
@@ -90,11 +117,14 @@ window.NobelSkyline=(()=>{
   panel.addEventListener('pointermove',e=>{mouse={x:e.clientX,y:e.clientY,in:true};if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>4)drag.moved=true;yaw=Math.max(-1.15,Math.min(1.15,yaw+dx*.005));pitch=Math.max(.08,Math.min(.95,pitch+dy*.004));vy=dx*.005;drag.x=e.clientX;drag.y=e.clientY;if(hoverYear!==-1){hoverYear=-1;colorsDirty.v=true;showTip(-1)}}else pick();wake()},{passive:true});
   panel.addEventListener('pointerleave',()=>{mouse.in=false;pick()});
   panel.addEventListener('pointerdown',e=>{if(e.button>0||(e.target.closest&&e.target.closest('.nc-3d-ctl,.nc-sky-legend')))return;drag={x:e.clientX,y:e.clientY,moved:false};try{panel.setPointerCapture(e.pointerId)}catch{}});
-  addEventListener('pointerup',()=>{const d=drag;drag=null;if(d&&!d.moved&&hoverYear>=0&&typeof selectNobelYear==='function'){selectNobelYear(String(Y0+hoverYear),true);syncSel()}wake()});
+  addEventListener('pointerup',()=>{const d=drag;drag=null;if(d&&!d.moved&&hoverYear>=0&&typeof selectNobelYear==='function'){if(cmpOn&&selYear>=0&&hoverYear!==selYear){cmpYear=hoverYear;updateCompare()}else{selectNobelYear(String(Y0+hoverYear),true);syncSel()}}wake()});
   panel.addEventListener('wheel',e=>{if(!(e.ctrlKey||e.metaKey))return;e.preventDefault();distT=Math.max(10,Math.min(42,distT*Math.exp(e.deltaY*.0016)));wake()},{passive:false});
   ctl.addEventListener('click',e=>{const b=e.target.closest?e.target.closest('[data-z]'):null;if(!b)return;if(b.dataset.z==='in')distT=Math.max(10,distT/1.3);else if(b.dataset.z==='out')distT=Math.min(42,distT*1.3);else{distT=18.6;yaw=0;pitch=.2}wake()});
   canvas.tabIndex=0;canvas.setAttribute('role','application');canvas.setAttribute('aria-label',t('nsLabel'));
-  canvas.addEventListener('keydown',e=>{const y=typeof nobelYear!=='undefined'&&nobelYear?Number(nobelYear):Y1;let ny=y;if(e.key==='ArrowRight')ny=Math.min(Y1,y+1);else if(e.key==='ArrowLeft')ny=Math.max(Y0,y-1);else if(e.key==='Home')ny=Y0;else if(e.key==='End')ny=Y1;else if(e.key==='PageUp')ny=Math.min(Y1,y+10);else if(e.key==='PageDown')ny=Math.max(Y0,y-10);else return;e.preventDefault();if(typeof selectNobelYear==='function'&&idx.has(String(ny)))selectNobelYear(String(ny),true);syncSel();wake()});
+  canvas.addEventListener('keydown',e=>{const y=typeof nobelYear!=='undefined'&&nobelYear?Number(nobelYear):Y1;let ny=y;const step=(e.ctrlKey||e.metaKey)?10:1;
+   if(e.key==='Escape'&&cmpOn){e.preventDefault();setCmp(false);return}
+   if(e.shiftKey&&cmpOn&&(e.key==='ArrowRight'||e.key==='ArrowLeft')){e.preventDefault();const base0=cmpYear>=0?cmpYear:(selYear>=0?selYear:N-1);cmpYear=Math.max(0,Math.min(N-1,base0+(e.key==='ArrowRight'?1:-1)*step));updateCompare();wake();return}
+   if(e.key==='ArrowRight')ny=Math.min(Y1,y+step);else if(e.key==='ArrowLeft')ny=Math.max(Y0,y-step);else if(e.key==='Home')ny=Y0;else if(e.key==='End')ny=Y1;else if(e.key==='PageUp')ny=Math.min(Y1,y+10);else if(e.key==='PageDown')ny=Math.max(Y0,y-10);else if(e.key==='c'||e.key==='C'){e.preventDefault();setCmp(!cmpOn);return}else return;e.preventDefault();if(typeof selectNobelYear==='function'&&idx.has(String(ny)))selectNobelYear(String(ny),true);syncSel();wake()});
   /* frame */
   function layout(dt){const light=root.dataset.theme==='light',since=(performance.now()-t0)/1000;let moving=false;
    const per=new Array(N).fill(0);
@@ -104,7 +134,7 @@ window.NobelSkyline=(()=>{
    for(let k=0;k<K;k++){const {i}=keys[k],h=Math.max(cur[k],.0001),x=X0+i*DX,y0=acc[i];acc[i]+=cur[k];
     P.set(x,y0+h/2,0);S.set(BW,h,BD);M.compose(P,Q,S);towers.setMatrixAt(k,M);P.set(x,-(y0+h/2)*.5-.01,0);S.set(BW,h*.5,BD);M.compose(P,Q,S);refl.setMatrixAt(k,M)}
    towers.instanceMatrix.needsUpdate=true;refl.instanceMatrix.needsUpdate=true;return moving}
-  function theme(){const light=root.dataset.theme==='light';floorMat.color.setHex(light?0x2a3a46:0xffe6b0);floorMat.opacity=light?.10:.5;lineMat.color.setHex(light?0x13283a:0x9fb8c8);lineMat.opacity=light?.28:.22;refl.material.opacity=light?.05:.11;mat.envMapIntensity=light?1.0:1.3;mat.metalness=light?.15:.3;mat.roughness=light?.3:.2;key.intensity=light?2.4:2.0;rim.intensity=light?.5:.95;winU.uWin.value=light?.5:1.5;winU.uRim.value=light?.18:.55;rainMat.blending=dustMat.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;rainMat.color.setHex(light?0x8a5a22:0xffe6b0);dustMat.color.setHex(light?0x2a3a46:0xffe9c0);dustMat.opacity=light?.3:.5;rainMat.needsUpdate=dustMat.needsUpdate=true;beam.material.opacity=light?.55:1;beam.material.color.setHex(light?0xb07a38:0xffffff);colorsDirty.v=true;theme.l=light}
+  function theme(){const light=root.dataset.theme==='light';floorMat.color.setHex(light?0x2a3a46:0xffe6b0);floorMat.opacity=light?.10:.5;lineMat.color.setHex(light?0x13283a:0x9fb8c8);lineMat.opacity=light?.28:.22;refl.material.opacity=light?.05:.11;mat.envMapIntensity=light?1.0:1.3;mat.metalness=light?.15:.3;mat.roughness=light?.3:.2;key.intensity=light?2.4:2.0;rim.intensity=light?.5:.95;winU.uWin.value=light?.5:1.5;winU.uRim.value=light?.18:.55;rainMat.blending=dustMat.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;rainMat.color.setHex(light?0x8a5a22:0xffe6b0);dustMat.color.setHex(light?0x2a3a46:0xffe9c0);dustMat.opacity=light?.3:.5;rainMat.needsUpdate=dustMat.needsUpdate=true;beam.material.opacity=light?.55:1;beam2.material.opacity=beam.material.opacity;beam2.material.color.setHex(light?0x3a62a8:0x9ec6ff);bleed.material.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;bleed.material.opacity=light?.22:.55;bleed.material.needsUpdate=true;beam.material.color.setHex(light?0xb07a38:0xffffff);colorsDirty.v=true;theme.l=light}
   function frame(now){raf=0;if(!visible||document.hidden)return;const dt=Math.min(.05,(now-(frame.l||now))/1000||0);frame.l=now;time+=dt;
    if((root.dataset.theme==='light')!==theme.l)theme();syncSel();
    const moving=layout(dt);if(colorsDirty.v)recolor();
@@ -116,11 +146,12 @@ window.NobelSkyline=(()=>{
    const sway=(reduced.matches||root.classList.contains('effects-paused'))?0:Math.sin(time*.35)*.045;
    tx+=(txT-tx)*Math.min(1,dt*3.2);dist+=(distT-dist)*Math.min(1,dt*5);
    const tgtX=0,ang=yaw+sway;camera.position.set(tgtX+Math.sin(ang)*dist*Math.cos(pitch),Math.sin(pitch)*dist+1.4,Math.cos(ang)*dist*Math.cos(pitch));camera.lookAt(tgtX,1.15,0);
+   if(cmpYear>=0&&beam2.visible){beam2.position.set(X0+cmpYear*DX,3,0);beam2.lookAt(camera.position.x,3,camera.position.z);let st=0;for(let k=0;k<K;k++)if(keys[k].i===cmpYear)st+=cur[k];const e2=idx.get(String(Y0+cmpYear));chip2.textContent=(Y0+cmpYear)+' · '+(e2?e2.total:0);v3.set(X0+cmpYear*DX,st+.5,0);v3.project(camera);const w2=canvas.clientWidth,h2=canvas.clientHeight,cw2=(chip2.offsetWidth||90)/2+8;chip2.style.transform=`translate(${Math.max(cw2,Math.min(w2-cw2,(v3.x*.5+.5)*w2)).toFixed(1)}px,${((-v3.y*.5+.5)*h2).toFixed(1)}px)`}
    if(selYear>=0){const e=idx.get(String(Y0+selYear));beam.position.set(X0+selYear*DX,3,0);beam.lookAt(camera.position.x,3,camera.position.z);if(chip&&e){chip.hidden=false;chip.textContent=(Y0+selYear)+' · '+e.total}}else if(chip)chip.hidden=true;
    const w=canvas.clientWidth,h=canvas.clientHeight;grp.updateMatrixWorld(true);
    lab.forEach(el=>{if(el.dataset.d){v3.set(X0+(Number(el.dataset.d)-Y0)*DX,0,.55)}else{v3.set(X0-.35,Number(el.dataset.r)*HS,-.34)}v3.project(camera);el.style.transform=`translate(${((v3.x*.5+.5)*w).toFixed(1)}px,${((-v3.y*.5+.5)*h).toFixed(1)}px)`;el.style.opacity=v3.z<1?1:0});
    if(window.BKText&&++labFrame%6===0){const pr=labels.getBoundingClientRect(),L=lab.filter(el=>el.style.opacity==='1').map(el=>{const b=el.getBoundingClientRect();if(b.left<pr.left+4||b.right>pr.right-4||b.top<pr.top+2||b.bottom>pr.bottom-2)el.dataset.edge='1';else delete el.dataset.edge;return{el,x:b.left+b.width/2,y:b.top,w:b.width,h:b.height,prio:el.dataset.d?2:1}});lab.forEach(el=>{el.style.visibility=''});window.BKText.declutter(L,2);lab.forEach(el=>{if(el.dataset.edge)el.style.visibility='hidden'})}
-   if(chip&&selYear>=0){const e=idx.get(String(Y0+selYear));v3.set(X0+selYear*DX,(e?e.total:0)*HS*0+Math.min(1,cur.length?1:0)*0+(()=>{let s=0;for(let k=0;k<K;k++)if(keys[k].i===selYear)s+=cur[k];return s})()+.5,0);v3.project(camera);const cw=(chip.offsetWidth||90)/2+8,cx=Math.max(cw,Math.min(w-cw,(v3.x*.5+.5)*w));chip.style.transform=`translate(${cx.toFixed(1)}px,${((-v3.y*.5+.5)*h).toFixed(1)}px)`}
+   if(chip&&selYear>=0){const e=idx.get(String(Y0+selYear));v3.set(X0+selYear*DX,(e?e.total:0)*HS*0+Math.min(1,cur.length?1:0)*0+(()=>{let s=0;for(let k=0;k<K;k++)if(keys[k].i===selYear)s+=cur[k];return s})()+.5,0);v3.project(camera);const cw=(chip.offsetWidth||90)/2+8,cx=Math.max(cw,Math.min(w-cw,(v3.x*.5+.5)*w));chip.style.transform=`translate(${cx.toFixed(1)}px,${((-v3.y*.5+.5)*h).toFixed(1)}px)`;anchorLocal={x:(v3.x*.5+.5)*w,y:(-v3.y*.5+.5)*h}}
    renderer.render(scene,camera);
    const still=reduced.matches||root.classList.contains('effects-paused');if(!still||moving||drag||Math.abs(vy)>1e-4||Math.abs(distT-dist)>.01||Math.abs(txT-tx)>.002)raf=requestAnimationFrame(frame)}
   size();new ResizeObserver(()=>{size();wake()}).observe(panel);
@@ -128,6 +159,7 @@ window.NobelSkyline=(()=>{
   new MutationObserver(()=>{theme();wake()}).observe(root,{attributes:true,attributeFilter:['data-theme','class']});
   document.addEventListener('library:language',()=>{canvas.setAttribute('aria-label',t('nsLabel'))});
   theme();syncSel();recolor();canvas.classList.add('on');wake();
-  inst={wake,sync:()=>{syncSel();wake()}};return inst}
+  let anchorLocal=null;
+  inst={wake,sync:()=>{syncSel();wake()},enter(){if(reduced.matches)return;dist=distT*1.34;pitch=Math.min(.95,pitch+.18);wake()},anchor(){if(selYear<0||!anchorLocal)return null;const r=canvas.getBoundingClientRect();return{x:r.left+anchorLocal.x,y:r.top+anchorLocal.y}}};return inst}
  return{init,get inst(){return inst}}
 })();
