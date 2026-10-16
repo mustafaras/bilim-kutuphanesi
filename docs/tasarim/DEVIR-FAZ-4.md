@@ -238,3 +238,7 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - `skyline3d.js` (`window.NobelSkyline`): 126 yıl, kategori renkli yığılmış kuleler (InstancedMesh, PMREM stüdyo ortamı), yansıma, on yıl cetvelleri, seçili yıl için ışık huzmesi + rozet. Etkileşim: hover → yıl dökümü (kategori sayıları), tıkla → aynı `selectNobelYear` ile yıl dosyası, lejant çipleri kategori izole eder (Shift/Alt = tek), kuleler yay animasyonuyla yeniden yığılır; sürükle=yörünge, Ctrl/⌘+tekerlek / düğmeler=yakınlaştır, ←/→/Home/End/PgUp/PgDn=yıl gezinme (canvas odaklanabilir, `role=application`). Silüet artık varsayılan görünüm; Grafik ve Galaksi korunur (erişilebilir grafik).
 - Tema: `.nobel-chronicle` açık temada parşömen/koyu mürekkep (önceden hep koyu); 3B paneller, lejant, tooltip, kontroller, yıl dosyası başlığı açık temada uyumlu.
 - Yazılım render'da `MeshPhysicalMaterial` çok yavaştı → kulelerde `MeshStandardMaterial`, DPR 1.5.
+
+## 33. Paket 22 (v81) — Nobel bölümü tek enstrüman
+
+- Başlık = üç büyük rakam (yıl/kayıt/en yoğun yıl) + görünüm anahtarı; eski meta satırı ve yinelenen lejant gizli. HUD: canlı okuma (hover yılı / seçili yıl, kayıt·ödüllü sayısı, kategori payı çubuğu) + tüm görünümlerde ortak kategori çipleri (`window.NobelFilter`: Silüet, Galaksi ve Grafik aynı anda süzülür; Shift/Alt = izole). Galaksi: kategori attribute + `uOn[7]` uniform, kategori bulutsuları, büyük çekirdek. Silüet: ortalanmış kamera. Üç görünüm aynı sahne çerçevesinde; ondalık seçici tek satır; açık tema uyumlu.
