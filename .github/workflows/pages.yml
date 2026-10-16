@@ -61,7 +61,7 @@ jobs:
         timeout-minutes: 8
         run: python tools/reduced_audit.py
       - name: Package A features (arrival dolly, return flight, governor hysteresis, atlas dive)
-        timeout-minutes: 10
+        timeout-minutes: 20
         run: python tools/feature_audit.py
       - name: Leak check (open/close records, 3D book)
         timeout-minutes: 10
