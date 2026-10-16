@@ -368,9 +368,23 @@
    if(on&&!cv){cv=document.createElement('canvas');cv.className='rec-3d';cv.setAttribute('aria-hidden','true');art.appendChild(cv);
     (document.fonts&&document.fonts.load?Promise.all([document.fonts.load('400 44px Fraunces'),document.fonts.load('400 24px Inter'),document.fonts.load('600 22px "IBM Plex Mono"')]).catch(()=>{}):Promise.resolve()).then(()=>
      register(cv,(m)=>{try{return bookScene(m,null,r,true)}catch{return null}},{host:art,drag:true,dbl:true,onReady:()=>art.classList.add('rec-ready')}))}})}
+ /* G4: list view — hovering a row shows a small real 3D cover beside it. One canvas, one registered item; the scene is swapped per record (cached). */
+ function mountListPeek(){
+  const host=document.getElementById('cards');if(!host||mountListPeek.done||typeof records==='undefined')return;mountListPeek.done=true;
+  const cv=document.createElement('canvas');cv.className='list-peek';cv.setAttribute('aria-hidden','true');cv.hidden=true;document.body.appendChild(cv);
+  const cache=new Map();let it=null,cur=null,pending=null;
+  const show=(row)=>{const el=row.querySelector('[data-detail]'),id=el&&el.dataset.detail;if(!id||id===cur)return;const rec=records.find(r=>r.id===id);if(!rec)return;
+   const r=row.getBoundingClientRect(),w=148,h=206;cv.style.left=Math.max(8,Math.min(innerWidth-w-8,r.left+r.width*.66-w/2))+'px';/* over the quiet metadata columns, never over the title or the access links */cv.style.top=Math.max(72,Math.min(innerHeight-h-8,r.top+r.height/2-h/2))+'px';
+   cur=id;cv.hidden=false;
+   const apply=()=>{if(!it||!it.ready||cur!==id)return;let made=cache.get(id);if(!made){try{made=bookScene(THREE,null,rec)}catch{return}cache.set(id,made);if(cache.size>12){const k=cache.keys().next().value;cache.delete(k)}}
+    it.scene=made.scene;it.camera=made.camera;it.api=made;it.hover=1;it.dirty=true;cv.classList.add('on');kick()};
+   if(!it){it=register(cv,m=>{const dummy=m?{scene:new m.Scene(),camera:new m.PerspectiveCamera(30,1,.1,50),update(){}}:null;return dummy},{host:cv,onReady:()=>{pending=null;apply()}})}else apply()};
+  const hide=()=>{cur=null;cv.hidden=true;cv.classList.remove('on')};
+  host.addEventListener('pointerover',e=>{if(!host.classList.contains('list-view')||matchMedia('(pointer:coarse)').matches)return;const row=e.target.closest&&e.target.closest('.card,.ledger-row');if(row&&host.contains(row))show(row)});
+  host.addEventListener('pointerleave',hide);addEventListener('scroll',hide,{passive:true});document.addEventListener('library:render',hide)}
  function mountAll(){mountAtlas();mountShelf()}
  const start=()=>{mountAll();if(typeof MutationObserver==='function')for(const id of ['collectionGrid','spotlightGrid']){const el=document.getElementById(id);if(el)new MutationObserver(()=>{clearTimeout(start.t);start.t=setTimeout(mountAll,60)}).observe(el,{childList:true})}};
  const go=()=>{if(typeof requestIdleCallback==='function')requestIdleCallback(start,{timeout:1800});else setTimeout(start,400)};
  {const sh=document.getElementById('recordSheet');if(sh&&typeof MutationObserver==='function')new MutationObserver(()=>setTimeout(mountRecord,80)).observe(sh,{childList:true})}
- document.addEventListener('library:ready',()=>setTimeout(go,300));if(typeof records!=='undefined'&&records.length)setTimeout(go,300);
+ document.addEventListener('library:ready',()=>setTimeout(()=>{go();mountListPeek()},300));if(typeof records!=='undefined'&&records.length)setTimeout(go,300);
 })();

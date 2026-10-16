@@ -1426,3 +1426,29 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 @media(prefers-reduced-motion:reduce){.spotlight-grid .spotlight-card{transition:none}.spotlight-grid .spotlight-card:hover ~ .spotlight-card,.spotlight-grid .spotlight-card:has(~ .spotlight-card:hover){translate:none}}
 /* atlas hover constellation stays in the art zone and fades out under the title/description (legibility) */
 .collection-tile .tile-constellation{-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 36%,rgba(0,0,0,.1) 60%,rgba(0,0,0,.1) 100%);mask-image:linear-gradient(to bottom,#000 0,#000 36%,rgba(0,0,0,.1) 60%,rgba(0,0,0,.1) 100%)}
+/* Package 37 — G: catalogue polish */
+/* G1 card edge glow: a thin conic light travels around the edge on hover (dark: brass, light: copper); hover contrast untouched, the card keeps its own border */
+@property --card-ang{syntax:'<angle>';inherits:false;initial-value:0deg}
+.card{position:relative}
+.card::after{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1px;pointer-events:none;opacity:0;transition:opacity .35s var(--ease-out,ease-out);
+ background:conic-gradient(from var(--card-ang),transparent 0 62%,rgba(232,206,158,.95) 82%,rgba(255,244,214,.95) 88%,transparent 100%);
+ -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+:root[data-theme=light] .card::after{background:conic-gradient(from var(--card-ang),transparent 0 62%,rgba(161,92,57,.9) 82%,rgba(214,150,96,.9) 88%,transparent 100%)}
+.card:hover::after,.card:focus-within::after{opacity:1;animation:card-spin 3.6s linear infinite}
+@keyframes card-spin{to{--card-ang:360deg}}
+.cards.list-view .card::after{display:none}
+.effects-paused .card::after{animation:none}
+@media(prefers-reduced-motion:reduce){.card::after{animation:none!important}}
+/* G2 depth: the living cover's grid and drawing slide against each other with the pointer */
+.card .living-art .art-grid{translate:calc(var(--mx,0)*-5px) calc(var(--my,0)*-4px);transition:translate .25s var(--ease-out,ease-out)}
+.card .living-art svg,.card .atlas-symbol{translate:calc(var(--mx,0)*3px) calc(var(--my,0)*2.5px);transition:translate .25s var(--ease-out,ease-out)}
+@media(prefers-reduced-motion:reduce){.card .living-art .art-grid,.card .living-art svg{translate:none}}
+/* G3 empty state */
+.empty-state{position:relative}
+.empty3d{position:absolute;right:clamp(14px,5vw,56px);top:50%;transform:translateY(-50%);width:210px;height:156px;pointer-events:none;opacity:0;transition:opacity .8s ease}
+.empty3d.on{opacity:1}
+@media(max-width:720px){.empty3d{display:none}}
+/* G4 list preview */
+.list-peek{position:fixed;width:148px;height:206px;z-index:40;pointer-events:none;opacity:0;transition:opacity .22s ease;filter:drop-shadow(0 14px 18px rgba(0,0,0,.32))}
+.list-peek.on{opacity:1}.list-peek[hidden]{display:none}
+@media(max-width:900px),(pointer:coarse){.list-peek{display:none}}

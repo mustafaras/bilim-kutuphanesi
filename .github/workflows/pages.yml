@@ -37,6 +37,7 @@ jobs:
           node --check site/discovery.js
           node --check site/nobel3d.js
           node --check site/motion.js
+          node --check site/empty3d.js
           node --check site/textfit.js
           node --check site/stage.js
           node --check site/hero3d.js
