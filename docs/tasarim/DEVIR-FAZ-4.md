@@ -272,3 +272,11 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - **B3 (dilim):** şerit ayraç kuyruğu yayılan dalga ile hareket eder (`rp0` taban konumu).
 - **Tuzak:** grain boyama ~370k piksel; deri için 24px ızgara ile en yakın nokta araması (düz O(n) çok yavaş). Gerçek GPU/CPU süresi ölçülmedi.
 - **Yapılmadı:** B2 (sayfa kıvrımı), B4 (gerçek gölge), B5 (madalya portresi/iridescence), B7 (snap + okuma pozu).
+
+## 38. Paket B tamam (v88)
+- **B5 madalya:** `faceMaskOf(k)` altı Nobel yüzü (Fizik atom, Kimya benzen, Tıp Asklepios çubuğu, Edebiyat kalem, Barış güvercin, Ekonomi grafik) + arka yüz; her yüz ayrı `CircleGeometry` bindirmesi (ön `z=+.0815`, arka `-.0815`), silindir kapakları düz altın. Çevresel yazı `arcText`: karakter genişliği ölçülür, yay sığmazsa font küçülür (A2 kapandı). Her ~5.5 sn madalya bir kez 360° döner; yüz tam arkası dönükken değişir. Kurdele ve kenarda `iridescence`. `api.face(k)` test/hata ayıklama için yüz seçer. Güvercin küçük ölçekte zayıf okunuyor.
+- **B7 poz makinesi (`bookScene`):** `auto → drag → snap → auto` ve `read`. Bırakınca atalet projeksiyonu ile en yakın yüze (ön / sırt / arka / sayfa kenarı, 90° adım) yaylanır; imleç 2.2 sn ayrılırsa `auto`. Çift tık (yalnız kayıt sayfası, `opts.dbl`) okuma pozu: dik, 1.06× büyük, kapak kapalı. `wrap()` yaw'ı 2π'ye göre normalize eder.
+- **B2:** ön kapak `hinge` grubunda; hover'da 12° açılır (okuma/sürüklemede kapalı). Sayfa bloğu `BoxGeometry(...,1,1,8)` ile hafif dışbükey ön kenar (`+.022`), `pageEdge`'e yaprak çizgileri.
+- **B4:** `renderer.shadowMap` PCFSoft; yalnız kayıt sayfası kitabı (`real=true`) `DirectionalLight` gölgesi (1024) + `ShadowMaterial` zemin; raf kitapları eski yumuşak lekeyle. Not: `PCFSoftShadowMap` `shadow.radius`'u yok sayar.
+- **Tuzak:** `pkill -f` ile kendi kabuğu öldürme (exit 144); `pgrep -f` izleyicileri kendini yakalar.
+- Ölçülmedi: gerçek GPU maliyeti (gölge haritası + 7 madalya dokusu), akıcılık.

@@ -37,3 +37,30 @@ Açık: ![](ekran/v87/malzeme-r0-light.png) ![](ekran/v87/malzeme-r1-light.png) 
 
 ## Yapılmayanlar
 B2, B4, B5, B7; Paket C–I; BÖLÜM 5 araştırması; elle 12 ekranlık tur; sızıntı testi.
+
+---
+
+# v88 — Paket B tamamlandı
+Görüntüler `ekran/v88/`. Yazılım render'ı; hareketin kendisi (hinge açılışı, yaylanma, madalya dönüşü) durağan karelerle ancak sonuç pozlarında görülür.
+
+## Kitap pozları (kayıt sayfası, açık ve koyu)
+| Hover: kapak 12° açık | Sürükle → arka yüze snap | Sürükle → sırt (3/4) snap | Çift tık: okuma pozu |
+|---|---|---|---|
+| ![](ekran/v88/kitap-hover-kapak-acik-dark.png) | ![](ekran/v88/kitap-surukle-snap-arka-dark.png) | ![](ekran/v88/kitap-surukle-snap-sirt-dark.png) | ![](ekran/v88/kitap-okuma-pozu-dark.png) |
+| ![](ekran/v88/kitap-hover-kapak-acik-light.png) | ![](ekran/v88/kitap-surukle-snap-arka-light.png) | ![](ekran/v88/kitap-surukle-snap-sirt-light.png) | ![](ekran/v88/kitap-okuma-pozu-light.png) |
+
+Açık temada kitabın zeminine düşen **gerçek gölge** (yalnız kayıt sayfası kitabında) görünür.
+
+## Nobel madalyası: altı yüz (koyu / açık)
+Fizik, Kimya, Tıp, Edebiyat, Barış, Ekonomi. Çevresel yazı ölçülerek yaya sığdırılır.
+
+| | Koyu | Açık |
+|---|---|---|
+| Fizik | ![](ekran/v88/madalya-0-dark.png) | ![](ekran/v88/madalya-0-light.png) |
+| Kimya | ![](ekran/v88/madalya-1-dark.png) | ![](ekran/v88/madalya-1-light.png) |
+| Tıp | ![](ekran/v88/madalya-2-dark.png) | ![](ekran/v88/madalya-2-light.png) |
+| Edebiyat | ![](ekran/v88/madalya-3-dark.png) | ![](ekran/v88/madalya-3-light.png) |
+| Barış | ![](ekran/v88/madalya-4-dark.png) | ![](ekran/v88/madalya-4-light.png) |
+| Ekonomi | ![](ekran/v88/madalya-5-dark.png) | ![](ekran/v88/madalya-5-light.png) |
+
+Bilinen zayıflık: güvercin amblemi küçük ölçekte net okunmuyor.
