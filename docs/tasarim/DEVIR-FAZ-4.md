@@ -280,3 +280,11 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - **B4:** `renderer.shadowMap` PCFSoft; yalnız kayıt sayfası kitabı (`real=true`) `DirectionalLight` gölgesi (1024) + `ShadowMaterial` zemin; raf kitapları eski yumuşak lekeyle. Not: `PCFSoftShadowMap` `shadow.radius`'u yok sayar.
 - **Tuzak:** `pkill -f` ile kendi kabuğu öldürme (exit 144); `pgrep -f` izleyicileri kendini yakalar.
 - Ölçülmedi: gerçek GPU maliyeti (gölge haritası + 7 madalya dokusu), akıcılık.
+
+## 39. Paket 25 (v89) — Nobel Galaksi açık temada okunur
+**Şikâyet:** açık temada Galaksi katkılı (additive) karışımla parşömene çizildiği için her şey beyaza yıkanıyordu.
+- `nobel3d.js`: `uLight` uniform; açık temada nokta shader'ı opak "mürekkep" yıldız (hafif doygun, `*.8` koyulaştırılmış kategori rengi, keskin çekirdek + zayıf hale), `NormalBlending`. `applyTheme()` her `draw()`te tema değişimini yakalar; tüm katkılı yardımcılar (kılavuz, parıltı sprite'ları, tikler, ışın, halkalar, toz) `themed[]` ile normal karışıma ve koyulaştırılmış renge geçer; merkez `core` parıltısı açık temada gizli. İlk deneme (`1.7` doygunluk) altın Fizik'i kırmızıya kaydırdı; `1.18 / .8` ile efsane çipleriyle eşleşiyor.
+- Kadraj: kamera `13.5→15.4` uzaklık, dış halka artık panel üstünde kırpılmıyor (iki temada).
+- CSS (Package 25): açık temada Galaksi dekad etiketleri koyu + açık hale.
+- `skyline3d.js`: seçili yıl çipi panel içine kelepçelenir (`offsetWidth`); panel kenarında yarım kalan etiketler gizlenir.
+- **Tuzak:** katkılı karışım yalnız koyu zeminde çalışır; açık temada her additive nesne ayrıca düşünülmelidir.

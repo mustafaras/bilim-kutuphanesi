@@ -1304,3 +1304,6 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 @keyframes nc-pulse{50%{transform:translateY(2px) scale(1.2)}}
 .nc-strip{background:linear-gradient(to top,color-mix(in srgb,var(--nc-brass) 7%,transparent),transparent 55%)}
 @media(prefers-reduced-motion:reduce){.nc-year.selected::after{animation:none}}
+/* Package 25 — Nobel Galaxy legible on the light theme (stars are drawn as ink, not additive glow) */
+:root[data-theme=light] .nc-3d:not(.nc-sky) .nc-3d-labels span{color:#2f4a5a;font-weight:600;text-shadow:0 0 6px rgba(255,253,247,.95),0 0 2px rgba(255,253,247,.95)}
+:root[data-theme=light] .nc-3d .nc-3d-hint,:root[data-theme=light] .nc-3d .nc-3d-note{color:#3d5360}
