@@ -5,6 +5,7 @@
 A1 atlas objects dolly in as their tile arrives (camera z shrinks, opacity rises while scrolling down to the tiles);
 A2 a record opened from a hero star spawns a return ghost when it closes (and none when opened elsewhere);
 A3 the quality governor degrades at once, recovers one level at a time only after sustained fast windows, and locks recovery after a flip-flop;
+B5 the 3D book opens into a centred reading stage, pages turn and Escape closes it; B6 the medal uses a normal-map relief with a reeded rim; B7 the dome/telescope follows the pointer.
 A4 clicking an atlas tile shows the dive (class .diving), delays the filter ~420 ms, then applies it exactly once."""
 import argparse, os, socket, subprocess, sys, time
 from pathlib import Path
@@ -18,7 +19,9 @@ if not a.url:
     a.url = f"http://127.0.0.1:{port}/"; time.sleep(1)
 problems = []; note = lambda m: print(m, flush=True)
 with sync_playwright() as p:
-    b = p.chromium.launch(executable_path=os.environ.get("BK_CHROMIUM") or "/opt/pw-browsers/chromium", args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"])
+    kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"])
+    exe = os.environ.get("BK_CHROMIUM")      # CI uses Playwright's own browser; locally set BK_CHROMIUM when it has none
+    b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
     pg = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block").new_page()
     errs = []; pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("console", lambda m: errs.append(m.text[:200]) if m.type == "error" else None)
     pg.goto(a.url + "?fa=" + str(time.time()), wait_until="load")
@@ -53,8 +56,10 @@ with sync_playwright() as p:
     pg.evaluate(f"scrollTo(0,{int(top)-120})"); pg.wait_for_timeout(2500)
     pg.evaluate("window.__clicks=0;const ct=document.getElementById('collectionGrid');ct.addEventListener('click',()=>window.__clicks++)")
     before = pg.evaluate("typeof discoveryIndex==='undefined'?null:discoveryIndex")
+    pg.evaluate("window.__sawDive=false;const t=document.querySelectorAll('.atlas-tile')[1];new MutationObserver(()=>{if(t.classList.contains('diving'))window.__sawDive=true}).observe(t,{attributes:true,attributeFilter:['class']});window.__early=null;window.__t0=performance.now();")
     pg.evaluate("document.querySelectorAll('.atlas-tile')[1].click()")
-    pg.wait_for_timeout(120); diving = pg.evaluate("document.querySelectorAll('.atlas-tile')[1].classList.contains('diving')"); early = pg.evaluate("typeof discoveryIndex==='undefined'?null:discoveryIndex")
+    pg.evaluate("window.__early=(typeof discoveryIndex==='undefined'?null:discoveryIndex)")   # read synchronously right after the click: the filter must not have applied yet
+    pg.wait_for_timeout(300); diving = pg.evaluate("window.__sawDive"); early = pg.evaluate("window.__early")
     pg.wait_for_timeout(2500); after = pg.evaluate("typeof discoveryIndex==='undefined'?null:discoveryIndex"); clicks = pg.evaluate("window.__clicks")
     note(f"A4 diving={diving} filter before/early/after = {before}/{early}/{after}, clicks reaching the grid = {clicks}")
     if not diving: problems.append("A4 .diving class not shown right after the click")
@@ -64,14 +69,44 @@ with sync_playwright() as p:
     # ---- A2 return flight
     pg.evaluate("scrollTo(0,0)"); pg.wait_for_timeout(2500)
     pg.evaluate("BKHero.fly(37)"); pg.wait_for_function("!document.getElementById('recordView').hidden", timeout=60000); pg.wait_for_timeout(2500)
-    pg.evaluate("document.getElementById('recordBack').click()"); pg.wait_for_timeout(250)
-    ret = pg.evaluate("document.querySelectorAll('.fly-ghost.fly-return').length")
+    pg.evaluate("window.__ret=0;window.__retObs&&window.__retObs.disconnect();window.__retObs=new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{if(n.classList&&n.classList.contains('fly-return'))window.__ret++})));window.__retObs.observe(document.body,{childList:true})")
+    pg.evaluate("document.getElementById('recordBack').click()"); pg.wait_for_timeout(400)
+    ret = pg.evaluate("window.__ret")
     pg.wait_for_timeout(2500)
-    pg.evaluate("openRecord(records[7].id)"); pg.wait_for_timeout(2000); pg.evaluate("document.getElementById('recordBack').click()"); pg.wait_for_timeout(250)
-    none = pg.evaluate("document.querySelectorAll('.fly-ghost.fly-return').length")
+    pg.evaluate("window.__ret=0")
+    pg.evaluate("openRecord(records[7].id)"); pg.wait_for_timeout(2000); pg.evaluate("document.getElementById('recordBack').click()"); pg.wait_for_timeout(400)
+    none = pg.evaluate("window.__ret")
     note(f"A2 return ghosts after a star-born record: {ret}; after an ordinary record: {none}")
     if ret < 1: problems.append("A2 no return ghost after closing a star-born record")
     if none != 0: problems.append("A2 return ghost appeared for a record that was not opened from a star")
+    # ---- B7 the dome follows the pointer (slit turns, telescope lifts)
+    pg.evaluate("scrollTo(0,0)"); pg.wait_for_timeout(2000)
+    pg.mouse.move(1250, 200); pg.wait_for_timeout(7000); s1 = pg.evaluate("BKDome.state")
+    pg.mouse.move(300, 700); pg.wait_for_timeout(7000); s2 = pg.evaluate("BKDome.state")
+    note(f"B7 dome state with pointer upper-right {s1} / lower-left {s2}")
+    if not (abs(s1["el"] - s2["el"]) > 0.1 and abs(s1["ry"] - s2["ry"]) > 0.2): problems.append(f"B7 dome/telescope does not follow the pointer: {s1} vs {s2}")
+    # ---- B6 medal relief: normal map (not a flat bump), reeded rim, six faces
+    mi = pg.evaluate("BKStage.medalInfo()"); note(f"B6 medal {mi}")
+    if not (mi and mi["normal"] and not mi["bump"] and mi["reed"] and mi["faces"] == 6): problems.append(f"B6 medal relief materials wrong: {mi}")
+    # ---- B5 page-turning book
+    pg.evaluate("openRecord(records[5].id)"); pg.wait_for_timeout(2500)
+    pg.evaluate("document.querySelector('.rv-3d-toggle').click()"); pg.wait_for_function("document.querySelector('.rv-book-ctl')", timeout=120000); pg.wait_for_timeout(3000)
+    st0 = pg.evaluate("BKStage.book.state()")
+    pg.evaluate("document.querySelector('.rv-book-ctl [data-a=open]').click()")
+    pg.wait_for_function("BKStage.book.state().coverK>0.95", timeout=120000)
+    st1 = pg.evaluate("BKStage.book.state()"); stage_ok = pg.evaluate("(()=>{const r=document.querySelector('.rec-3d').getBoundingClientRect();return r.width>800&&Math.abs(r.left+r.width/2-innerWidth/2)<6})()")
+    prev_dis = pg.evaluate("document.querySelector('.rv-book-ctl [data-a=prev]').disabled")
+    for _ in range(2): pg.evaluate("document.querySelector('.rv-book-ctl [data-a=next]').click()"); pg.wait_for_timeout(300)
+    st2 = pg.evaluate("BKStage.book.state()")
+    pg.evaluate("document.querySelector('.rv-book-ctl [data-a=prev]').click()"); st3 = pg.evaluate("BKStage.book.state()")
+    for _ in range(3): pg.evaluate("document.querySelector('.rv-book-ctl [data-a=next]').click()")
+    st4 = pg.evaluate("BKStage.book.state()"); next_dis = pg.evaluate("document.querySelector('.rv-book-ctl [data-a=next]').disabled")
+    pg.keyboard.press("Escape"); pg.wait_for_timeout(600)
+    closed = pg.evaluate("!document.querySelector('.rv-art.book-open')&&!BKStage.book.state().open")
+    note(f"B5 closed {st0['open']}, opened {st1['open']} (coverK {st1['coverK']}), stage centred {stage_ok}, leaf after 2x next {st2['leaf']}, after prev {st3['leaf']}, after 3x more {st4['leaf']} (next disabled {next_dis}), Esc closes {closed}")
+    if st0["open"] or not st1["open"] or not stage_ok or not prev_dis: problems.append(f"B5 open/close state wrong: {st0} {st1} stage {stage_ok} prev-disabled {prev_dis}")
+    if st2["leaf"] != 2 or st3["leaf"] != 1 or st4["leaf"] != 3 or not next_dis: problems.append(f"B5 page turning wrong: {st2['leaf']},{st3['leaf']},{st4['leaf']} next-disabled {next_dis}")
+    if not closed: problems.append("B5 Escape did not close the open book")
     if errs: problems.append(f"console errors: {errs[:3]}")
     b.close()
 if srv: srv.terminate()

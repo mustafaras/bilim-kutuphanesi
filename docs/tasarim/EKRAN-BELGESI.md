@@ -174,3 +174,12 @@ Tam tur: `ekran/v99/{1440,1100,768}-{dark,light}-NN-*.png` (18 ekran × 6 yapıl
 | Palet (blur + 3B önizleme) | ![](ekran/v99/1440-dark-17-palette-results.png) | ![](ekran/v99/1440-light-17-palette-results.png) |
 | Boş durum | ![](ekran/v99/1440-dark-08-catalog-empty.png) | ![](ekran/v99/1440-light-08-catalog-empty.png) |
 | Nobel grafik, 768px (taşma düzeltildi) | ![](ekran/v99/768-dark-05-nobel-chart.png) | ![](ekran/v99/768-light-05-nobel-chart.png) |
+
+## v101 — Paket B: sayfa çevirme, madalya, teleskop
+| | |
+|---|---|
+| Okuma sahnesi: kapak içi + başlık sayfası | ![](ekran/v101/kitap-acik-sayfa-1.png) |
+| Atıf ve "birlikte okunabilir" sayfaları | ![](ekran/v101/kitap-acik-sayfa-5.png) |
+| Madalya, altı yüz — koyu | ![](ekran/v101/madalya-alti-yuz-koyu.png) |
+| Madalya, altı yüz — açık | ![](ekran/v101/madalya-alti-yuz-acik.png) |
+| Kubbe teleskopu (boşta / sağ-üst / sol-alt, iki tema) | ![](ekran/v101/kubbe-teleskop.png) |

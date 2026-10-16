@@ -139,14 +139,25 @@
     else{x.beginPath();x.moveTo(0,-104);for(let i=1;i<=10;i++){const a=i/10*Math.PI*2-Math.PI/2,rr=i%2?46:112;x.lineTo(Math.cos(a)*rr,Math.sin(a)*rr)}x.closePath();x.fill()}};
    const arcText=(x,txt,R,fontPx)=>{let px=fontPx,tw;do{x.font='600 '+px+'px "IBM Plex Mono",monospace';tw=[...txt].reduce((q,ch)=>q+x.measureText(ch).width+px*.22,0);px-=1}while(tw/R>Math.PI*1.7&&px>14);
     const track=px*.22;let ang=-tw/R/2;x.textAlign='center';[...txt].forEach(ch=>{const w=x.measureText(ch).width+track,a=ang+w/R/2;x.save();x.rotate(a);x.translate(0,-R);x.fillText(ch,0,0);x.restore();ang+=w/R})};
-   const faceMaskOf=k=>canvasTex(m,512,512,(x,W,H)=>{x.fillStyle='#000';x.fillRect(0,0,W,H);x.translate(W/2,H/2);x.strokeStyle='#fff';x.fillStyle='#fff';x.lineWidth=7;x.beginPath();x.arc(0,0,236,0,7);x.stroke();x.lineWidth=2.5;x.beginPath();x.arc(0,0,218,0,7);x.stroke();x.beginPath();x.arc(0,0,150,0,7);x.stroke();
+   const drawFace=(x,W,H,k)=>{x.fillStyle='#000';x.fillRect(0,0,W,H);x.translate(W/2,H/2);x.strokeStyle='#fff';x.fillStyle='#fff';x.lineWidth=7;x.beginPath();x.arc(0,0,236,0,7);x.stroke();x.lineWidth=2.5;x.beginPath();x.arc(0,0,218,0,7);x.stroke();x.beginPath();x.arc(0,0,150,0,7);x.stroke();
+    x.lineWidth=2;for(let i=0;i<72;i++){const a=i/72*Math.PI*2,r1=156,r2=i%6===0?172:164;x.beginPath();x.moveTo(Math.cos(a)*r1,Math.sin(a)*r1);x.lineTo(Math.cos(a)*r2,Math.sin(a)*r2);x.stroke()}/* year-ruler ticks */
     for(let s2=-1;s2<=1;s2+=2){for(let i=0;i<13;i++){const a=Math.PI*.58+i*.17,rr=190;x.save();x.scale(s2,1);x.rotate(a);x.translate(rr,0);x.rotate(.9);x.beginPath();x.ellipse(0,0,26,9,0,0,7);x.fill();x.restore()}}
-    emblem(x,k);arcText(x,k<6?'· NOBEL · '+CATS[k]+' · 1901 – 2026 ·':'· BİLİM KÜTÜPHANEM ·',188,30)},false);
+    emblem(x,k);arcText(x,k<6?'· NOBEL · '+CATS[k]+' · 1901 – 2026 ·':'· BİLİM KÜTÜPHANEM ·',188,30)};
+   const faceMaskOf=k=>canvasTex(m,512,512,(x,W,H)=>drawFace(x,W,H,k),false);
+   /* relief: a height field (sunburst field, guilloche band, soft shoulders on every raised shape) turned into a normal map — sharper, truer lighting than a bump of the flat mask */
+   const reliefOf=k=>{const mk=faceMaskOf(k).image,c=document.createElement('canvas');c.width=c.height=512;const x=c.getContext('2d');x.fillStyle='#4a4a4a';x.fillRect(0,0,512,512);x.save();x.translate(256,256);
+    x.strokeStyle='rgba(255,255,255,.10)';x.lineWidth=1;for(let i=0;i<180;i++){const a=i/180*Math.PI*2;x.beginPath();x.moveTo(Math.cos(a)*40,Math.sin(a)*40);x.lineTo(Math.cos(a)*146,Math.sin(a)*146);x.stroke()}
+    x.strokeStyle='rgba(255,255,255,.16)';for(let n=0;n<3;n++){x.beginPath();for(let i=0;i<=720;i++){const a=i/720*Math.PI*2,r=186+7*Math.sin(a*(18+n*6)+n)+4*Math.sin(a*7);i?x.lineTo(Math.cos(a)*r,Math.sin(a)*r):x.moveTo(Math.cos(a)*r,Math.sin(a)*r)}x.closePath();x.stroke()}x.restore();
+    x.globalCompositeOperation='lighten';if('filter' in x){x.filter='blur(7px)';x.globalAlpha=.55;x.drawImage(mk,0,0);x.filter='blur(2px)';x.globalAlpha=1;x.drawImage(mk,0,0);x.filter='none'}else x.drawImage(mk,0,0);
+    return normalFromHeight(m,c,3.4)};
    const faceCol=canvasTex(m,512,512,(x,W,H)=>{const gr=x.createRadialGradient(W*.4,H*.35,20,W/2,H/2,W*.62);gr.addColorStop(0,'#f6e3ad');gr.addColorStop(.55,'#d9b46c');gr.addColorStop(1,'#a67c34');x.fillStyle=gr;x.fillRect(0,0,W,H)},true);
    const faceOf=k=>{const mk=faceMaskOf(k),rf=canvasTex(m,512,512,(x,W,H)=>{x.fillStyle='#8a8a8a';x.fillRect(0,0,W,H);x.drawImage(mk.image,0,0);x.globalCompositeOperation='multiply';x.fillStyle='#cfcfcf';x.fillRect(0,0,W,H)},false);
-    return new m.MeshPhysicalMaterial({map:faceCol,bumpMap:mk,bumpScale:5.5,metalness:.9,roughness:.34,roughnessMap:rf,clearcoat:.5,clearcoatRoughness:.12,iridescence:.35,iridescenceIOR:1.35,iridescenceThicknessRange:[180,420],envMapIntensity:2.2})};
+    return new m.MeshPhysicalMaterial({map:faceCol,normalMap:reliefOf(k),normalScale:new m.Vector2(1,1),metalness:.9,roughness:.34,roughnessMap:rf,clearcoat:.5,clearcoatRoughness:.12,iridescence:.35,iridescenceIOR:1.35,iridescenceThicknessRange:[180,420],envMapIntensity:2.2})};
    const edge=new m.MeshPhysicalMaterial({color:0xe3c17a,metalness:.95,roughness:.24,iridescence:.25,iridescenceIOR:1.3,iridescenceThicknessRange:[150,380],envMapIntensity:2.0});
-   const disc=new m.Mesh(new m.CylinderGeometry(1.45,1.45,.16,96),[edge,edge,edge]);disc.rotation.x=Math.PI/2;g.add(disc);
+   /* coin reeding: 96 fine ridges around the rim */
+   const reed=(()=>{const c=document.createElement('canvas');c.width=128;c.height=8;const x=c.getContext('2d');for(let i=0;i<128;i++){const v=(.5+.5*Math.sin(i/128*Math.PI*2*16))*255|0;x.fillStyle=`rgb(${v},${v},${v})`;x.fillRect(i,0,1,8)}const t=normalFromHeight(m,c,2.6);t.repeat.set(6,1);return t})();
+   const edgeSide=edge.clone();edgeSide.normalMap=reed;edgeSide.normalScale=new m.Vector2(1.4,1.4);
+   const disc=new m.Mesh(new m.CylinderGeometry(1.45,1.45,.16,96),[edgeSide,edge,edge]);disc.rotation.x=Math.PI/2;g.add(disc);
    const faces=CATS.map((c,k)=>{const f=new m.Mesh(new m.CircleGeometry(1.4,96),faceOf(k));f.position.z=.0815;f.visible=k===0;g.add(f);return f});
    const backF=new m.Mesh(new m.CircleGeometry(1.4,96),faceOf(6));backF.rotation.y=Math.PI;backF.position.z=-.0815;g.add(backF);
    let cur=0,flipT=-1,hold=0;
@@ -158,7 +169,7 @@
    const N=60,gp=new Float32Array(N*3),gs=[];for(let i=0;i<N;i++)gs.push({a:Math.random()*7,r:1.7+Math.random()*1.1,y:(Math.random()-.5)*2.4,s:.25+Math.random()*.6});
    const gl=new m.Points(new m.BufferGeometry().setAttribute('position',new m.BufferAttribute(gp,3)),new m.PointsMaterial({color:0xffe6a8,size:.05,transparent:true,opacity:.85,depthWrite:false,blending:m.AdditiveBlending}));scene.add(gl);
    scene.add(new m.AmbientLight(0xffffff,.4));const k=new m.DirectionalLight(0xfff0d0,2.6);k.position.set(2.5,2,4);scene.add(k);const k2=new m.DirectionalLight(0x9fc4ff,.9);k2.position.set(-3,-1,3);scene.add(k2);
-   return{scene,camera,face(i){faces[cur].visible=false;cur=((i%faces.length)+faces.length)%faces.length;faces[cur].visible=true},update(t,dt,it){hold+=dt;if(flipT<0&&hold>5.5&&!paused()){flipT=0}
+   return{scene,camera,info(){return{normal:!!faces[cur].material.normalMap,bump:!!faces[cur].material.bumpMap,reed:!!edgeSide.normalMap,faces:faces.length}},face(i){faces[cur].visible=false;cur=((i%faces.length)+faces.length)%faces.length;faces[cur].visible=true},update(t,dt,it){hold+=dt;if(flipT<0&&hold>5.5&&!paused()){flipT=0}
     let spin=0;if(flipT>=0){flipT+=dt/.95;const e=flipT<1?(flipT<.5?2*flipT*flipT:1-Math.pow(-2*flipT+2,2)/2):1;spin=e*Math.PI*2;if(flipT>.5&&faces[cur].visible&&flipT<1){faces[cur].visible=false;cur=(cur+1)%faces.length;faces[cur].visible=true}if(flipT>=1){flipT=-1;hold=0;spin=0}}
     g.rotation.y=Math.sin(t*.6)*.7+it.px*.7*it.hoverT+spin;g.rotation.x=.1+it.py*.3*it.hoverT;k.position.x=Math.cos(t*.9)*3.2;
     for(let i=0;i<N;i++){const q=gs[i],a=q.a+t*q.s;gp[i*3]=Math.cos(a)*q.r;gp[i*3+1]=q.y+Math.sin(t*q.s*2+i)*.15;gp[i*3+2]=Math.sin(a)*q.r*.6}gl.geometry.attributes.position.needsUpdate=true}}}
@@ -189,7 +200,7 @@
   x.save();x.translate(W/2+10,H/2);x.rotate(Math.PI/2);x.fillStyle='#f6efdc';x.textAlign='center';{const fl=TF.fitLine(x,displayTitle(r),{maxW:H-270,sizes:[34,30,27,24,21],font:z=>'400 '+z+'px Fraunces,Georgia,serif'});x.font='400 '+fl.size+'px Fraunces,Georgia,serif';x.fillText(fl.text,0,0)}x.restore();
   const tx=new m.CanvasTexture(c);tx.colorSpace=m.SRGBColorSpace;return tx}
 
- window.BKStage={tiles:()=>items.filter(i=>i.canvas.classList.contains('tile-3d')&&i.camera).map(i=>({z:+i.camera.position.z.toFixed(3),op:i.canvas.style.opacity,top:Math.round(i.host.getBoundingClientRect().top+scrollY)})),info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
+ window.BKStage={paintPage,medalInfo:()=>{const it=items.find(i=>i.api&&i.api.face&&i.api.info);return it?it.api.info():null},medal:k=>{const it=items.find(i=>i.api&&i.api.face);if(!it)return false;it.api.face(k);it.dirty=true;kick();return true},tiles:()=>items.filter(i=>i.canvas.classList.contains('tile-3d')&&i.camera).map(i=>({z:+i.camera.position.z.toFixed(3),op:i.canvas.style.opacity,top:Math.round(i.host.getBoundingClientRect().top+scrollY)})),info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
 
  /* Image-based lighting: a tiny studio (soft boxes) baked once into a PMREM map; makes foil, cloth, clearcoat and gold read as real materials. */
  let ENV=null;
@@ -247,12 +258,44 @@
  function board(m,w,h,T,flipU){return shared('board|'+[w,h,T,flipU].join('|'),()=>board0(m,w,h,T,flipU))}
  function board0(m,w,h,T,flipU){const g=new m.ExtrudeGeometry(roundedShape(m,w,h,.07),{depth:T,bevelEnabled:true,bevelSize:.016,bevelThickness:.016,bevelSegments:4,curveSegments:10});g.translate(0,0,-T/2);
   const pos=g.attributes.position,uv=g.attributes.uv;for(let i=0;i<pos.count;i++){let u=(pos.getX(i)+w/2)/w;if(flipU)u=1-u;uv.setXY(i,u,(pos.getY(i)+h/2)/h)}uv.needsUpdate=true;return g}
+ /* B5: one page of the open 3D book (768x1080). Pages come in pairs: even k = right-hand (front of a leaf), odd k = left-hand (its back).
+    0 title page · 1 abstract · 2 details · 3 citation · 4 read alongside · 5 colophon. Every text block goes through BKText (fits or ellipsizes), so nothing can overflow. */
+ function paintPage(x,W,H,r,k){
+  const TF=window.BKText,tt=typeof t==='function'?t:(q=>q),left=k%2===1,mx=86,top=150,bot=H-150,cw=W-2*mx,ink='#2a2118',mute='#7a6a55';
+  const g=x.createLinearGradient(left?W:0,0,left?W-110:110,0);g.addColorStop(0,'rgba(70,52,30,.34)');g.addColorStop(1,'rgba(70,52,30,0)');
+  x.fillStyle='#f3ead4';x.fillRect(0,0,W,H);x.fillStyle=g;x.fillRect(0,0,W,H);
+  let sd=(k+3)*7919;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};for(let i=0;i<260;i++){x.fillStyle=`rgba(${120+rnd()*40|0},${100+rnd()*30|0},60,${.02+rnd()*.05})`;x.fillRect(rnd()*W,rnd()*H,1+rnd()*2,1)}
+  x.textAlign='center';x.fillStyle=mute;x.font='500 22px "IBM Plex Mono",monospace';x.fillText((typeof catalogNo==='function'?catalogNo(r):'')+'  ·  '+tt('brand').toUpperCase(),W/2,78);
+  x.strokeStyle='rgba(120,100,70,.4)';x.lineWidth=1.5;x.beginPath();x.moveTo(mx,102);x.lineTo(W-mx,102);x.stroke();
+  x.font='500 24px "IBM Plex Mono",monospace';x.fillText(String(k+1),W/2,H-62);
+  const head=txt=>{x.textAlign='left';x.fillStyle=ink;x.font='500 50px Fraunces,Georgia,serif';x.fillText(TF?TF.ellipsize(x,txt,cw):txt,mx,top+34);x.strokeStyle='rgba(165,92,57,.7)';x.lineWidth=3;x.beginPath();x.moveTo(mx,top+58);x.lineTo(mx+90,top+58);x.stroke()};
+  const para=(text,y0,sizes,lh,font)=>{const f=TF.fitBlock(x,text,{maxW:cw,maxH:bot-y0,sizes,lh,font:font||(z=>'400 '+z+'px Fraunces,Georgia,serif')});x.fillStyle=ink;x.textAlign='left';f.lines.forEach((ln,i)=>x.fillText(ln,mx,y0+f.size+i*f.lh));return f};
+  const title=typeof displayTitle==='function'?displayTitle(r):r.title,author=r.author||'';
+  if(k===0){
+   x.textAlign='center';x.strokeStyle='rgba(165,92,57,.65)';x.lineWidth=2.5;x.beginPath();x.moveTo(W/2-60,top+10);x.lineTo(W/2+60,top+10);x.stroke();x.fillStyle='rgba(165,92,57,.85)';x.beginPath();x.arc(W/2,top+10,6,0,7);x.fill();
+   const f=TF.fitBlock(x,title,{maxW:cw-20,maxH:380,sizes:[64,58,52,46,42,38,34],lh:1.22,font:z=>'500 '+z+'px Fraunces,Georgia,serif'});x.fillStyle=ink;f.lines.forEach((ln,i)=>x.fillText(ln,W/2,top+90+f.size+i*f.lh));
+   let y=top+90+f.lines.length*f.lh+f.size*.3+36;
+   if(author){const fa=TF.fitLine(x,author,{maxW:cw-20,sizes:[38,34,30,27],font:z=>'italic 400 '+z+'px Fraunces,Georgia,serif'});x.font='italic 400 '+fa.size+'px Fraunces,Georgia,serif';x.fillStyle=mute;x.fillText(fa.text,W/2,Math.min(y+fa.size,bot-120));y+=fa.size+30}
+   x.fillStyle=mute;x.font='500 25px "IBM Plex Mono",monospace';x.fillText([r.year,tt(r.collection)].filter(Boolean).join('  ·  '),W/2,bot-60);
+  }else if(k===1){head(tt('bkPgAbstract'));const d=typeof displayDescription==='function'?displayDescription(r):(r.description||'');para(d||tt('bkPgNone'),top+110,[37,34,32,30,28],1.5)}
+  else if(k===2){head(tt('bkPgDetails'));const rows=[[tt('bkLang'),r.language],[tt('bkType'),tt(r.collection)],[tt('bkYear'),r.year],[tt('bkPages'),r.pages],[tt('bkField'),typeof label==='function'&&r.category?String(label(r.category)).replace(/^\d+ - /,''):''],[tt('bkLevel'),r.level]].filter(q=>q[1]);
+   let y=top+120;rows.forEach(([a,b])=>{x.textAlign='left';x.fillStyle=mute;x.font='500 22px "IBM Plex Mono",monospace';x.fillText(String(a).toUpperCase(),mx,y);const fl=TF.fitLine(x,String(b),{maxW:cw,sizes:[40,36,32,28],font:z=>'400 '+z+'px Fraunces,Georgia,serif'});x.fillStyle=ink;x.font='400 '+fl.size+'px Fraunces,Georgia,serif';x.fillText(fl.text,mx,y+fl.size+8);x.strokeStyle='rgba(120,100,70,.28)';x.lineWidth=1;x.beginPath();x.moveTo(mx,y+fl.size+30);x.lineTo(W-mx,y+fl.size+30);x.stroke();y+=fl.size+78})}
+  else if(k===3){head(tt('bkPgCite'));const c=window.BKRecordText?window.BKRecordText.citation(r):'';para(c,top+110,[33,31,29,27],1.5,z=>'400 '+z+'px "IBM Plex Mono",monospace')}
+  else if(k===4){head(tt('bkPgRelated'));const rel=window.BKRecordText?window.BKRecordText.related(r,3):[];let y=top+120;
+   rel.forEach(q=>{const ft=TF.fitBlock(x,(typeof displayTitle==='function'?displayTitle(q):q.title),{maxW:cw,maxH:130,maxLines:2,sizes:[36,33,30,27],lh:1.25,font:z=>'500 '+z+'px Fraunces,Georgia,serif'});x.textAlign='left';x.fillStyle=ink;ft.lines.forEach((ln,i)=>{x.font='500 '+ft.size+'px Fraunces,Georgia,serif';x.fillText(ln,mx,y+ft.size+i*ft.lh)});y+=ft.lines.length*ft.lh+ft.size*.9;
+    if(q.author){const fa=TF.fitLine(x,q.author,{maxW:cw,sizes:[26,24,22],font:z=>'italic 400 '+z+'px Fraunces,Georgia,serif'});x.font='italic 400 '+fa.size+'px Fraunces,Georgia,serif';x.fillStyle=mute;x.fillText(fa.text,mx,y);y+=fa.size+44}else y+=30})}
+  else{x.textAlign='center';x.fillStyle='rgba(165,92,57,.5)';x.font='600 170px Fraunces,Georgia,serif';x.fillText('BK',W/2,H/2+40);x.fillStyle=mute;x.font='500 24px "IBM Plex Mono",monospace';x.fillText(tt('brand').toUpperCase(),W/2,H/2+100)}
+ }
  /* B1: edge wear (worn tan speckle along the edges / corners; `rough` mode paints rougher, i.e. lighter, pixels) and a fingerprint smudge as clearcoat normal */
  function wearEdges(x,W,H,seed,mode){let s=seed|0;const rnd=()=>{s=(s*1664525+1013904223)|0;return((s>>>8)&0xffff)/65536};
   x.save();for(let i=0;i<1100;i++){const side=(rnd()*4)|0,t=rnd(),d=Math.pow(rnd(),3.4)*20;let px,py;
    if(side===0){px=t*W;py=d}else if(side===1){px=t*W;py=H-d}else if(side===2){px=d;py=t*H}else{px=W-d;py=t*H}
    const corner=Math.min(Math.min(px,W-px),Math.min(py,H-py));const k=1-Math.min(1,corner/46)*.6,r=.5+rnd()*1.7;
    x.fillStyle=mode==='rough'?`rgba(255,255,255,${(.25+.4*rnd())*k})`:`rgba(${216+rnd()*24|0},${196+rnd()*22|0},${150+rnd()*30|0},${(.06+.16*rnd())*k})`;x.beginPath();x.arc(px,py,r,0,7);x.fill()}x.restore()}
+ /* B6: height canvas -> tangent-space normal map (Sobel, wrapping), shared by the medal relief and the coin reeding */
+ function normalFromHeight(m,cv,strength){const W=cv.width,H=cv.height,src=cv.getContext('2d').getImageData(0,0,W,H).data,out=document.createElement('canvas');out.width=W;out.height=H;const ox=out.getContext('2d'),od=ox.createImageData(W,H),h=(i,j)=>src[(((j+H)%H)*W+((i+W)%W))*4]/255;
+  for(let j=0;j<H;j++)for(let i=0;i<W;i++){const dx=(h(i+1,j)-h(i-1,j))*strength,dy=(h(i,j+1)-h(i,j-1))*strength,l=Math.hypot(dx,dy,1),o=(j*W+i)*4;od.data[o]=(-dx/l*.5+.5)*255;od.data[o+1]=(dy/l*.5+.5)*255;od.data[o+2]=(1/l*.5+.5)*255;od.data[o+3]=255}
+  ox.putImageData(od,0,0);const t=new m.CanvasTexture(out);t.wrapS=t.wrapT=m.RepeatWrapping;return t}
  function smudgeNormal(m,seed){const N=256,c=document.createElement('canvas');c.width=c.height=N;const x=c.getContext('2d');x.fillStyle='#000';x.fillRect(0,0,N,N);
   let s=seed|0;const rnd=()=>{s=(s*1664525+1013904223)|0;return((s>>>8)&0xffff)/65536};
   x.strokeStyle='#fff';for(let f=0;f<3;f++){const cx=rnd()*N,cy=rnd()*N,rx=22+rnd()*26,ry=rx*(1.25+rnd()*.35),rot=rnd()*3.14;x.save();x.translate(cx,cy);x.rotate(rot);x.globalAlpha=.55;x.lineWidth=1.5;for(let r=3;r<1;r++);for(let k=2;k<rx;k+=3.2){x.beginPath();x.ellipse(0,0,k,k*ry/rx,0,0,6.283);x.stroke()}x.restore()}
@@ -307,19 +350,43 @@
   g.position.x=-.05;
   /* pose machine: auto (gentle sway toward the pointer) → drag (free) → snap (springs onto the nearest of front / spine / back / page edge) → auto after the pointer has left; read (double-click): square-on reading pose, cover closed, slightly larger */
   const QP=Math.PI/2,BASE=-.42,wrap=(a,ref)=>a-Math.PI*2*Math.round((a-ref)/(Math.PI*2));
-  let yaw=BASE,pitch=.08,vy=0,mode='auto',snapYaw=BASE,idle=0,open=0,zoom=1;const dark=()=>root.dataset.theme!=='light';
+  let yaw=BASE,pitch=.08,vy=0,mode='auto',snapYaw=BASE,idle=0,open=0,zoom=1,bookOpen=false,coverK=0,leafIdx=0;const dark=()=>root.dataset.theme!=='light';
+  /* B5: pages. Built on first open (6 canvases are not free). Three leaves hinge on the spine axis; leaf k carries page 2k on its front and 2k+1 on its back.
+     The cover swings a full 180°, an endpaper lines its inside, a turning leaf curls (its outer edge lags) and lifts over the stack. */
+  const LN=3,LW=W-.34,LH=Hh-.22,LPX=xL+.07,leaves=[],leafP=[0,0,0],leafT=[0,0,0];let endpaper=null;
+  const zr=k=>.2225+.0035*(LN-k),zl=k=>.2735+.0035*k;
+  function buildLeaves(){
+   if(leaves.length||!real)return;
+   endpaper=new m.Mesh(new m.PlaneGeometry(W-.13,Hh-.16),new m.MeshStandardMaterial({map:canvasTex(m,512,720,(x,w2,h2)=>{x.fillStyle=COVER[idx%8];x.fillRect(0,0,w2,h2);const gr=x.createLinearGradient(0,0,w2,0);gr.addColorStop(0,'rgba(0,0,0,.28)');gr.addColorStop(.18,'rgba(0,0,0,0)');x.fillStyle=gr;x.fillRect(0,0,w2,h2);x.strokeStyle='rgba(246,239,220,.22)';x.lineWidth=2;x.strokeRect(34,34,w2-68,h2-68);x.strokeStyle='rgba(246,239,220,.12)';for(let i=0;i<22;i++){x.beginPath();x.arc(w2*.6,h2*.5,20+i*18,0,7);x.stroke()}noise(x,w2,h2,.1,321)},true),roughness:.85,side:m.FrontSide}));
+   endpaper.rotation.y=Math.PI;endpaper.position.set((W-.04)/2,0,-(T/2+.016)-.004);/* just outside the board's inner bevel (bevelThickness .016), or the cap hides it */hinge.add(endpaper);endpaper.visible=false;
+   const pageMat=k=>new m.MeshStandardMaterial({map:canvasTex(m,768,1080,(x,w2,h2)=>paintPage(x,w2,h2,r,k),true),roughness:.9,side:m.FrontSide});
+   const lgeo=()=>{const gg=new m.PlaneGeometry(LW,LH,24,1);gg.translate(LW/2,0,0);return gg};
+   for(let k=0;k<LN;k++){const pv=new m.Group();pv.position.set(LPX,0,zr(k));
+    const fr=new m.Mesh(lgeo(),pageMat(k*2)),bk=new m.Mesh(lgeo(),pageMat(k*2+1));bk.rotation.y=Math.PI;bk.position.x=LW;
+    fr.castShadow=bk.castShadow=true;pv.add(fr,bk);pv.visible=false;g.add(pv);leaves.push({pv,fr,bk,base:Float32Array.from(fr.geometry.attributes.position.array)})}}
+  function animateLeaves(dt,still){
+   leaves.forEach((L,k)=>{leafP[k]+=still?leafT[k]-leafP[k]:(leafT[k]-leafP[k])*(1-Math.exp(-6.2*Math.min(dt,.05)));const p=leafP[k];
+    L.pv.visible=coverK>.02;L.pv.rotation.y=-Math.PI*p*.995;L.pv.position.z=zr(k)+(zl(k)-zr(k))*p+Math.sin(Math.PI*p)*.03;
+    const amp=.34*Math.sin(Math.PI*p)*(1-2*p),a1=L.fr.geometry.attributes.position,a2=L.bk.geometry.attributes.position;
+    for(let i=0;i<a1.count;i++){const x0=L.base[i*3],uf=x0/LW,ub=(LW-x0)/LW;a1.setZ(i,-amp*uf*uf);a2.setZ(i,amp*ub*ub)}
+    a1.needsUpdate=a2.needsUpdate=true;L.fr.geometry.computeVertexNormals();L.bk.geometry.computeVertexNormals()})}
   return{scene,camera,
-   drag(dx,dy){mode='drag';yaw+=dx*.012;pitch=Math.max(-.5,Math.min(.5,pitch+dy*.008));vy=dx*.012},
-   release(){if(mode!=='drag')return;const k=Math.round((yaw+vy*10-BASE)/QP);snapYaw=BASE+k*QP;vy=0;mode='snap';idle=0},
-   dbl(){if(mode==='read'){mode='auto';yaw=wrap(yaw,BASE)}else{mode='read';yaw=wrap(yaw,-.12)}},
+   drag(dx,dy){mode='drag';if(bookOpen){yaw=Math.max(-.7,Math.min(.5,yaw+dx*.01));pitch=Math.max(-.1,Math.min(.5,pitch+dy*.006));vy=0;return}yaw+=dx*.012;pitch=Math.max(-.5,Math.min(.5,pitch+dy*.008));vy=dx*.012},
+   release(){if(mode!=='drag')return;if(bookOpen){mode='open';vy=0;return}const k=Math.round((yaw+vy*10-BASE)/QP);snapYaw=BASE+k*QP;vy=0;mode='snap';idle=0},
+   open(on){on=!!on;if(on&&!real)return false;bookOpen=on;if(on){buildLeaves();mode='open'}else{leafIdx=0;leafT.fill(0);if(mode==='open')mode='auto'}return bookOpen},
+   turn(d){if(!bookOpen)return leafIdx;leafIdx=Math.max(0,Math.min(LN,leafIdx+d));for(let k=0;k<LN;k++)leafT[k]=k<leafIdx?1:0;return leafIdx},
+   state(){return{open:bookOpen,leaf:leafIdx,leaves:LN,coverK:+coverK.toFixed(3),p:leafP.map(v=>+v.toFixed(3))}},
+   dbl(){if(bookOpen)return;if(mode==='read'){mode='auto';yaw=wrap(yaw,BASE)}else{mode='read';yaw=wrap(yaw,-.12)}},
    update(t,dt,it){const hov=it.hoverT,k7=Math.min(1,dt*7);
+    if(bookOpen&&!it.drag&&mode!=='open')mode='open';
     if(it.drag){mode='drag'}
     if(mode==='drag'){/* yaw driven by drag() */}
     else if(mode==='snap'){yaw+=(snapYaw+it.px*.12*hov-yaw)*k7;pitch+=(.08-pitch)*k7;if(hov<.02){idle+=dt;if(idle>2.2){mode='auto';yaw=wrap(yaw,BASE)}}else idle=0}
     else if(mode==='read'){yaw+=(-.12-yaw)*k7;pitch+=(.04-pitch)*k7}
+    else if(mode==='open'){yaw+=((-.04+it.px*.12*hov)-yaw)*k7;pitch+=((.2+it.py*.06*hov)-pitch)*k7}
     else{yaw+=((BASE+Math.sin(t*.7)*.1)+it.px*.55*hov-yaw)*.12}
-    const calm=mode==='read'?0:1,openT=mode==='read'||mode==='drag'?0:hov*.21;open+=(openT-open)*k7;zoom+=((mode==="read"?1.06:1)-zoom)*k7;
-    hinge.rotation.y=-open;g.scale.setScalar(zoom);
+    const calm=mode==='read'?0:1,openT=mode==='read'||mode==='drag'||bookOpen?0:hov*.21;open+=(openT-open)*k7;zoom+=((bookOpen?1.1:mode==="read"?1.06:1)-zoom)*k7;
+    coverK+=((bookOpen?1:0)-coverK)*Math.min(1,dt*(paused()?60:4.2));hinge.rotation.y=-(open*(1-coverK)+coverK*Math.PI);if(endpaper)endpaper.visible=coverK>.02;g.scale.setScalar(zoom);g.position.x=-.05+coverK*1.085*zoom;animateLeaves(dt,paused());shadow.scale.x=1+coverK*.9;
     g.rotation.y=yaw;g.rotation.x=pitch+(mode==='auto'?it.py*.2*hov:0)+Math.sin(t*.9)*.015*calm;g.position.y=Math.sin(t*1.1)*.08*calm+hov*.12*calm;g.position.z=hov*.3*calm;
     {const yv=lastYaw==null?0:(yaw-lastYaw)/Math.max(dt,.001);lastYaw=yaw;stepRibbon(dt,Math.max(-3,Math.min(3,yv))*.5,t)}shadow.material.opacity=(real?.4:.95)-it.hoverT*.2;key.intensity=dark()?2.3:2.0;rim.intensity=dark()?1.1:.7}}}
 
@@ -381,11 +448,12 @@
   const art=document.querySelector('#recordSheet .rv-art');if(!art||art.querySelector('.rv-3d-toggle'))return;
   const r=typeof window.recordCurrent==='function'?window.recordCurrent():null;if(!r)return;
   const btn=document.createElement('button');btn.type='button';btn.className='rv-3d-toggle';btn.setAttribute('aria-pressed','false');btn.textContent='3D';btn.title=typeof t==='function'?t('rv3d'):'3D';btn.setAttribute('aria-label',btn.title);
-  art.appendChild(btn);let cv=null;
+  art.appendChild(btn);let cv=null,rit=null;
   btn.addEventListener('click',e=>{e.stopPropagation();const on=btn.getAttribute('aria-pressed')!=='true';btn.setAttribute('aria-pressed',String(on));art.classList.toggle('has-3d',on);
+   if(!on)document.dispatchEvent(new CustomEvent('bk:book-close'));
    if(on&&!cv){cv=document.createElement('canvas');cv.className='rec-3d';cv.setAttribute('aria-hidden','true');art.appendChild(cv);
     (document.fonts&&document.fonts.load?Promise.all([document.fonts.load('400 44px Fraunces'),document.fonts.load('400 24px Inter'),document.fonts.load('600 22px "IBM Plex Mono"')]).catch(()=>{}):Promise.resolve()).then(()=>
-     register(cv,(m)=>{try{return bookScene(m,null,r,true)}catch{return null}},{host:art,drag:true,dbl:true,onReady:()=>art.classList.add('rec-ready')}))}})}
+     {rit=register(cv,(m)=>{try{return bookScene(m,null,r,true)}catch{return null}},{host:art,drag:true,dbl:true,onReady:()=>{art.classList.add('rec-ready');mountBookCtl(art,()=>rit)}})})}})}
  /* G4: list view — hovering a row shows a small real 3D cover beside it. One canvas, one registered item; the scene is swapped per record (cached). */
  function mountListPeek(){
   const host=document.getElementById('cards');if(!host||mountListPeek.done||typeof records==='undefined')return;mountListPeek.done=true;
@@ -400,6 +468,24 @@
   const hide=()=>{cur=null;cv.hidden=true;cv.classList.remove('on')};
   host.addEventListener('pointerover',e=>{if(!host.classList.contains('list-view')||matchMedia('(pointer:coarse)').matches)return;const row=e.target.closest&&e.target.closest('.card,.ledger-row');if(row&&host.contains(row))show(row)});
   host.addEventListener('pointerleave',hide);addEventListener('scroll',hide,{passive:true});document.addEventListener('library:render',hide)}
+ /* B5: reader controls for the record page's 3D book: open/close (a large reading stage), previous/next page, arrow keys, click on the page halves, Esc closes. */
+ function mountBookCtl(art,getItem){
+  if(art.querySelector('.rv-book-ctl'))return;
+  const T=typeof t==='function'?t:(q=>q);
+  const ctl=document.createElement('div');ctl.className='rv-book-ctl';ctl.setAttribute('role','group');ctl.setAttribute('aria-label',T('bkReader'));
+  ctl.innerHTML=`<button type="button" data-a="open" aria-pressed="false">${T('bkOpen')}</button><button type="button" data-a="prev" disabled aria-label="${T('bkPrev')}">‹</button><button type="button" data-a="next" disabled aria-label="${T('bkNext')}">›</button>`;
+  const scrim=document.createElement('div');scrim.className='rv-book-scrim';art.appendChild(scrim);art.appendChild(ctl);
+  const q=a=>ctl.querySelector(`[data-a=${a}]`),api=()=>{const it=getItem();return it&&it.api&&it.api.open?it.api:null},touch=()=>{const it=getItem();if(it){it.dirty=true;kick()}};
+  const sync=()=>{const a=api();if(!a)return;const st=a.state(),on=st.open;art.classList.toggle('book-open',on);q('open').textContent=T(on?'bkClose':'bkOpen');q('open').setAttribute('aria-pressed',String(on));q('prev').disabled=!on||st.leaf<=0;q('next').disabled=!on||st.leaf>=st.leaves;const ae=document.activeElement;if(ae&&ae.disabled&&ctl.contains(ae))(on?(q('prev').disabled?q('open'):q('prev')):q('open')).focus()};
+  const setOpen=on=>{const a=api();if(!a)return;a.open(on);touch();sync();if(on)q('next').focus();else q('open').focus()};
+  const turn=d=>{const a=api();if(!a||!a.state().open)return;a.turn(d);touch();sync()};
+  q('open').addEventListener('click',e=>{e.stopPropagation();setOpen(!art.classList.contains('book-open'))});
+  q('prev').addEventListener('click',e=>{e.stopPropagation();turn(-1)});q('next').addEventListener('click',e=>{e.stopPropagation();turn(1)});
+  scrim.addEventListener('click',e=>{e.stopPropagation();setOpen(false)});
+  art.addEventListener('click',e=>{if(!art.classList.contains('book-open')||e.target.closest('.rv-book-ctl,.rv-3d-toggle,.rv-book-scrim'))return;const c=art.querySelector('.rec-3d');if(!c)return;const r=c.getBoundingClientRect();turn(e.clientX>r.left+r.width/2?1:-1)});
+  document.addEventListener('keydown',e=>{if(!art.classList.contains('book-open')||!art.isConnected)return;if(e.key==='Escape'){e.preventDefault();setOpen(false);return}if(e.key==='ArrowRight'){e.preventDefault();turn(1)}else if(e.key==='ArrowLeft'){e.preventDefault();turn(-1)}});
+  document.addEventListener('bk:book-close',()=>{if(art.classList.contains('book-open'))setOpen(false)});
+  window.BKStage.book={state:()=>{const a=api();return a?a.state():null}}}
  function mountAll(){mountAtlas();mountShelf()}
  const start=()=>{mountAll();if(typeof MutationObserver==='function')for(const id of ['collectionGrid','spotlightGrid']){const el=document.getElementById(id);if(el)new MutationObserver(()=>{clearTimeout(start.t);start.t=setTimeout(mountAll,60)}).observe(el,{childList:true})}};
  const go=()=>{if(typeof requestIdleCallback==='function')requestIdleCallback(start,{timeout:1800});else setTimeout(start,400)};

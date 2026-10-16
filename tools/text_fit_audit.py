@@ -37,9 +37,9 @@ PROBE = r"""(count) => {
   add(recs.filter(r => /[İŞĞÜÖÇ]/.test(r.title || '')).slice(0, 8));
   const out = [];
   for (const r of pick.values()) {
-    for (const surface of ['paintCover', 'shelfCover', 'spine']) {
+    for (const surface of ['paintCover', 'shelfCover', 'spine', 'page0', 'page1', 'page2', 'page3', 'page4', 'page5']) {
       const c = document.createElement('canvas');
-      const W = surface === 'spine' ? 128 : 512, H = 720;
+      const isPage = surface.startsWith('page'), W = surface === 'spine' ? 128 : isPage ? 768 : 512, H = isPage ? 1080 : 720;
       c.width = W; c.height = H;
       const ctx = c.getContext('2d');
       const rec = [];
@@ -53,6 +53,7 @@ PROBE = r"""(count) => {
       };
       try {
         if (surface === 'paintCover') window.BKStage.paintCover(ctx, 512, 720, r, 1, false);
+        else if (isPage) window.BKStage.paintPage(ctx, W, H, r, Number(surface.slice(4)));
         else if (surface === 'shelfCover') window.BKStage.coverTexture({ CanvasTexture: function (cv) { this.image = cv; }, SRGBColorSpace: 1 }, r, 1);
         else window.BKStage.spineTexture({ CanvasTexture: function (cv) { this.image = cv; }, SRGBColorSpace: 1 }, r, 1);
       } catch (e) { out.push({ id: r.id, surface, error: String(e) }); continue; }
@@ -94,7 +95,7 @@ def main():
     for row in rows:
         if "error" in row:
             problems.append(f"{row['surface']} {row['id']}: {row['error']}"); continue
-        W = 128 if row["surface"] == "spine" else 512
+        W = 128 if row["surface"] == "spine" else 768 if row["surface"].startswith("page") else 512
         # Rotated spine text is drawn in a rotated frame; only the non-rotated surfaces are geometrically comparable here.
         if row["surface"] == "spine":
             for t in row["rec"]:
@@ -104,6 +105,8 @@ def main():
         recs = row["rec"]
         for t in recs:
             checked += 1
+            if row["surface"].startswith("page") and (t["top"] < 40 or t["bottom"] > 1080 - 20):
+                problems.append(f"{row['surface']} outside page: {row['title'][:50]!r} line {t['text'][:30]!r} y[{t['top']:.0f},{t['bottom']:.0f}]")
             if t["left"] < 20 or t["right"] > W - 20:
                 problems.append(f"{row['surface']} outside safe area: {row['title'][:50]!r} line {t['text'][:30]!r} [{t['left']:.0f},{t['right']:.0f}]")
         for i in range(len(recs)):
