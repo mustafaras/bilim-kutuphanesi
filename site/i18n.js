@@ -58,8 +58,8 @@ Object.assign(UI.tr,{scScopes:'Palet: eylem · yol · alan · yazar kapsamı',sc
 Object.assign(UI.en,{scScopes:'Palette: action · path · field · author scope',scScopeCycle:'Palette: cycle scope'});
 Object.assign(UI.tr,{heroOpen:'Kaydı aç · tıkla'});
 Object.assign(UI.en,{heroOpen:'Open record · click'});
-Object.assign(UI.tr,{heroZoom:'Galaksi yakınlaştırma',heroZoomIn:'Yakınlaştır',heroZoomOut:'Uzaklaştır',heroZoomReset:'Görünümü sıfırla',heroHint:'Sürükle: döndür · Tekerlek ↑ / Ctrl + tekerlek: yakınlaştır · Çift tık: odakla'});
-Object.assign(UI.en,{heroZoom:'Galaxy zoom',heroZoomIn:'Zoom in',heroZoomOut:'Zoom out',heroZoomReset:'Reset view',heroHint:'Drag: orbit · Wheel ↑ / Ctrl + wheel: zoom · Double-click: focus'});
+Object.assign(UI.tr,{heroLens:'Yerçekimi merceği (kara delik efekti)',heroZoom:'Galaksi yakınlaştırma',heroZoomIn:'Yakınlaştır',heroZoomOut:'Uzaklaştır',heroZoomReset:'Görünümü sıfırla',heroHint:'Sürükle: döndür · Tekerlek ↑ / Ctrl + tekerlek: yakınlaştır · Çift tık: odakla'});
+Object.assign(UI.en,{heroLens:'Gravity lens (black-hole effect)',heroZoom:'Galaxy zoom',heroZoomIn:'Zoom in',heroZoomOut:'Zoom out',heroZoomReset:'Reset view',heroHint:'Drag: orbit · Wheel ↑ / Ctrl + wheel: zoom · Double-click: focus'});
 Object.assign(UI.tr,{rel_author:'Aynı yazar',rel_year:'Yakın yıl',rel_lang:'Aynı dil',rel_field:'Aynı alan',relLegend:'Bağ türleri'});
 Object.assign(UI.en,{rel_author:'Same author',rel_year:'Close in time',rel_lang:'Same language',rel_field:'Same field',relLegend:'Link types'});
 Object.assign(UI.tr,{ncViewLabel:'Nobel görünümü',ncViewChart:'Grafik',ncViewGalaxy:'Galaksi',ncGalaxyHint:'Sürükle: döndür · Tıkla: yılı seç · Çift tık: kaydı aç · Ctrl + tekerlek: yakınlaştır',ncGalaxyNote:"Nobel galaksisi: 1901'den bugüne her kayıt bir yıldız, renk ödül kategorisi. Aynı veriye erişilebilir grafik görünümünden ulaşılır."});

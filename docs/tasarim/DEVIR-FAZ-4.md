@@ -288,3 +288,10 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - CSS (Package 25): açık temada Galaksi dekad etiketleri koyu + açık hale.
 - `skyline3d.js`: seçili yıl çipi panel içine kelepçelenir (`offsetWidth`); panel kenarında yarım kalan etiketler gizlenir.
 - **Tuzak:** katkılı karışım yalnız koyu zeminde çalışır; açık temada her additive nesne ayrıca düşünülmelidir.
+
+## 40. Paket 26 (v90) — Kara delik / yerçekimi merceği opsiyonel
+**Şikâyet:** hero'da fare galaksinin üstündeyken (ve basılı tutunca) büyük bir mercek girdabı oluşuyordu.
+- `hero3d.js`: `lensOn` (varsayılan **kapalı**, `localStorage 'bk-hero-lens'`). Kapalıyken `uLens=0` ve basılı tutma tekilliği (`wellT`) devre dışı. Açıkken de mercek küçültüldü (`.011/(r²+.014)` → `.008/(r²+.02)`, taban gücü `.3→.22`, tutma `1.5→1.1`).
+- Yakınlaştırma dock'una 4. düğme (`.hero-lens-btn`, ◎, `aria-pressed`); i18n `heroLens` (TR/EN).
+- Not: fare yaklaşınca parçacıkların hafifçe çekilmesi (`uMouseOn`) etkileşimin parçası olarak kaldı; yalnız mercek ve tekillik opsiyonel.
+- Bulgu (yapılmadı): açık temada hero galaksisi çok soluk (katkılı karışım parşömende kayboluyor) — Paket 25'teki Nobel Galaksi düzeltmesi gibi bir "mürekkep" yolu gerekir.

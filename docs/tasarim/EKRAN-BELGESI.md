@@ -74,3 +74,15 @@ Kullanıcı görüntüsüyle bildirilen sorun: açık temada Galaksi beyaz bir l
 |---|---|---|
 | Galaksi (tüm bölüm) | ![](ekran/v89/galaxy-dark.png) | ![](ekran/v89/galaxy-light.png) |
 | Silüet (çip kelepçeli) | ![](ekran/v89/skyline-dark.png) | ![](ekran/v89/skyline-light.png) |
+
+---
+
+# v90 — Kara delik (yerçekimi merceği) opsiyonel
+Fare galaksinin üstündeyken oluşan büyük mercek girdabı artık **varsayılan kapalı**; yakınlaştırma dock'undaki ◎ düğmesiyle açılır ve hatırlanır. Açıkken de daha küçük. Görüntüler `ekran/v90/`.
+
+| | Mercek kapalı (varsayılan) | Mercek açık (◎ basılı) |
+|---|---|---|
+| Koyu | ![](ekran/v90/hero-mercek-kapali-dark.png) | ![](ekran/v90/hero-mercek-acik-dark.png) |
+| Açık | ![](ekran/v90/hero-mercek-kapali-light.png) | ![](ekran/v90/hero-mercek-acik-light.png) |
+
+Bilinen sorun: açık temada hero galaksisi çok soluk (ayrı iş).

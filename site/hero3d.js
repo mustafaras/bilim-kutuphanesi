@@ -173,7 +173,7 @@
   function buildLabels(){
    labelBox.innerHTML='';labels=[];rdBox=null;
    zoomBox.setAttribute('aria-label',t('heroZoom'));
-   zoomBox.innerHTML=`<button type="button" data-z="in" aria-label="${esc(t('heroZoomIn'))}">+</button><button type="button" data-z="out" aria-label="${esc(t('heroZoomOut'))}">−</button><button type="button" data-z="reset" aria-label="${esc(t('heroZoomReset'))}">⌂</button>`;
+   zoomBox.innerHTML=`<button type="button" data-z="in" aria-label="${esc(t('heroZoomIn'))}">+</button><button type="button" data-z="out" aria-label="${esc(t('heroZoomOut'))}">−</button><button type="button" data-z="reset" aria-label="${esc(t('heroZoomReset'))}">⌂</button><button type="button" data-z="lens" class="hero-lens-btn" aria-pressed="${lensOn}" aria-label="${esc(t('heroLens'))}" title="${esc(t('heroLens'))}">◎</button>`;
    hint.textContent=t('heroHint');
    let groups;try{groups=DISCOVERY}catch{return}
    groups.forEach((d,i)=>{let n=0;for(let k=0;k<rec.n;k++)if(rec.g[k]===i)n++;
@@ -185,13 +185,15 @@
 
   /* ---------- post-processing (bloom, dark theme) ---------- */
   let composer=null,bloom=null,useBloom=false,grade=null,caSpike=0,well=0,wellT=0,lensS=0;
+  /* gravity lens / singularity is opt-in (default off): the toggle lives in the zoom dock and is remembered */
+  let lensOn=false;try{lensOn=localStorage.getItem('bk-hero-lens')==='on'}catch{}
   if(post){try{composer=new post.EffectComposer(renderer);composer.addPass(new post.RenderPass(scene,camera));bloom=new post.UnrealBloomPass(new THREE.Vector2(256,256),.56,.6,.24);composer.addPass(bloom);
    if(post.ShaderPass){grade=new post.ShaderPass({uniforms:{tDiffuse:{value:null},uTime:{value:0},uCA:{value:.3},uMouse:{value:new THREE.Vector2(.5,.5)},uLens:{value:0},uAspect:{value:1.6}},
     vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
     fragmentShader:`uniform sampler2D tDiffuse;uniform float uTime,uCA,uLens,uAspect;uniform vec2 uMouse;varying vec2 vUv;
      float hs(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
      void main(){vec2 uv=vUv;vec2 c=uv-.5;
-      vec2 d=uv-uMouse;d.x*=uAspect;float r=length(d);float k=uLens*.011/(r*r+.014);vec2 off=vec2(d.x/uAspect,d.y)/(r+1e-4)*k;uv-=off;
+      vec2 d=uv-uMouse;d.x*=uAspect;float r=length(d);float k=uLens*.008/(r*r+.02);vec2 off=vec2(d.x/uAspect,d.y)/(r+1e-4)*k;uv-=off;
       float ca=uCA*(.0012+.010*dot(c,c))+k*.04;
       vec3 col=vec3(texture2D(tDiffuse,uv+c*ca).r,texture2D(tDiffuse,uv).g,texture2D(tDiffuse,uv-c*ca).b);
       float vg=smoothstep(.28,.98,length(c*vec2(uAspect*.62,1.)));col*=1.-.42*vg;
@@ -225,6 +227,7 @@
   function zoomAt(f,cx,cy){const n=ndcOf(cx,cy),old=zoomT;zoomT=clamp(zoomT*f,.8,ZMAX);const k=1/old-1/zoomT;panT.x=clamp(panT.x+n.x*W/2*k,-W,W);panT.y=clamp(panT.y+n.y*H/2*k,-H,H);wake()}
   function zoomReset(){zoomT=1;panT.set(0,0);wake()}
   zoomBox.addEventListener('click',e=>{const b=e.target.closest?e.target.closest('[data-z]'):null;if(!b)return;const r=canvas.getBoundingClientRect(),cx=r.left+r.width*.64,cy=r.top+r.height*.5;
+   if(b.dataset.z==='lens'){lensOn=!lensOn;try{localStorage.setItem('bk-hero-lens',lensOn?'on':'off')}catch{}b.setAttribute('aria-pressed',String(lensOn));return}
    if(b.dataset.z==='in')zoomAt(1.5,cx,cy);else if(b.dataset.z==='out')zoomAt(1/1.5,cx,cy);else zoomReset()});
   const ZMAX=5;
   /* Wheel never traps the page: Ctrl/pinch always zooms; at the top of the page wheel-up zooms in and wheel-down zooms back out
@@ -301,10 +304,10 @@
    glow.material.opacity=(root.dataset.theme==='light'?.3:.1)*uniforms.uFade.value+.03*Math.sin(time*.9);
    uniforms.uMouseOn.value+=((mouse.in&&!drag?1:0)-uniforms.uMouseOn.value)*Math.min(1,dt*5);
    /* hold still on the galaxy = singularity: gravity well + lensing; release = shock + chromatic burst */
-   wellT=drag&&!drag.moved&&performance.now()-drag.t0>320?1:0;if(wellT)uniforms.uMouseOn.value=Math.max(uniforms.uMouseOn.value,1);
+   wellT=lensOn&&drag&&!drag.moved&&performance.now()-drag.t0>320?1:0;if(wellT)uniforms.uMouseOn.value=Math.max(uniforms.uMouseOn.value,1);
    well+=(wellT-well)*Math.min(1,dt*(wellT?3.2:5));uniforms.uWell.value=well;hero.classList.toggle('hero-well',well>.15);
    if(grade){caSpike=Math.max(0,caSpike-dt*2.2);const zv=Math.abs(zoomT-zoom)*2.2;const tgt=.28+zv+caSpike+well*.9;grade.uniforms.uCA.value+=(tgt-grade.uniforms.uCA.value)*Math.min(1,dt*10);
-    grade.uniforms.uTime.value=time;lensS+=(((mouse.in?1:0)*(.3+well*1.5))-lensS)*Math.min(1,dt*6);grade.uniforms.uLens.value=lensS;
+    grade.uniforms.uTime.value=time;lensS+=(((lensOn&&mouse.in?1:0)*(.22+well*1.1))-lensS)*Math.min(1,dt*6);grade.uniforms.uLens.value=lensS;
     const b=canvas.getBoundingClientRect();grade.uniforms.uMouse.value.set((mouse.x-b.left)/Math.max(1,b.width),1-(mouse.y-b.top)/Math.max(1,b.height))}
    hint.classList.toggle('show',time>1.2&&time<10);
    if(focus!==lastFocus){lastFocus=focus;setReadout(focus)}
