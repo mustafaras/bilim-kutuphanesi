@@ -17,6 +17,8 @@
  const load=()=>loading||(loading=import('./vendor/three.module.min.js').then(m=>{THREE=m;return m}).catch(()=>null));
  const rgb=a=>a.map(v=>v/255);
  const ease=x=>1-Math.pow(1-Math.min(1,Math.max(0,x)),3);
+ const easeIO=x=>{x=Math.min(1,Math.max(0,x));return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2};
+ const DIVE_MS=1250;
 
  function glowTexture(m,inner){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),r=g.createRadialGradient(64,64,0,64,64,64);r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(inner||.18,'rgba(255,255,255,.55)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,128,128);const t=new m.CanvasTexture(c);t.colorSpace=m.SRGBColorSpace;return t}
  /* cloudy nebula puff: many soft blobs on one canvas */
@@ -39,7 +41,7 @@
   void main(){vec2 p=(vUv-.5)*2.;float r=length(p),a=atan(p.y,p.x);
    float glow=exp(-r*4.2)*.75+exp(-r*11.)*1.0;
    float rays=(.5+.5*cos(a*7.+uTime*.35))*(.5+.5*cos(a*3.-uTime*.22))*exp(-r*2.6)*.9;
-   float ring=exp(-pow((r-.46-.02*sin(uTime*1.3))*14.,2.))*.35;
+   float ring=exp(-pow((r-.46-.02*sin(uTime*1.3))*14.,2.))*(uLight>.5?.08:.35);
    float flick=1.+.07*sin(uTime*2.1)+.04*sin(uTime*5.3);
    float v=(glow+rays*(uLight>.5?.0:.8)+ring)*flick*(1.+uHot*.3);float alpha=clamp(v,0.,1.)*smoothstep(1.,.78,r);
    vec3 col=mix(vec3(1.,.96,.86),uColor,clamp(r*1.1,0.,1.))*(1.+glow*.3);
@@ -86,7 +88,7 @@
    const rings=[120,205].map((r,i)=>{const pts=[];for(let a=0;a<=96;a++){const tt=a/96*Math.PI*2;pts.push(new m.Vector3(Math.cos(tt)*r,Math.sin(tt)*r*.62,0))}const l=new m.Line(new m.BufferGeometry().setFromPoints(pts),new m.LineBasicMaterial({transparent:true,opacity:.2,depthWrite:false}));l.rotation.x=.5+i*.25;l.rotation.z=i*.6;world.add(l);return l});
    /* planets */
    const planets=items.map(it=>{const g=new m.Group();g.position.copy(it.base);world.add(g);
-    const tex=planetTexture(m,it.spine,it.i+3),r0=12+(it.kind==='author'?3:0)+(it.i%3)*1;
+    const tex=planetTexture(m,it.spine,it.i+3),texL=planetTexture(m,'#'+new m.Color(it.spine).lerp(new m.Color(0xffffff),.52).getHexString(),it.i+3),r0=12+(it.kind==='author'?3:0)+(it.i%3)*1;
     const body=new m.Mesh(new m.SphereGeometry(r0,40,28),new m.MeshStandardMaterial({map:tex,roughness:.62,metalness:.05,emissive:new m.Color(it.spine),emissiveIntensity:.16,emissiveMap:tex}));g.add(body);
     const atmoU={uColor:{value:new m.Color(it.spine)},uPow:{value:2.2},uAmp:{value:1.1}};
     const atmo=new m.Mesh(new m.SphereGeometry(r0*1.28,32,24),new m.ShaderMaterial({uniforms:atmoU,vertexShader:FRES_V,fragmentShader:FRES_F,transparent:true,depthWrite:false,blending:m.AdditiveBlending,side:m.FrontSide}));g.add(atmo);
@@ -94,7 +96,7 @@
     const op=[];for(let a=0;a<=64;a++){const tt=a/64*Math.PI*2;op.push(new m.Vector3(Math.cos(tt)*r0*1.9,Math.sin(tt)*r0*1.9*.4,0))}
     const orbit=new m.LineLoop(new m.BufferGeometry().setFromPoints(op),new m.LineBasicMaterial({color:new m.Color(it.spine),transparent:true,opacity:0,depthWrite:false}));orbit.rotation.x=.9;orbit.rotation.z=.4+it.i*.5;g.add(orbit);
     const moon=new m.Mesh(new m.SphereGeometry(r0*.17,12,10),new m.MeshBasicMaterial({color:new m.Color(it.spine)}));moon.visible=false;g.add(moon);
-    return{g,body,atmo,atmoU,halo,orbit,moon,r0}});
+    return{g,body,atmo,atmoU,halo,orbit,moon,r0,tex,texL}});
    /* energy tubes: base curve + pulses; particles ride the same curve */
    const FLOW=10,edges=items.map(it=>{const mid=it.base.clone().multiplyScalar(.5);mid.z+=44;mid.y+=(it.i%2?1:-1)*Math.min(50,it.base.length()*.17);
     const curve=new m.QuadraticBezierCurve3(new m.Vector3(0,0,0),mid,it.base.clone());
@@ -124,7 +126,7 @@
     neb.forEach(n=>{n.s.material.blending=add;n.s.material.opacity=lt?.11:.2;n.s.material.color.setRGB(...rgb(lt?[n.c[0]*.7+60,n.c[1]*.7+50,n.c[2]*.7+30]:n.c));n.s.material.needsUpdate=true});
     rings.forEach(r=>r.material.color.setRGB(...(lt?[.2,.28,.36]:[.98,.96,.92])));
     coreU.uColor.value.setRGB(...(lt?[.62,.38,.18]:[.91,.81,.62]));core.material.blending=add;core.material.needsUpdate=true;
-    planets.forEach((p,i)=>{p.atmo.material.blending=add;p.atmo.material.needsUpdate=true;p.atmoU.uAmp.value=lt?.55:1.1;p.halo.material.blending=add;p.halo.material.opacity=lt?.22:.5;p.halo.material.needsUpdate=true;p.body.material.emissiveIntensity=lt?.02:.16});
+    planets.forEach((p,i)=>{p.atmo.material.blending=add;p.atmo.material.needsUpdate=true;p.atmoU.uAmp.value=lt?.55:1.1;p.halo.material.blending=add;p.halo.material.opacity=lt?.22:.5;p.halo.material.needsUpdate=true;p.body.material.map=p.body.material.emissiveMap=lt?p.texL:p.tex;p.body.material.emissiveIntensity=lt?.3:.16;p.body.material.roughness=lt?.78:.62;p.body.material.needsUpdate=true});
     edges.forEach(e=>{const c=(lt?REL_INK:REL)[e.it.kind];e.tu.uColor.value.setRGB(...rgb(c));e.tu.uLight.value=lt?1:0;e.tube.material.blending=add;e.tube.material.needsUpdate=true});
     fm.blending=add;fm.needsUpdate=true;dm.blending=add;dm.color.setHex(lt?0x13283a:0xffffff);dm.opacity=lt?.35:.5;dm.needsUpdate=true;
     coreLight.intensity=lt?25000:60000;keyL.intensity=lt?2.4:2.0;rimL.intensity=lt?.4:.9}
@@ -144,22 +146,29 @@
     const hv=hover>=0?items[hover]:null,tl=hv?hv.base:null;
     const lx=tl?tl.x*.08:0,ly=tl?tl.y*.08:0;leanX+=(lx-leanX)*Math.min(1,dt*3);leanY+=(ly-leanY)*Math.min(1,dt*3);distK+=((hv?.9:1)-distK)*Math.min(1,dt*3);
     const d=camera.userData.d*(1.25-.25*intro)*distK;camera.position.set(leanX,leanY,d);camera.lookAt(leanX*.5,leanY*.5,0);
-    if(dive){const k=ease((now-dive.t)/600);v.copy(items[dive.i].base).applyMatrix4(world.matrixWorld);camera.position.lerp(new m.Vector3(v.x,v.y,v.z+70),k);camera.lookAt(v.x*k+leanX*.5*(1-k),v.y*k+leanY*.5*(1-k),0);coreU.uHot.value=1+k}
+    let dk=0;
+    if(dive){const raw=(now-dive.t)/DIVE_MS;dk=easeIO(raw);v.copy(items[dive.i].base).applyMatrix4(world.matrixWorld);
+     /* fly along a gentle arc: ease in-out toward the planet, field of view opens slightly as it fills the frame */
+     const tx=v.x,ty=v.y,tz=v.z+64;camera.position.set(camera.position.x+(tx-camera.position.x)*dk,camera.position.y+(ty-camera.position.y)*dk,camera.position.z+(tz-camera.position.z)*dk);
+     camera.lookAt(v.x*dk+leanX*.5*(1-dk),v.y*dk+leanY*.5*(1-dk),0);const fov=38+10*dk;if(Math.abs(camera.fov-fov)>.01){camera.fov=fov;camera.updateProjectionMatrix()}
+     coreU.uHot.value=1+dk;
+     if(raw>.62&&!dive.fade){dive.fade=true;sheet.classList.add('rv-leaving')}
+     if(raw>=1)finishDive()}
     const pulse=1+.06*Math.sin(time*2.1);core.scale.set(pulse*(.6+.4*intro),pulse*(.6+.4*intro),1);core.lookAt(camera.position);coreU.uHot.value+=((hv?1:0)-coreU.uHot.value)*Math.min(1,dt*4);
     /* planets */
     planets.forEach((p,i)=>{const it=items[i],on=hover===i,tgt=on?1:0;it.hot+=(tgt-it.hot)*Math.min(1,dt*6);
-     const born=ease((time-.35-i*.09)/.9);it.sc=born;const s=born*(1+it.hot*.28);p.g.scale.setScalar(Math.max(.001,s));
+     const born=ease((time-.35-i*.09)/.9);it.sc=born;const chosen=dive&&dive.i===i,s=born*(1+it.hot*.28)*(chosen?1+dk*.5:1-dk*.65);p.g.scale.setScalar(Math.max(.001,s));
      p.body.rotation.y=time*(.08+(i%3)*.03);p.orbit.material.opacity=it.hot*.85;p.orbit.rotation.z+=dt*.5;p.moon.visible=it.hot>.05;if(p.moon.visible){const a=time*1.8+i;p.moon.position.set(Math.cos(a)*p.r0*1.9,Math.sin(a)*p.r0*1.9*.4*Math.cos(.9)*1.0,Math.sin(a)*p.r0*.8);p.moon.position.applyEuler(p.orbit.rotation)}
      const dim=hover>=0&&!on?.35:1;p.halo.material.opacity=(lt?.22:.5)*(.7+it.hot*.7)*dim;p.atmoU.uAmp.value=(lt?.55:1.1)*(.8+it.hot*.9);p.g.position.y=it.base.y+Math.sin(time*.8+it.ph)*3;});
     /* energy tubes */
-    edges.forEach((e,ei)=>{e.tu.uTime.value=time;e.tu.uHot.value+=((hover===ei?1:0)-e.tu.uHot.value)*Math.min(1,dt*6);e.tu.uDim.value+=((hover>=0&&hover!==ei?.35:1)*intro-e.tu.uDim.value)*Math.min(1,dt*6)});
+    edges.forEach((e,ei)=>{e.tu.uTime.value=time;e.tu.uHot.value+=((hover===ei?1:0)-e.tu.uHot.value)*Math.min(1,dt*6);e.tu.uDim.value+=((hover>=0&&hover!==ei?.35:1)*intro*(1-dk)-e.tu.uDim.value)*Math.min(1,dt*6)});
     let k=0;edges.forEach((e,ei)=>{const hot=hover===ei,c=(lt?REL_INK:REL)[e.it.kind],spd=.07+(hot?.1:0);
-     for(let j=0;j<FLOW;j++){const u=((time*spd+j/FLOW+ei*.13)%1);e.curve.getPoint(u,v);fp[k*3]=v.x;fp[k*3+1]=v.y;fp[k*3+2]=v.z;const a=Math.sin(u*Math.PI)*(hover<0||hot?1:.25)*intro;fc[k*3]=c[0]/255*a;fc[k*3+1]=c[1]/255*a;fc[k*3+2]=c[2]/255*a;k++}});
+     for(let j=0;j<FLOW;j++){const u=((time*spd+j/FLOW+ei*.13)%1);e.curve.getPoint(u,v);fp[k*3]=v.x;fp[k*3+1]=v.y;fp[k*3+2]=v.z;const a=Math.sin(u*Math.PI)*(hover<0||hot?1:.25)*intro*(1-dk);fc[k*3]=c[0]/255*a;fc[k*3+1]=c[1]/255*a;fc[k*3+2]=c[2]/255*a;k++}});
     fg.attributes.position.needsUpdate=true;fg.attributes.color.needsUpdate=true;
     for(let q=0;q<dN;q++){dp[q*3]+=dv[q*3]*dt;dp[q*3+1]+=dv[q*3+1]*dt;if(dp[q*3]>450)dp[q*3]=-450;if(dp[q*3]<-450)dp[q*3]=450;if(dp[q*3+1]>250)dp[q*3+1]=-250;if(dp[q*3+1]<-250)dp[q*3+1]=250}dg.attributes.position.needsUpdate=true;
     world.updateMatrixWorld(true);
     /* re-project the DOM layer */
-    items.forEach((it,i)=>{v.copy(it.base).applyMatrix4(world.matrixWorld).project(camera);const x=(v.x*.5+.5)*100,y=(1-(v.y*.5+.5))*100;it.el.style.left=x.toFixed(2)+'%';it.el.style.top=y.toFixed(2)+'%';it.el.style.zIndex=String(Math.round((1-v.z)*500));it.el.style.opacity=String(Math.min(1,it.sc*1.2)*(hover>=0&&hover!==i?.55:1))});
+    items.forEach((it,i)=>{v.copy(it.base).applyMatrix4(world.matrixWorld).project(camera);const x=(v.x*.5+.5)*100,y=(1-(v.y*.5+.5))*100;it.el.style.left=x.toFixed(2)+'%';it.el.style.top=y.toFixed(2)+'%';it.el.style.zIndex=String(Math.round((1-v.z)*500));it.el.style.opacity=String(Math.min(1,it.sc*1.2)*(hover>=0&&hover!==i?.55:1)*(dive?(dive.i===i?1-Math.max(0,dk-.55)*2.2:1-Math.min(1,dk*1.8)):1))});
     /* label collision avoidance (every 6th frame / on hover change): hovered > nearer to camera; the loser is hidden, never overlapped */
     if(window.BKText&&(++declFrame%6===0||declHover!==hover)){declHover=hover;const bw=box.clientWidth,bh=box.clientHeight,list=[];
      items.forEach((it,i)=>{const lb=it.lab||(it.lab=it.el.querySelector('.rv-node-label'));if(!lb)return;const px=parseFloat(it.el.style.left)/100*bw,py=parseFloat(it.el.style.top)/100*bh;
@@ -178,15 +187,17 @@
    box.addEventListener('pointerdown',down);box.addEventListener('pointermove',move);box.addEventListener('pointerup',up);box.addEventListener('pointercancel',up);
    box.addEventListener('dblclick',()=>{tyaw=0;tpitch=0;vyaw=vpitch=0});
    let dive=null;
-   items.forEach((it,i)=>{it.el.addEventListener('click',e=>{if(it.go){it.go=false;return}if(dive||reduced.matches)return;e.preventDefault();e.stopImmediatePropagation();dive={i,t:performance.now()};box.classList.add('warp');setTimeout(()=>{it.go=true;it.el.click()},600)},true)});
+   /* ends the fly-in: hands the click back to the record router, then lets the new record fade in. Also runs from a timer so a hidden tab / offscreen canvas can never leave a click hanging. */
+   function finishDive(){if(!dive||dive.go)return;dive.go=true;clearTimeout(dive.timer);const it=items[dive.i];sheet.classList.add('rv-leaving');it.go=true;it.el.click();setTimeout(()=>sheet.classList.remove('rv-leaving'),240)}
+   items.forEach((it,i)=>{it.el.addEventListener('click',e=>{if(it.go){it.go=false;return}if(dive||reduced.matches)return;e.preventDefault();e.stopImmediatePropagation();dive={i,t:performance.now(),timer:setTimeout(finishDive,DIVE_MS+450)};box.classList.add('warp')},true)});
    items.forEach((it,i)=>{const on=()=>{hover=i;it.el.classList.add('hot')},off=()=>{if(hover===i)hover=-1;it.el.classList.remove('hot')};it.el.addEventListener('mouseenter',on);it.el.addEventListener('focus',on);it.el.addEventListener('mouseleave',off);it.el.addEventListener('blur',off);
     it.el.addEventListener('pointerdown',()=>{box.classList.add('warp')},{capture:true})});
    const kb=e=>{if(!box.contains(document.activeElement))return;const k=e.key;if(k==='ArrowLeft'&&e.shiftKey)tyaw-=.12;else if(k==='ArrowRight'&&e.shiftKey)tyaw+=.12;else if(k==='ArrowUp'&&e.shiftKey)tpitch-=.1;else if(k==='ArrowDown'&&e.shiftKey)tpitch+=.1;else return;e.preventDefault()};
    box.addEventListener('keydown',kb);
 
    function destroy(){if(raf)cancelAnimationFrame(raf);raf=0;if(ro)ro.disconnect();if(io)io.disconnect();document.removeEventListener('visibilitychange',onVis);
-    scene.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(x=>{if(x.map)x.map.dispose();x.dispose()})}});glow.dispose();dotT.dispose();
-    try{renderer.dispose();renderer.forceContextLoss()}catch{}canvas.remove();box.classList.remove('rv-3d','dragging','warp');items.forEach(it=>{it.el.style.zIndex='';it.el.style.opacity=''});if(cur&&cur.box===box)cur=null}
+    scene.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(x=>{if(x.map)x.map.dispose();x.dispose()})}});glow.dispose();dotT.dispose();planets.forEach(p=>{p.tex.dispose();p.texL.dispose()});
+    try{renderer.dispose();renderer.forceContextLoss()}catch{}canvas.remove();sheet.classList.remove('rv-leaving');box.classList.remove('rv-3d','dragging','warp');items.forEach(it=>{it.el.style.zIndex='';it.el.style.opacity=''});if(cur&&cur.box===box)cur=null}
    applyTheme();cur={box,destroy};kick()})}
 
  function scan(){const box=sheet.querySelector('.rv-constellation');if(box)mount(box);else if(cur&&!cur.box.isConnected){cur.destroy()}}
