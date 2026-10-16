@@ -108,3 +108,13 @@ Prosedürel gezegenler (gaz devi + halka, karasal, çöl, buz), merkez yıldızd
 | 1 | ![](ekran/v92/takimyildizi-0-dark.png) | ![](ekran/v92/takimyildizi-0-light.png) |
 | 2 | ![](ekran/v92/takimyildizi-1-dark.png) | ![](ekran/v92/takimyildizi-1-light.png) |
 | 3 | ![](ekran/v92/takimyildizi-2-dark.png) | ![](ekran/v92/takimyildizi-2-light.png) |
+
+---
+
+# v93 — Nobel bölümü çerçevesiz + Silüet/Galaksi yükseltmesi
+Dış kart ve panel çerçeveleri kalktı; sahne sayfaya karışıyor. Silüet: yanan pencereler, ışık sütunu + kıvılcım, yıl kaydırıcı. Galaksi: ödül sahibi kapsülleri. Görüntüler `ekran/v93/` (panel elemanı, 1440 px, SwiftShader).
+
+| | Koyu | Açık |
+|---|---|---|
+| Silüet (1984 seçili) | ![](ekran/v93/silet-dark.png) | ![](ekran/v93/silet-light.png) |
+| Galaksi (kapsüller) | ![](ekran/v93/galaksi-dark.png) | ![](ekran/v93/galaksi-light.png) |

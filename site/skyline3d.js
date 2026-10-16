@@ -12,6 +12,7 @@ window.NobelSkyline=(()=>{
   let THREE;try{THREE=await import('./vendor/three.module.min.js')}catch{return null}
   const idx=typeof nobelIndex!=='undefined'&&nobelIndex?nobelIndex:(typeof buildNobelIndex==='function'?buildNobelIndex():null);if(!idx||!idx.size)return null;
   const years=[...idx.keys()].sort(),Y0=Number(years[0]),Y1=Number(years.at(-1)),N=Y1-Y0+1,CAT=7;
+  const catName=i=>typeof nobelCatLabel==='function'?nobelCatLabel(i):String(i);
   const canvas=panel.querySelector('canvas'),labels=panel.querySelector('.nc-3d-labels'),tip=panel.querySelector('.nc-3d-tip'),ctl=panel.querySelector('.nc-3d-ctl'),chip=panel.querySelector('.nc-sky-chip');
   const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setClearColor(0,0);
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(30,2,.1,120),grp=new THREE.Group();scene.add(grp);
@@ -28,6 +29,18 @@ window.NobelSkyline=(()=>{
   /* towers + mirrored reflections */
   const geo=new THREE.BoxGeometry(1,1,1);
   const mat=new THREE.MeshStandardMaterial({metalness:.28,roughness:.22,envMapIntensity:1.25});
+  /* every tower face carries a grid of windows that flicker on and off (hash per window), tinted by the category colour, plus a fresnel edge: the stacked bars read as a lit glass city */
+  const winU={uTime:{value:0},uWin:{value:1.5},uRim:{value:.5}};
+  mat.onBeforeCompile=sh=>{sh.uniforms.uTime=winU.uTime;sh.uniforms.uWin=winU.uWin;sh.uniforms.uRim=winU.uRim;
+   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWP;').replace('#include <project_vertex>','#include <project_vertex>\nvWP=(modelMatrix*instanceMatrix*vec4(transformed,1.0)).xyz;');
+   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vWP;uniform float uTime,uWin,uRim;').replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
+    {vec2 g=vec2((vWP.x+vWP.z*1.37)/.045,vWP.y/.105);vec2 c=floor(g),f=fract(g);
+     float win=step(.2,f.y)*step(f.y,.8)*step(.18,f.x)*step(f.x,.84);
+     float hh=fract(sin(dot(c,vec2(12.9898,78.233)))*43758.5453);
+     float on=step(.42,hh)*(.55+.45*sin(uTime*.55+hh*40.));
+     totalEmissiveRadiance+=diffuseColor.rgb*win*on*uWin;
+     float fr=pow(1.-abs(dot(normalize(vNormal),normalize(vViewPosition))),2.6);
+     totalEmissiveRadiance+=diffuseColor.rgb*fr*uRim;}`)};
   const towers=new THREE.InstancedMesh(geo,mat,K),refl=new THREE.InstancedMesh(geo,new THREE.MeshBasicMaterial({transparent:true,opacity:.16,depthWrite:false,side:THREE.DoubleSide}),K);
   towers.frustumCulled=refl.frustumCulled=false;grp.add(towers,refl);
   const col=new THREE.Color(),base=CATC.map(h=>new THREE.Color(h)),M=new THREE.Matrix4(),Q=new THREE.Quaternion(),P=new THREE.Vector3(),S=new THREE.Vector3();
@@ -41,16 +54,30 @@ window.NobelSkyline=(()=>{
   const rulers=[10,20,30,40].filter(v=>v<=maxTotal+4);rulers.forEach(v=>{const y=v*HS;pts.push(new THREE.Vector3(X0-.2,y,-.34),new THREE.Vector3(-X0+.2,y,-.34))});
   grp.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),lineMat));
   const beam=new THREE.Mesh(new THREE.PlaneGeometry(DX*2.6,6),new THREE.MeshBasicMaterial({map:(()=>{const c=document.createElement('canvas');c.width=16;c.height=128;const x=c.getContext('2d'),g=x.createLinearGradient(0,128,0,0);g.addColorStop(0,'rgba(255,240,200,.55)');g.addColorStop(1,'rgba(255,240,200,0)');x.fillStyle=g;x.fillRect(0,0,16,128);return new THREE.CanvasTexture(c)})(),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide}));beam.position.y=3;beam.visible=false;grp.add(beam);
+  /* sparks rising out of the selected year's tower + slow ambient motes in the volume */
+  const dotTex=(()=>{const c=document.createElement('canvas');c.width=c.height=32;const g=c.getContext('2d'),r=g.createRadialGradient(16,16,0,16,16,16);r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(.35,'rgba(255,255,255,.7)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,32,32);return new THREE.CanvasTexture(c)})();
+  const RN=110,rainP=new Float32Array(RN*3),rainS=Float32Array.from({length:RN*3},()=>Math.random());
+  const rainGeo=new THREE.BufferGeometry();rainGeo.setAttribute('position',new THREE.BufferAttribute(rainP,3));
+  const rainMat=new THREE.PointsMaterial({size:.06,map:dotTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.9,color:0xffe6b0}),rain=new THREE.Points(rainGeo,rainMat);rain.frustumCulled=false;rain.visible=false;grp.add(rain);
+  const DN=150,dustP=new Float32Array(DN*3),dustS=Float32Array.from({length:DN*4},()=>Math.random());
+  const dustGeo=new THREE.BufferGeometry();dustGeo.setAttribute('position',new THREE.BufferAttribute(dustP,3));
+  const dustMat=new THREE.PointsMaterial({size:.045,map:dotTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.5,color:0xffe9c0}),dust=new THREE.Points(dustGeo,dustMat);dust.frustumCulled=false;grp.add(dust);
   const key=new THREE.DirectionalLight(0xfff0d6,2.0);key.position.set(-4,8,7);scene.add(key);const rim=new THREE.DirectionalLight(0x9fc4ff,.9);rim.position.set(6,3,-5);scene.add(rim);scene.add(new THREE.AmbientLight(0xffffff,.35));
   /* labels (decades + rulers) */
   const decs=[];for(let d=Math.ceil(Y0/10)*10;d<=Y1;d+=10)decs.push(d);
   labels.innerHTML=decs.map(d=>`<span data-d="${d}">${d}</span>`).join('')+rulers.map(v=>`<span class="r" data-r="${v}">${v}</span>`).join('');const lab=[...labels.children];let labFrame=0;
+  /* year slider (drag = year changes, camera follows, tower lights up) + a screen-reader table of the selected year */
+  const tl=document.createElement('div');tl.className='nc-sky-time';tl.innerHTML=`<span>${Y0}</span><input type="range" min="${Y0}" max="${Y1}" step="1" value="${Y1}" aria-label="${esc(t('nsSlider'))}"><span>${Y1}</span>`;panel.appendChild(tl);
+  const slider=tl.querySelector('input'),srTab=document.createElement('table');srTab.className='sr-only';panel.appendChild(srTab);
+  const paintSlider=()=>{const lo=(Number(slider.value)-Y0)/(Y1-Y0)*100;slider.style.setProperty('--p',lo+'%')};
+  slider.addEventListener('input',()=>{const y=String(slider.value);paintSlider();if(idx.has(y)&&typeof selectNobelYear==='function'){selectNobelYear(y,true);syncSel();wake()}else{/* years without prizes: snap to the nearest year that has data */let best=null;for(const k of years){if(best===null||Math.abs(Number(k)-Number(y))<Math.abs(Number(best)-Number(y)))best=k}if(best&&typeof selectNobelYear==='function'){selectNobelYear(best,true);syncSel();wake()}}});
+  slider.addEventListener('pointerdown',e=>e.stopPropagation());
   /* camera state */
   let yaw=0,pitch=.2,dist=18.6,distT=18.6,tx=0,txT=0,vy=0,drag=null,mouse={x:0,y:0,in:false},visible=true,raf=0,t0=performance.now(),time=0;
   const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),v3=new THREE.Vector3();
   function size(){const w=canvas.clientWidth||800,h=canvas.clientHeight||460,dpr=Math.min(devicePixelRatio||1,1.5);renderer.setPixelRatio(dpr);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
   const wake=()=>{if(!raf&&visible)raf=requestAnimationFrame(frame)};
-  function syncSel(){const y=typeof nobelYear!=='undefined'&&nobelYear?Number(nobelYear):-1,i=y>0?y-Y0:-1;if(i!==selYear){selYear=i;colorsDirty.v=true;if(i>=0){txT=X0+i*DX}beam.visible=i>=0}}
+  function syncSel(){const y=typeof nobelYear!=='undefined'&&nobelYear?Number(nobelYear):-1,i=y>0?y-Y0:-1;if(i!==selYear){selYear=i;colorsDirty.v=true;if(i>=0){txT=X0+i*DX}beam.visible=i>=0;if(i>=0){slider.value=Y0+i;paintSlider();const e=idx.get(String(Y0+i));if(e)srTab.innerHTML=`<caption>${Y0+i}</caption>`+e.cats.map((n,k)=>n?`<tr><th>${esc(catName(k))}</th><td>${n}</td></tr>`:'').join('')}}}
   /* tooltip */
   function showTip(i,c){if(i<0){tip.hidden=true;return}const e=idx.get(String(Y0+i));if(!e){tip.hidden=true;return}
    tip.innerHTML=`<small style="--c:${CATC[c>=0?c:0]}">${Y0+i} · ${e.total} ${esc(t('records'))}</small>`+e.cats.map((n,k)=>n?`<span class="row" style="--c:${CATC[k]}"><i></i>${esc(catName(k))}<b>${n}</b></span>`:'').join('')+`<em>${esc(t('nsClick'))}</em>`;tip.hidden=false;placeTip()}
@@ -77,10 +104,14 @@ window.NobelSkyline=(()=>{
    for(let k=0;k<K;k++){const {i}=keys[k],h=Math.max(cur[k],.0001),x=X0+i*DX,y0=acc[i];acc[i]+=cur[k];
     P.set(x,y0+h/2,0);S.set(BW,h,BD);M.compose(P,Q,S);towers.setMatrixAt(k,M);P.set(x,-(y0+h/2)*.5-.01,0);S.set(BW,h*.5,BD);M.compose(P,Q,S);refl.setMatrixAt(k,M)}
    towers.instanceMatrix.needsUpdate=true;refl.instanceMatrix.needsUpdate=true;return moving}
-  function theme(){const light=root.dataset.theme==='light';floorMat.color.setHex(light?0x2a3a46:0xffe6b0);floorMat.opacity=light?.10:.5;lineMat.color.setHex(light?0x13283a:0x9fb8c8);lineMat.opacity=light?.28:.22;refl.material.opacity=light?.05:.11;mat.envMapIntensity=light?1.0:1.3;mat.metalness=light?.15:.3;mat.roughness=light?.3:.2;key.intensity=light?2.4:2.0;rim.intensity=light?.5:.95;beam.material.opacity=light?.55:1;beam.material.color.setHex(light?0xb07a38:0xffffff);colorsDirty.v=true;theme.l=light}
+  function theme(){const light=root.dataset.theme==='light';floorMat.color.setHex(light?0x2a3a46:0xffe6b0);floorMat.opacity=light?.10:.5;lineMat.color.setHex(light?0x13283a:0x9fb8c8);lineMat.opacity=light?.28:.22;refl.material.opacity=light?.05:.11;mat.envMapIntensity=light?1.0:1.3;mat.metalness=light?.15:.3;mat.roughness=light?.3:.2;key.intensity=light?2.4:2.0;rim.intensity=light?.5:.95;winU.uWin.value=light?.5:1.5;winU.uRim.value=light?.18:.55;rainMat.blending=dustMat.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;rainMat.color.setHex(light?0x8a5a22:0xffe6b0);dustMat.color.setHex(light?0x2a3a46:0xffe9c0);dustMat.opacity=light?.3:.5;rainMat.needsUpdate=dustMat.needsUpdate=true;beam.material.opacity=light?.55:1;beam.material.color.setHex(light?0xb07a38:0xffffff);colorsDirty.v=true;theme.l=light}
   function frame(now){raf=0;if(!visible||document.hidden)return;const dt=Math.min(.05,(now-(frame.l||now))/1000||0);frame.l=now;time+=dt;
    if((root.dataset.theme==='light')!==theme.l)theme();syncSel();
    const moving=layout(dt);if(colorsDirty.v)recolor();
+   winU.uTime.value=time;
+   {const calm=reduced.matches||root.classList.contains('effects-paused');let selTop=0;if(selYear>=0)for(let k=0;k<K;k++)if(keys[k].i===selYear)selTop+=cur[k];
+    rain.visible=selYear>=0;if(selYear>=0){const cx=X0+selYear*DX;for(let r=0;r<RN;r++){const sp=.14+rainS[r*3]*.2,u=calm?rainS[r*3+1]:((time*sp+rainS[r*3+1])%1);rainP[r*3]=cx+(rainS[r*3+2]-.5)*BW*1.5;rainP[r*3+1]=selTop+.05+u*2.4;rainP[r*3+2]=(rainS[(r*3+1)%rainS.length]-.5)*BD*.8}rainGeo.attributes.position.needsUpdate=true}
+    for(let d=0;d<DN;d++){const a=dustS[d*4],b=dustS[d*4+1],c2=dustS[d*4+2],sp=.05+dustS[d*4+3]*.12,ph=time*(calm?0:sp);dustP[d*3]=X0*1.15+(-X0*2.3)*a+Math.sin(ph+b*20)*.25;dustP[d*3+1]=.15+b*4.3+Math.sin(ph*1.3+a*30)*.12;dustP[d*3+2]=-1.7+c2*3.4+Math.cos(ph+c2*20)*.2}dustGeo.attributes.position.needsUpdate=true}
    if(!drag){yaw+=vy;vy*=.92}
    const sway=(reduced.matches||root.classList.contains('effects-paused'))?0:Math.sin(time*.35)*.045;
    tx+=(txT-tx)*Math.min(1,dt*3.2);dist+=(distT-dist)*Math.min(1,dt*5);
