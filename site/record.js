@@ -64,7 +64,7 @@
  function withMorph(sourceArt,mutate){
   if(!sourceArt||typeof document.startViewTransition!=='function'||motionOff()){mutate();return}
   const name='bk-cover';sourceArt.style.setProperty('view-transition-name',name);
-  try{const vt=document.startViewTransition(()=>{mutate();const fresh=document.getElementById('recordCoverArt');if(fresh)fresh.style.setProperty('view-transition-name',name)});
+  try{const vt=document.startViewTransition(()=>{mutate();/* the old snapshot is already taken: the source (card cover or the star's ghost) must give the name up, or the new state holds two 'bk-cover' elements and the transition aborts */sourceArt.style.removeProperty('view-transition-name');const fresh=document.getElementById('recordCoverArt');if(fresh)fresh.style.setProperty('view-transition-name',name)});
    const clean=()=>{sourceArt.style.removeProperty('view-transition-name');const fresh=document.getElementById('recordCoverArt');if(fresh)fresh.style.removeProperty('view-transition-name')};
    vt.finished.then(clean).catch(clean)}catch{mutate();sourceArt.style.removeProperty('view-transition-name')}}
 

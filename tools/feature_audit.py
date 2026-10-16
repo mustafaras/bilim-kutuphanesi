@@ -28,7 +28,8 @@ with sync_playwright() as p:
     pg.wait_for_function('window.BKHero&&window.BKStage&&typeof records!=="undefined"&&records.length', timeout=120000)
     pg.wait_for_function("document.querySelectorAll('.tile-3d.on').length>=6", timeout=120000); pg.wait_for_timeout(2000)
     # ---- A3 governor (synthetic windows: avg frame seconds, clock ms)
-    r = pg.evaluate("""(()=>{const g=BKHero.gov,t=performance.now()+1e6,L=[];const f=(avg,now)=>{L.push(g.feed(avg,now))};
+    r = pg.evaluate("""(()=>{const g=BKHero.gov;g.reset();const t=performance.now()+1e6,L=[];   // start from level 0 whatever the real governor did on this machine
+      const f=(avg,now)=>{L.push(g.feed(avg,now))};
       f(.05,t);f(.05,t+10);                          // slow -> 1, 2
       for(let i=0;i<3;i++)f(.005,t+30000+i*10);       // 3 fast windows: not enough yet
       f(.005,t+30040);                                // 4th -> level 1
