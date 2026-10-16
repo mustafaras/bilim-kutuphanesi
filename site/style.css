@@ -1467,3 +1467,8 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 /* chart view: the wide plot scrolls inside its own box instead of stretching the whole Nobel block (found by the 768px screen tour) */
 .nobel-chronicle,.nobel-chronicle>*{min-width:0;max-width:100%}
 .nobel-chronicle .nc-chart,.nobel-chronicle .nc-scroll{min-width:0;max-width:100%;box-sizing:border-box}
+/* Package 40 — A4: atlas tile dive */
+.atlas-tile.diving{scale:1.025;filter:brightness(1.12) saturate(1.1);transition:scale .42s cubic-bezier(.45,0,.2,1),filter .42s ease}
+@media(prefers-reduced-motion:reduce){.atlas-tile.diving{scale:none;filter:none}}
+/* A2: return flight reuses the dive ghost */
+.fly-return{opacity:1}
