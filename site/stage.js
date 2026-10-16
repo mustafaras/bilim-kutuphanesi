@@ -235,7 +235,10 @@
  function canvasTex(m,W,H,draw,srgb){const c=document.createElement('canvas');c.width=W;c.height=H;draw(c.getContext('2d'),W,H);const t=new m.CanvasTexture(c);t.anisotropy=8;if(srgb)t.colorSpace=m.SRGBColorSpace;return t}
  function pageEdge(m,vertical){return canvasTex(m,vertical?512:64,vertical?64:512,(x,W,H)=>{x.fillStyle='#efe5cb';x.fillRect(0,0,W,H);const n=vertical?W:H;for(let i=0;i<n;i+=1){const a=.05+Math.random()*.2;x.fillStyle=`rgba(${110+Math.random()*30|0},${90+Math.random()*30|0},60,${a})`;vertical?x.fillRect(i,0,1,H):x.fillRect(0,i,W,1)}/* leaf ridges: every few px a slightly darker, wobbling leaf boundary so the block reads as stacked sheets */for(let i=0;i<n;i+=5+((i*7)%4)){x.fillStyle='rgba(90,70,40,'+(.16+((i*13)%7)/60).toFixed(3)+')';vertical?x.fillRect(i,0,1,H):x.fillRect(0,i,W,1)}const g=vertical?x.createLinearGradient(0,0,W,0):x.createLinearGradient(0,0,0,H);g.addColorStop(0,'rgba(80,60,30,.25)');g.addColorStop(.15,'rgba(80,60,30,0)');g.addColorStop(.85,'rgba(80,60,30,0)');g.addColorStop(1,'rgba(80,60,30,.25)');x.fillStyle=g;x.fillRect(0,0,W,H)},true)}
  function roundedShape(m,w,h,r){const s=new m.Shape(),x=-w/2,y=-h/2;s.moveTo(x+r,y);s.lineTo(x+w-r,y);s.quadraticCurveTo(x+w,y,x+w,y+r);s.lineTo(x+w,y+h-r);s.quadraticCurveTo(x+w,y+h,x+w-r,y+h);s.lineTo(x+r,y+h);s.quadraticCurveTo(x,y+h,x,y+h-r);s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y);return s}
- function board(m,w,h,T,flipU){const g=new m.ExtrudeGeometry(roundedShape(m,w,h,.07),{depth:T,bevelEnabled:true,bevelSize:.016,bevelThickness:.016,bevelSegments:4,curveSegments:10});g.translate(0,0,-T/2);
+/* F3: books on a shelf share geometry (same dimensions): built once, reused by every bookScene */
+ const GEO=new Map();const shared=(key,make)=>{let g=GEO.get(key);if(!g){g=make();GEO.set(key,g)}return g};
+ function board(m,w,h,T,flipU){return shared('board|'+[w,h,T,flipU].join('|'),()=>board0(m,w,h,T,flipU))}
+ function board0(m,w,h,T,flipU){const g=new m.ExtrudeGeometry(roundedShape(m,w,h,.07),{depth:T,bevelEnabled:true,bevelSize:.016,bevelThickness:.016,bevelSegments:4,curveSegments:10});g.translate(0,0,-T/2);
   const pos=g.attributes.position,uv=g.attributes.uv;for(let i=0;i<pos.count;i++){let u=(pos.getX(i)+w/2)/w;if(flipU)u=1-u;uv.setXY(i,u,(pos.getY(i)+h/2)/h)}uv.needsUpdate=true;return g}
  /* B1: edge wear (worn tan speckle along the edges / corners; `rough` mode paints rougher, i.e. lighter, pixels) and a fingerprint smudge as clearcoat normal */
  function wearEdges(x,W,H,seed,mode){let s=seed|0;const rnd=()=>{s=(s*1664525+1013904223)|0;return((s>>>8)&0xffff)/65536};
@@ -263,12 +266,12 @@
   const back=new m.Mesh(board(m,W-.04,Hh,T,true),[backM,clothSide]);back.position.set(xL+(W-.04)/2,0,-(D/2-T/2));g.add(back);
   /* spine: rounded, with raised bands + foil title */
   const spineTex=(()=>{const t=spineTexture(m,r,idx);t.anisotropy=8;return t})();
-  const spine=new m.Mesh(new m.CylinderGeometry(D/2,D/2,Hh-.01,40,1,true,Math.PI,Math.PI),new m.MeshPhysicalMaterial({map:spineTex,roughness:.5,metalness:.15,sheen:.6,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:1.0,side:m.DoubleSide}));spine.position.set(xL,0,0);g.add(spine);
+  const spine=new m.Mesh(shared('spine',()=>new m.CylinderGeometry(D/2,D/2,Hh-.01,40,1,true,Math.PI,Math.PI)),new m.MeshPhysicalMaterial({map:spineTex,roughness:.5,metalness:.15,sheen:.6,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:1.0,side:m.DoubleSide}));spine.position.set(xL,0,0);g.add(spine);
   [-1.3,-1.2,1.2,1.3].forEach(y=>{const band=new m.Mesh(new m.TorusGeometry(D/2+.002,.008,8,40,Math.PI),new m.MeshStandardMaterial({color:new m.Color(MT.foil),metalness:1,roughness:.28,envMapIntensity:1.3}));band.rotation.set(Math.PI/2,0,Math.PI/2);band.position.set(xL,y,0);g.add(band)});
   /* page block with real page-edge texture + headbands */
   const edgeV=pageEdge(m,true),edgeH=pageEdge(m,false),paper=new m.MeshStandardMaterial({color:0xefe6cf,roughness:.95}),
    pagesMat=[new m.MeshStandardMaterial({map:edgeV,roughness:.92,bumpMap:edgeV,bumpScale:.6}),paper,new m.MeshStandardMaterial({map:edgeH,roughness:.92,bumpMap:edgeH,bumpScale:.6}),new m.MeshStandardMaterial({map:edgeH,roughness:.92}),paper,paper];
-  const pgGeo=new m.BoxGeometry(W-.2,Hh-.14,D-.1,28,1,8),pgPos=pgGeo.attributes.position,PX=(W-.2)/2,PY=(Hh-.14)/2;/* fore-edge bulge + gently wavy head/tail edges (±0.004), so the block reads as loose leaves, not a brick */for(let i=0;i<pgPos.count;i++){const u=pgPos.getZ(i)/((D-.1)/2),px=pgPos.getX(i);if(px>PX-1e-4)pgPos.setX(i,px+.022*(1-u*u));if(Math.abs(Math.abs(pgPos.getY(i))-PY)<1e-4)pgPos.setY(i,pgPos.getY(i)+Math.sign(pgPos.getY(i))*.004*Math.sin(px*13+u*5.3)*Math.cos(px*5.1-u*2))}pgGeo.computeVertexNormals();const pages=new m.Mesh(pgGeo,pagesMat);pages.position.set(xL+(W-.2)/2+.01,0,0);g.add(pages);
+  const pgGeo=shared('pages',()=>new m.BoxGeometry(W-.2,Hh-.14,D-.1,28,1,8)),pgPos=pgGeo.attributes.position,PX=(W-.2)/2,PY=(Hh-.14)/2;/* fore-edge bulge + gently wavy head/tail edges (±0.004), so the block reads as loose leaves, not a brick */if(!pgGeo.userData.shaped)for(let i=0;i<pgPos.count;i++){const u=pgPos.getZ(i)/((D-.1)/2),px=pgPos.getX(i);if(px>PX-1e-4)pgPos.setX(i,px+.022*(1-u*u));if(Math.abs(Math.abs(pgPos.getY(i))-PY)<1e-4)pgPos.setY(i,pgPos.getY(i)+Math.sign(pgPos.getY(i))*.004*Math.sin(px*13+u*5.3)*Math.cos(px*5.1-u*2))}if(!pgGeo.userData.shaped){pgGeo.computeVertexNormals();pgGeo.userData.shaped=true}const pages=new m.Mesh(pgGeo,pagesMat);pages.position.set(xL+(W-.2)/2+.01,0,0);g.add(pages);
   [1,-1].forEach(s=>{const hb=new m.Mesh(new m.CylinderGeometry(.02,.02,D-.12,12),new m.MeshStandardMaterial({color:0xb8423a,roughness:.5}));hb.rotation.x=Math.PI/2;hb.position.set(xL+.03,s*(Hh/2-.085),0);g.add(hb)});
   /* ribbon bookmark: 6-segment verlet chain hanging from the head of the block (gravity follows the book's pose; a fast yaw flicks the tail); the plane's rows are skinned onto the chain */
   const rg=new m.PlaneGeometry(.07,1.05,1,14),RN=6,RL=1.05/RN,AX=xL+.55,AY=-Hh/2+.145,AZ=.02,chain=[];for(let i=0;i<=RN;i++)chain.push({x:AX,y:AY-i*RL,z:AZ,px:AX,py:AY-i*RL,pz:AZ});
@@ -308,8 +311,37 @@
     else{yaw+=((BASE+Math.sin(t*.7)*.1)+it.px*.55*hov-yaw)*.12}
     const calm=mode==='read'?0:1,openT=mode==='read'||mode==='drag'?0:hov*.21;open+=(openT-open)*k7;zoom+=((mode==="read"?1.06:1)-zoom)*k7;
     hinge.rotation.y=-open;g.scale.setScalar(zoom);
-    g.rotation.y=yaw;g.rotation.x=pitch+(mode==='auto'?it.py*.2*hov:0)+Math.sin(t*.9)*.015*calm;g.position.y=Math.sin(t*1.1)*.08*calm+hov*.12*calm;
+    g.rotation.y=yaw;g.rotation.x=pitch+(mode==='auto'?it.py*.2*hov:0)+Math.sin(t*.9)*.015*calm;g.position.y=Math.sin(t*1.1)*.08*calm+hov*.12*calm;g.position.z=hov*.3*calm;
     {const yv=lastYaw==null?0:(yaw-lastYaw)/Math.max(dt,.001);lastYaw=yaw;stepRibbon(dt,Math.max(-3,Math.min(3,yv))*.5,t)}shadow.material.opacity=(real?.4:.95)-it.hoverT*.2;key.intensity=dark()?2.3:2.0;rim.intensity=dark()?1.1:.7}}}
+
+
+ /* F1: every atlas tile gets solid, lit objects in its own material (glass atom core, glass DNA with gold rungs, glass globe, gold lattice nodes, lit banded planet, gold armillary rings), all under the same studio IBL (one PMREM, see studioEnv). F2: the camera drifts with the pointer so the layers separate (parallax). */
+ const SOLID={
+  0:(m,sc,g,col)=>{const mat=new m.MeshPhysicalMaterial({color:col.clone().lerp(new m.Color(1,1,1),.35),transparent:true,opacity:.62,roughness:.06,metalness:0,clearcoat:1,clearcoatRoughness:.04,envMapIntensity:1.7});
+   [[0,0,0,.3],[.2,.12,.05,.2],[-.16,-.1,.12,.17]].forEach(([x,y,z,r])=>{const n=new m.Mesh(new m.SphereGeometry(r,36,24),mat);n.position.set(x,y,z);g.add(n)});
+   const gold=new m.MeshStandardMaterial({color:0xe8ce9e,metalness:1,roughness:.22,envMapIntensity:1.5});[0,1,2].forEach(i=>{const o=new m.Mesh(new m.TorusGeometry(1.6,.012,8,120),gold);o.scale.y=.55;o.rotation.set(i*1.05,i*.6,i*.8);g.add(o)})},
+  1:(m,sc,g,col)=>{const N=72,A=[],B=[];for(let i=0;i<=N;i++){const y=(i/N-.5)*3.4,a=i/N*Math.PI*4;A.push(new m.Vector3(Math.cos(a)*.62,y,Math.sin(a)*.62));B.push(new m.Vector3(Math.cos(a+Math.PI)*.62,y,Math.sin(a+Math.PI)*.62))}
+   const glassA=new m.MeshPhysicalMaterial({color:col.clone().lerp(new m.Color(1,1,1),.25),transparent:true,opacity:.7,roughness:.08,clearcoat:1,envMapIntensity:1.6}),glassB=new m.MeshPhysicalMaterial({color:0xcfe0ff,transparent:true,opacity:.6,roughness:.08,clearcoat:1,envMapIntensity:1.6});
+   g.add(new m.Mesh(new m.TubeGeometry(new m.CatmullRomCurve3(A),160,.05,10,false),glassA),new m.Mesh(new m.TubeGeometry(new m.CatmullRomCurve3(B),160,.05,10,false),glassB));
+   const rungs=[];for(let i=0;i<=N;i+=3)rungs.push(i);const im=new m.InstancedMesh(new m.CylinderGeometry(.018,.018,1,8),new m.MeshStandardMaterial({color:0xe8ce9e,metalness:1,roughness:.25,envMapIntensity:1.4}),rungs.length),M=new m.Matrix4(),q=new m.Quaternion(),up=new m.Vector3(0,1,0),d=new m.Vector3(),c=new m.Vector3();
+   rungs.forEach((i,k)=>{d.copy(B[i]).sub(A[i]);const len=d.length();c.copy(A[i]).add(B[i]).multiplyScalar(.5);q.setFromUnitVectors(up,d.normalize());M.compose(c,q,new m.Vector3(1,len,1));im.setMatrixAt(k,M)});g.add(im)},
+  2:(m,sc,g,col)=>{g.add(new m.Mesh(new m.SphereGeometry(1.38,48,32),new m.MeshPhysicalMaterial({color:col.clone().lerp(new m.Color(1,1,1),.5),transparent:true,opacity:.2,roughness:.05,clearcoat:1,envMapIntensity:1.8})));
+   const ring=new m.Mesh(new m.TorusGeometry(1.46,.018,10,128),new m.MeshStandardMaterial({color:0xe8ce9e,metalness:1,roughness:.2,envMapIntensity:1.5}));ring.rotation.x=Math.PI/2;g.add(ring)},
+  4:(m,sc,g,col)=>{const n=4,s=.62,im=new m.InstancedMesh(new m.SphereGeometry(.075,16,12),new m.MeshStandardMaterial({color:0xe8ce9e,metalness:1,roughness:.2,envMapIntensity:1.5}),n*n*n),M=new m.Matrix4();let k=0;
+   for(let z=0;z<n;z++)for(let y=0;y<n;y++)for(let x=0;x<n;x++){M.makeTranslation((x-1.5)*s,(y-1.5)*s,(z-1.5)*s);im.setMatrixAt(k++,M)}g.add(im)},
+  5:(m,sc,g,col)=>{const P=g.children.find(o=>o.isMesh&&o.geometry.parameters&&o.geometry.parameters.radius===1),mo=g.children.find(o=>o.isMesh&&o.geometry.parameters&&o.geometry.parameters.radius===.2);
+   if(P){const map=P.material.map;P.material=new m.MeshStandardMaterial({map,roughness:.62,metalness:.05,envMapIntensity:1})}
+   if(mo)mo.material=new m.MeshStandardMaterial({color:0xe8ce9e,metalness:1,roughness:.28,envMapIntensity:1.4})},
+  6:(m,sc,g,col)=>{const gold=new m.MeshStandardMaterial({color:0xe8ce9e,metalness:1,roughness:.22,envMapIntensity:1.5});
+   [[0,0,0],[Math.PI/2,0,0],[0,Math.PI/2,0]].forEach(r=>{const t=new m.Mesh(new m.TorusGeometry(1.5,.026,10,120),gold);t.rotation.set(...r);g.add(t)});
+   g.add(new m.Mesh(new m.SphereGeometry(.2,24,18),new m.MeshStandardMaterial({color:0xffe9b8,emissive:0xffc870,emissiveIntensity:.8,roughness:.3})))}};
+ ATLAS.forEach((f,i)=>{if(!SOLID[i])return;ATLAS[i]=(m,it,col)=>{const made=f(m,it,col);if(!made)return made;
+  const env=studioEnv(m),g=made.scene.children.find(o=>o.type==='Group');
+  if(env)made.scene.environment=env;
+  try{SOLID[i](m,made.scene,g,col)}catch{}
+  made.scene.add(new m.AmbientLight(0xffffff,.45));const key=new m.DirectionalLight(0xfff1d6,2);key.position.set(-3,4,5);made.scene.add(key);
+  const up0=made.update;made.update=(t,dt,it2)=>{if(up0)up0(t,dt,it2);made.camera.position.x=it2.px*.45*it2.hoverT;made.camera.position.y=-it2.py*.28*it2.hoverT;made.camera.lookAt(0,0,0)};
+  return made}});
 
  /* ---------- mounting ---------- */
  function mountAtlas(){

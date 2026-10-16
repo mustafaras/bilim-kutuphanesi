@@ -1419,3 +1419,10 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 .rv-constellation.rv-3d .rv-node.hot .rv-node-label{max-width:132px;padding:5px 9px;border-radius:999px;box-shadow:none}
 .rv-constellation.rv-3d .rv-node.hot .rv-node-label i{display:none}
 .rv-constellation.rv-3d .rv-node.hot .rv-node-label b{-webkit-line-clamp:1;line-clamp:1;font-size:11px}
+/* Package 36 — shelf (F4): neighbours step aside when a book is lifted */
+.spotlight-grid .spotlight-card{transition:translate .5s var(--ease-out,cubic-bezier(.2,.7,.2,1))}
+.spotlight-grid .spotlight-card:hover ~ .spotlight-card{translate:9px 0}
+.spotlight-grid .spotlight-card:has(~ .spotlight-card:hover){translate:-9px 0}
+@media(prefers-reduced-motion:reduce){.spotlight-grid .spotlight-card{transition:none}.spotlight-grid .spotlight-card:hover ~ .spotlight-card,.spotlight-grid .spotlight-card:has(~ .spotlight-card:hover){translate:none}}
+/* atlas hover constellation stays in the art zone and fades out under the title/description (legibility) */
+.collection-tile .tile-constellation{-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 36%,rgba(0,0,0,.1) 60%,rgba(0,0,0,.1) 100%);mask-image:linear-gradient(to bottom,#000 0,#000 36%,rgba(0,0,0,.1) 60%,rgba(0,0,0,.1) 100%)}
