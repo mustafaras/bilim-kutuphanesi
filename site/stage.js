@@ -40,9 +40,16 @@
   renderer.setViewport(0,0,w,h);renderer.setScissor(0,0,w,h);renderer.clear();renderer.render(it.scene,it.camera);
   it.ctx.clearRect(0,0,w,h);it.ctx.drawImage(rc,0,rc.height-h,w,h,0,0,w,h);it.dirty=false}
 
+ /* A scene whose canvas left the DOM (record closed, preview re-rendered) releases its GPU memory: geometries, materials and every texture except the shared studio environment. Scenes kept in sceneCache survive (they are reused); shared geometries just re-upload on next use. */
+ function disposeItem(it){const sc=it.scene;if(!sc||it.disposed)return;it.disposed=true;
+  try{if([...sceneCache.values()].some(x=>x.scene===sc))return}catch{}
+  const env=sc.environment;
+  sc.traverse(o=>{if(o.geometry)o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:o.material?[o.material]:[];
+   ms.forEach(mt=>{for(const k in mt){const v=mt[k];if(v&&v.isTexture&&v!==env)v.dispose()}mt.dispose()})});
+  it.scene=null;it.api=null;it.ready=false}
  function tick(now){
   raf=0;const dt=Math.min(.05,(now-last)/1000||0);last=now;
-  items=items.filter(i=>i.canvas.isConnected);let again=false;
+  {const gone=items.filter(i=>!i.canvas.isConnected);if(gone.length){gone.forEach(disposeItem);items=items.filter(i=>i.canvas.isConnected)}}let again=false;
   if(!document.hidden&&renderer){const still=paused();
    for(const it of items){if(!it.ready||!it.visible)continue;
     if(still){if(it.dirty){render(it,dt);}continue}
