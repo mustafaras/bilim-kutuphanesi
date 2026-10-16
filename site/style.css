@@ -1397,3 +1397,4 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 .fly-ghost .card-illustration{position:absolute;inset:0;background:linear-gradient(158deg,color-mix(in srgb,var(--fc) 78%,#fff 8%),color-mix(in srgb,var(--fc) 34%,#0b1a2a));border:1px solid #e8ce9e99;box-shadow:inset 3px 0 0 #0003}
 .fly-ghost .card-illustration::after{content:"";position:absolute;inset:7px 6px auto 9px;height:2px;background:#fffefaa8;box-shadow:0 5px 0 #fffefa66,0 10px 0 #fffefa40}
 @media(prefers-reduced-motion:reduce){#catalog .section-head,#catalog .search-bar{translate:none;scale:none}.fly-ghost{display:none}}
+.nobel-chronicle .nc-chart[hidden],.nobel-chronicle .nc-3d[hidden]{display:none!important}
