@@ -169,7 +169,7 @@
    const N=60,gp=new Float32Array(N*3),gs=[];for(let i=0;i<N;i++)gs.push({a:Math.random()*7,r:1.7+Math.random()*1.1,y:(Math.random()-.5)*2.4,s:.25+Math.random()*.6});
    const gl=new m.Points(new m.BufferGeometry().setAttribute('position',new m.BufferAttribute(gp,3)),new m.PointsMaterial({color:0xffe6a8,size:.05,transparent:true,opacity:.85,depthWrite:false,blending:m.AdditiveBlending}));scene.add(gl);
    scene.add(new m.AmbientLight(0xffffff,.4));const k=new m.DirectionalLight(0xfff0d0,2.6);k.position.set(2.5,2,4);scene.add(k);const k2=new m.DirectionalLight(0x9fc4ff,.9);k2.position.set(-3,-1,3);scene.add(k2);
-   return{scene,camera,face(i){faces[cur].visible=false;cur=((i%faces.length)+faces.length)%faces.length;faces[cur].visible=true},update(t,dt,it){hold+=dt;if(flipT<0&&hold>5.5&&!paused()){flipT=0}
+   return{scene,camera,info(){return{normal:!!faces[cur].material.normalMap,bump:!!faces[cur].material.bumpMap,reed:!!edgeSide.normalMap,faces:faces.length}},face(i){faces[cur].visible=false;cur=((i%faces.length)+faces.length)%faces.length;faces[cur].visible=true},update(t,dt,it){hold+=dt;if(flipT<0&&hold>5.5&&!paused()){flipT=0}
     let spin=0;if(flipT>=0){flipT+=dt/.95;const e=flipT<1?(flipT<.5?2*flipT*flipT:1-Math.pow(-2*flipT+2,2)/2):1;spin=e*Math.PI*2;if(flipT>.5&&faces[cur].visible&&flipT<1){faces[cur].visible=false;cur=(cur+1)%faces.length;faces[cur].visible=true}if(flipT>=1){flipT=-1;hold=0;spin=0}}
     g.rotation.y=Math.sin(t*.6)*.7+it.px*.7*it.hoverT+spin;g.rotation.x=.1+it.py*.3*it.hoverT;k.position.x=Math.cos(t*.9)*3.2;
     for(let i=0;i<N;i++){const q=gs[i],a=q.a+t*q.s;gp[i*3]=Math.cos(a)*q.r;gp[i*3+1]=q.y+Math.sin(t*q.s*2+i)*.15;gp[i*3+2]=Math.sin(a)*q.r*.6}gl.geometry.attributes.position.needsUpdate=true}}}
@@ -200,7 +200,7 @@
   x.save();x.translate(W/2+10,H/2);x.rotate(Math.PI/2);x.fillStyle='#f6efdc';x.textAlign='center';{const fl=TF.fitLine(x,displayTitle(r),{maxW:H-270,sizes:[34,30,27,24,21],font:z=>'400 '+z+'px Fraunces,Georgia,serif'});x.font='400 '+fl.size+'px Fraunces,Georgia,serif';x.fillText(fl.text,0,0)}x.restore();
   const tx=new m.CanvasTexture(c);tx.colorSpace=m.SRGBColorSpace;return tx}
 
- window.BKStage={paintPage,medal:k=>{const it=items.find(i=>i.api&&i.api.face);if(!it)return false;it.api.face(k);it.dirty=true;kick();return true},tiles:()=>items.filter(i=>i.canvas.classList.contains('tile-3d')&&i.camera).map(i=>({z:+i.camera.position.z.toFixed(3),op:i.canvas.style.opacity,top:Math.round(i.host.getBoundingClientRect().top+scrollY)})),info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
+ window.BKStage={paintPage,medalInfo:()=>{const it=items.find(i=>i.api&&i.api.face&&i.api.info);return it?it.api.info():null},medal:k=>{const it=items.find(i=>i.api&&i.api.face);if(!it)return false;it.api.face(k);it.dirty=true;kick();return true},tiles:()=>items.filter(i=>i.canvas.classList.contains('tile-3d')&&i.camera).map(i=>({z:+i.camera.position.z.toFixed(3),op:i.canvas.style.opacity,top:Math.round(i.host.getBoundingClientRect().top+scrollY)})),info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
 
  /* Image-based lighting: a tiny studio (soft boxes) baked once into a PMREM map; makes foil, cloth, clearcoat and gold read as real materials. */
  let ENV=null;
@@ -357,8 +357,8 @@
   const zr=k=>.2225+.0035*(LN-k),zl=k=>.2735+.0035*k;
   function buildLeaves(){
    if(leaves.length||!real)return;
-   endpaper=new m.Mesh(new m.PlaneGeometry(W-.1,Hh-.12),new m.MeshStandardMaterial({map:canvasTex(m,512,720,(x,w2,h2)=>{x.fillStyle=COVER[idx%8];x.fillRect(0,0,w2,h2);const gr=x.createLinearGradient(0,0,w2,0);gr.addColorStop(0,'rgba(0,0,0,.28)');gr.addColorStop(.18,'rgba(0,0,0,0)');x.fillStyle=gr;x.fillRect(0,0,w2,h2);x.strokeStyle='rgba(246,239,220,.22)';x.lineWidth=2;x.strokeRect(34,34,w2-68,h2-68);x.strokeStyle='rgba(246,239,220,.12)';for(let i=0;i<22;i++){x.beginPath();x.arc(w2*.6,h2*.5,20+i*18,0,7);x.stroke()}noise(x,w2,h2,.1,321)},true),roughness:.85,side:m.FrontSide}));
-   endpaper.rotation.y=Math.PI;endpaper.position.set((W-.1)/2,0,-T/2-.003);hinge.add(endpaper);endpaper.visible=false;
+   endpaper=new m.Mesh(new m.PlaneGeometry(W-.13,Hh-.16),new m.MeshStandardMaterial({map:canvasTex(m,512,720,(x,w2,h2)=>{x.fillStyle=COVER[idx%8];x.fillRect(0,0,w2,h2);const gr=x.createLinearGradient(0,0,w2,0);gr.addColorStop(0,'rgba(0,0,0,.28)');gr.addColorStop(.18,'rgba(0,0,0,0)');x.fillStyle=gr;x.fillRect(0,0,w2,h2);x.strokeStyle='rgba(246,239,220,.22)';x.lineWidth=2;x.strokeRect(34,34,w2-68,h2-68);x.strokeStyle='rgba(246,239,220,.12)';for(let i=0;i<22;i++){x.beginPath();x.arc(w2*.6,h2*.5,20+i*18,0,7);x.stroke()}noise(x,w2,h2,.1,321)},true),roughness:.85,side:m.FrontSide}));
+   endpaper.rotation.y=Math.PI;endpaper.position.set((W-.04)/2,0,-(T/2+.016)-.004);/* just outside the board's inner bevel (bevelThickness .016), or the cap hides it */hinge.add(endpaper);endpaper.visible=false;
    const pageMat=k=>new m.MeshStandardMaterial({map:canvasTex(m,768,1080,(x,w2,h2)=>paintPage(x,w2,h2,r,k),true),roughness:.9,side:m.FrontSide});
    const lgeo=()=>{const gg=new m.PlaneGeometry(LW,LH,24,1);gg.translate(LW/2,0,0);return gg};
    for(let k=0;k<LN;k++){const pv=new m.Group();pv.position.set(LPX,0,zr(k));
@@ -476,14 +476,14 @@
   ctl.innerHTML=`<button type="button" data-a="open" aria-pressed="false">${T('bkOpen')}</button><button type="button" data-a="prev" disabled aria-label="${T('bkPrev')}">‹</button><button type="button" data-a="next" disabled aria-label="${T('bkNext')}">›</button>`;
   const scrim=document.createElement('div');scrim.className='rv-book-scrim';art.appendChild(scrim);art.appendChild(ctl);
   const q=a=>ctl.querySelector(`[data-a=${a}]`),api=()=>{const it=getItem();return it&&it.api&&it.api.open?it.api:null},touch=()=>{const it=getItem();if(it){it.dirty=true;kick()}};
-  const sync=()=>{const a=api();if(!a)return;const st=a.state(),on=st.open;art.classList.toggle('book-open',on);q('open').textContent=T(on?'bkClose':'bkOpen');q('open').setAttribute('aria-pressed',String(on));q('prev').disabled=!on||st.leaf<=0;q('next').disabled=!on||st.leaf>=st.leaves};
+  const sync=()=>{const a=api();if(!a)return;const st=a.state(),on=st.open;art.classList.toggle('book-open',on);q('open').textContent=T(on?'bkClose':'bkOpen');q('open').setAttribute('aria-pressed',String(on));q('prev').disabled=!on||st.leaf<=0;q('next').disabled=!on||st.leaf>=st.leaves;const ae=document.activeElement;if(ae&&ae.disabled&&ctl.contains(ae))(on?(q('prev').disabled?q('open'):q('prev')):q('open')).focus()};
   const setOpen=on=>{const a=api();if(!a)return;a.open(on);touch();sync();if(on)q('next').focus();else q('open').focus()};
   const turn=d=>{const a=api();if(!a||!a.state().open)return;a.turn(d);touch();sync()};
   q('open').addEventListener('click',e=>{e.stopPropagation();setOpen(!art.classList.contains('book-open'))});
   q('prev').addEventListener('click',e=>{e.stopPropagation();turn(-1)});q('next').addEventListener('click',e=>{e.stopPropagation();turn(1)});
   scrim.addEventListener('click',e=>{e.stopPropagation();setOpen(false)});
   art.addEventListener('click',e=>{if(!art.classList.contains('book-open')||e.target.closest('.rv-book-ctl,.rv-3d-toggle,.rv-book-scrim'))return;const c=art.querySelector('.rec-3d');if(!c)return;const r=c.getBoundingClientRect();turn(e.clientX>r.left+r.width/2?1:-1)});
-  document.addEventListener('keydown',e=>{if(!art.classList.contains('book-open')||!art.isConnected)return;if(e.key==='ArrowRight'){e.preventDefault();turn(1)}else if(e.key==='ArrowLeft'){e.preventDefault();turn(-1)}});
+  document.addEventListener('keydown',e=>{if(!art.classList.contains('book-open')||!art.isConnected)return;if(e.key==='Escape'){e.preventDefault();setOpen(false);return}if(e.key==='ArrowRight'){e.preventDefault();turn(1)}else if(e.key==='ArrowLeft'){e.preventDefault();turn(-1)}});
   document.addEventListener('bk:book-close',()=>{if(art.classList.contains('book-open'))setOpen(false)});
   window.BKStage.book={state:()=>{const a=api();return a?a.state():null}}}
  function mountAll(){mountAtlas();mountShelf()}
