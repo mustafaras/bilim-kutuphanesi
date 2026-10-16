@@ -92,6 +92,8 @@
   ctx.strokeStyle=lt?'rgba(150,98,52,.6)':'rgba(232,206,158,.30)';ctx.lineWidth=1;ctx.stroke();
   /* Observatory silhouette */
   const ox=w*.62,oy=horizon-ridgeAmp(ox/w,0,.4)+1;
+  window.BKHorizon=Object.assign(window.BKHorizon||{},{ox,oy,w,h});/* hero3d.js draws the dome there as real 3D; this 2D silhouette is the fallback */
+  if(!(window.BKDome&&window.BKDome.on)){
   ctx.save();ctx.translate(ox,oy);
   ctx.fillStyle='rgba(5,9,17,.99)';
   ctx.beginPath();ctx.moveTo(-19,0);ctx.lineTo(-15,-20);ctx.lineTo(15,-20);ctx.lineTo(19,0);ctx.closePath();ctx.fill();
@@ -113,6 +115,7 @@
   ctx.lineWidth=1;ctx.strokeStyle='rgba(206,172,118,.5)';
   ctx.beginPath();ctx.moveTo(-6,-27);ctx.lineTo(-6+Math.cos(aim)*len,-27+Math.sin(aim)*len);ctx.moveTo(-2,-27);ctx.lineTo(-2+Math.cos(aim)*len,-27+Math.sin(aim)*len);ctx.stroke();
   ctx.restore();
+  }
  }
  function tickMeteor(dt){
   if(meteor){meteor.t+=dt;meteor.x+=meteor.vx*dt;meteor.y+=meteor.vy*dt;
@@ -126,7 +129,7 @@
   tickMeteor(dt);draw();frame=requestAnimationFrame(animate)}
  function refresh(){root.classList.toggle('effects-paused',paused||reduced.matches);button.disabled=reduced.matches;button.setAttribute('aria-pressed',String(!paused&&!reduced.matches));label.textContent=t(reduced.matches?'motionReduced':paused?'motionPlay':'motionPause');cancelAnimationFrame(frame);frame=0;meteor=null;draw();if(allowed())frame=requestAnimationFrame(animate)}
  function fit(){if(!ctx)return;const r=scene.getBoundingClientRect(),scale=Math.min(devicePixelRatio||1,2);w=r.width;h=r.height;canvas.width=Math.round(w*scale);canvas.height=Math.round(h*scale);ctx.setTransform(scale,0,0,scale,0,0);draw()}
- button.addEventListener('click',()=>{paused=!paused;try{localStorage.setItem('bk-effects-paused',String(paused))}catch{}refresh()});reduced.addEventListener('change',refresh);document.addEventListener('visibilitychange',refresh);document.addEventListener('library:language',refresh);
+ button.addEventListener('click',()=>{paused=!paused;try{localStorage.setItem('bk-effects-paused',String(paused))}catch{}refresh()});reduced.addEventListener('change',refresh);document.addEventListener('visibilitychange',refresh);document.addEventListener('bk:dome',()=>draw());document.addEventListener('library:language',refresh);
  if(ctx){new ResizeObserver(fit).observe(scene);new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;refresh()}).observe(scene);fit();
   if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{if(!allowed())draw()})}
  if(ctx&&matchMedia('(hover: hover) and (pointer: fine)').matches){scene.addEventListener('pointermove',event=>{if(paused||reduced.matches)return;const r=scene.getBoundingClientRect();pointer={x:(event.clientX-r.left)/r.width,y:(event.clientY-r.top)/r.height}},{passive:true});scene.addEventListener('pointerleave',()=>{pointer=null})}

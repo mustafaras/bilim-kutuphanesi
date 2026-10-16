@@ -145,3 +145,14 @@ Grafik ⇄ Silüet ⇄ Galaksi geçişinde 1.895 kaydın her biri aynı parçac�
 |---|---|---|
 | Silüet (tam yansıma, yumuşak zemin) | ![](ekran/v95/silet-yansima-dark.png) | ![](ekran/v95/silet-yansima-light.png) |
 | Galaksi (küre yıldızlar) | ![](ekran/v95/galaksi-kure-dark.png) | ![](ekran/v95/galaksi-kure-light.png) |
+
+## v96 — C kapanışı + Paket D
+Yazılımsal GL (SwiftShader) durağan kareleri; hareket ve GPU hızı doğrulanmadı.
+
+| | Koyu | Açık |
+|---|---|---|
+| Hero + 3B gözlemevi | ![](ekran/v96/hero-dome-dark.png) | ![](ekran/v96/hero-dome-light.png) |
+| Gözlemevi yakın (palet dalgaları, lamba yansıması) | ![](ekran/v96/hero-dome-zoom-dark.png) | ![](ekran/v96/hero-dome-zoom-light.png) |
+| Scroll kamera yolu (420px) | ![](ekran/v96/hero-scroll-dark.png) | ![](ekran/v96/hero-scroll-light.png) |
+| Silüet (tam yansıma) | ![](ekran/v96/silet-yansima-dark.png) | ![](ekran/v96/silet-yansima-light.png) |
+| Galaksi (instanced küre yıldızlar) | ![](ekran/v96/galaksi-kure-dark.png) | ![](ekran/v96/galaksi-kure-light.png) |
