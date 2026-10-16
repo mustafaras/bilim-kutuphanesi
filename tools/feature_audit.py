@@ -6,9 +6,16 @@ A1 atlas objects dolly in as their tile arrives (camera z shrinks, opacity rises
 A2 a record opened from a hero star spawns a return ghost when it closes (and none when opened elsewhere);
 A3 the quality governor degrades at once, recovers one level at a time only after sustained fast windows, and locks recovery after a flip-flop;
 A4 clicking an atlas tile shows the dive (class .diving), delays the filter ~420 ms, then applies it exactly once."""
-import argparse, os, sys, time
+import argparse, os, socket, subprocess, sys, time
+from pathlib import Path
 from playwright.sync_api import sync_playwright
-ap = argparse.ArgumentParser(); ap.add_argument("--url", default="http://127.0.0.1:8671/"); a = ap.parse_args()
+ROOT = Path(__file__).resolve().parent.parent
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); a = ap.parse_args()
+srv = None
+if not a.url:
+    s_ = socket.socket(); s_.bind(("127.0.0.1", 0)); port = s_.getsockname()[1]; s_.close()
+    srv = subprocess.Popen([sys.executable, "-m", "http.server", str(port), "--directory", str(ROOT / "site")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    a.url = f"http://127.0.0.1:{port}/"; time.sleep(1)
 problems = []; note = lambda m: print(m, flush=True)
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path=os.environ.get("BK_CHROMIUM") or "/opt/pw-browsers/chromium", args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"])
@@ -67,5 +74,6 @@ with sync_playwright() as p:
     if none != 0: problems.append("A2 return ghost appeared for a record that was not opened from a star")
     if errs: problems.append(f"console errors: {errs[:3]}")
     b.close()
+if srv: srv.terminate()
 print("FAIL" if problems else "OK: Package A features behave as specified", *problems, sep="\n - " if problems else "")
 sys.exit(1 if problems else 0)
