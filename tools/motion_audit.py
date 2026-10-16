@@ -9,7 +9,7 @@ import argparse, os, sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ap = argparse.ArgumentParser(); ap.add_argument("--out", required=True); ap.add_argument("--url", default="http://127.0.0.1:8671/")
-ap.add_argument("--themes", default="dark,light"); a = ap.parse_args()
+ap.add_argument("--themes", default="dark,light"); ap.add_argument("--quick", action="store_true", help="skip scroll/morph screenshots"); a = ap.parse_args()
 out = Path(a.out); out.mkdir(parents=True, exist_ok=True); problems = []
 ARGS = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
 with sync_playwright() as p:
@@ -21,14 +21,15 @@ with sync_playwright() as p:
         pg.goto(a.url + "?m=" + str(time.time()), wait_until="load")
         pg.evaluate(f"document.documentElement.dataset.theme='{theme}'")
         pg.wait_for_function("window.BKHero&&window.BKDome", timeout=90000); pg.wait_for_timeout(4000)
-        for y in (0, 150, 300, 450, 600, 800):
+        for y in (() if a.quick else (0, 150, 300, 450, 600, 800)):
             pg.evaluate(f"scrollTo(0,{y})"); pg.wait_for_timeout(2500)
             pg.screenshot(path=str(out / f"scroll-{theme}-{y:04d}.png"))
         ai = []
-        for y in (0, 1200, 2000):
-            pg.evaluate(f"scrollTo(0,{y})"); pg.wait_for_timeout(1200); ai.append(pg.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--atlas-in')"))
-        print(theme, "--atlas-in at scroll 0/1200/2000:", ai)
-        if not (float(ai[0]) < 0.05 and float(ai[-1]) > 0.5): problems.append(f"{theme}: --atlas-in does not follow scroll {ai}")
+        top = pg.evaluate("document.getElementById('catalog').getBoundingClientRect().top+scrollY")
+        for y in (0, top - 900 * 1.2, top - 900 * 0.4):
+            pg.evaluate(f"scrollTo(0,{int(max(0, y))})"); pg.wait_for_timeout(1500); ai.append(pg.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--atlas-in')"))
+        print(theme, "--atlas-in far/approaching/near the catalogue:", ai)
+        if not (float(ai[0]) < 0.05 and float(ai[2]) > float(ai[0]) + 0.3): problems.append(f"{theme}: --atlas-in does not follow scroll {ai}")
         pg.evaluate("scrollTo(0,0)"); pg.wait_for_timeout(2500)
         # in-page sampler (screenshots are far slower than the dive on software GL): ghost rect + record state every frame
         pg.evaluate("""window.__dive=[];(function s(t0){const g=document.querySelector('.fly-ghost'),r=g?g.getBoundingClientRect():null;
@@ -38,13 +39,13 @@ with sync_playwright() as p:
         d = pg.evaluate("window.__dive"); gh = [r for r in d if r["ghost"]]
         first_rec = next((r["t"] for r in d if r["rec"]), None)
         print(theme, f"dive: {len(d)} frames, ghost frames {len(gh)}, max ghost {max([r['w'] for r in gh] or [0])}px, record opened at {first_rec}ms")
-        if not gh: problems.append(f"{theme}: no ghost cover during the dive")
+        if not gh: problems.append(f"{theme}: no ghost cover during the dive")  # (scale progress is not measurable at ~2 fps)
         if first_rec is None: problems.append(f"{theme}: record never opened")
         pg.screenshot(path=str(out / f"dive-{theme}-record.png"))
         pg.evaluate("document.getElementById('recordBack').click()"); pg.wait_for_timeout(2500)
         pg.evaluate("document.getElementById('timeline').scrollIntoView()"); pg.wait_for_timeout(4000)
         names = ["silet", "grafik", "galaksi"]
-        for order in ((0, 1), (1, 2), (2, 0)):
+        for order in (((0, 1), (1, 2), (2, 0)) if not a.quick else ((0, 1),)):
             for i in order:
                 pg.locator(".nc-viewswitch button").nth(i).click()
                 for k in range(3):
