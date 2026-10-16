@@ -5,7 +5,9 @@
 (()=>{
  const view=document.getElementById('recordView'),sheet=document.getElementById('recordSheet');
  /* Tabs: Overview / Cite & share. Arrow keys, Home/End; selection survives re-render only via setTab. */
- function setTab(i,focus){if(!sheet.querySelectorAll)return;sheet.querySelectorAll('.rv-tab').forEach((b,k)=>{const on=k===i;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;if(on&&focus)b.focus()});sheet.querySelectorAll('.rv-panel').forEach((p,k)=>{p.hidden=k!==i})}
+ function setTab(i,focus){if(!sheet.querySelectorAll)return;sheet.querySelectorAll('.rv-tab').forEach((b,k)=>{const on=k===i;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;if(on&&focus)b.focus()});const panels=[...sheet.querySelectorAll('.rv-panel')],prev=panels.findIndex(p=>!p.hidden);panels.forEach((p,k)=>{p.hidden=k!==i});
+  /* H2: the incoming panel slides in from the side of its tab and fades up (FLIP-free; no layout shift) */
+  const np=panels[i];if(np&&np.animate&&prev>=0&&prev!==i&&!motionOff())np.animate([{opacity:0,transform:`translateX(${i>prev?22:-22}px)`},{opacity:1,transform:'none'}],{duration:300,easing:'cubic-bezier(.2,.8,.2,1)'})}
  if(sheet.addEventListener){sheet.addEventListener('click',e=>{const b=e.target.closest?e.target.closest('.rv-tab'):null;if(b)setTab(Number(b.dataset.tab))});
   sheet.addEventListener('keydown',e=>{const b=e.target.closest?e.target.closest('.rv-tab'):null;if(!b)return;const n=sheet.querySelectorAll('.rv-tab').length,i=Number(b.dataset.tab);let j=null;if(e.key==='ArrowRight')j=(i+1)%n;else if(e.key==='ArrowLeft')j=(i-1+n)%n;else if(e.key==='Home')j=0;else if(e.key==='End')j=n-1;if(j!==null){e.preventDefault();setTab(j,true)}})}
  let current=null,returnFocus=null,previousOverflow=null,inertElements=[],pushed=false;
@@ -85,7 +87,7 @@
  document.getElementById('recordBack').addEventListener('click',close);
  document.getElementById('recordFavorite').addEventListener('click',()=>{if(!current)return;favorites.has(current.id)?favorites.delete(current.id):favorites.add(current.id);saveFavorites();render();renderRecord();const star=document.getElementById('recordFavorite');star.setAttribute('aria-pressed',String(favorites.has(current.id)))});
  document.getElementById('recordShare').addEventListener('click',async()=>{if(!current)return;const u=shareUrl(current);try{await navigator.clipboard.writeText(u.href);toast(t('linkCopied'))}catch{document.getElementById('recordShareFallback').hidden=false;const input=document.getElementById('recordShareUrl');input.value=u.href;input.focus();input.select()}});
- document.addEventListener('click',event=>{const cite=event.target.closest('#recordCiteCopy');if(cite&&current){copyText(citation(current).full,t('citedCopied'));return}const card=event.target.closest('#recordShareCard');if(card&&current)drawShareCard(current)});
+ document.addEventListener('click',event=>{const cite=event.target.closest('#recordCiteCopy');if(cite&&current){cite.classList.remove('wave');void cite.offsetWidth;cite.classList.add('wave');copyText(citation(current).full,t('citedCopied'));return}const card=event.target.closest('#recordShareCard');if(card&&current)drawShareCard(current)});
  async function copyText(text,doneKey){try{await navigator.clipboard.writeText(text);toast(t(doneKey))}catch{document.getElementById('recordShareFallback').hidden=false;const input=document.getElementById('recordShareUrl');input.value=text;input.focus();input.select()}}
 
  /* Paylaşım kartı: 1200×630 PNG, tamamen istemci tarafında, çevrimdışı. */

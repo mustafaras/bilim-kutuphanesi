@@ -182,7 +182,7 @@
   x.save();x.translate(W/2+10,H/2);x.rotate(Math.PI/2);x.fillStyle='#f6efdc';x.textAlign='center';{const fl=TF.fitLine(x,displayTitle(r),{maxW:H-270,sizes:[34,30,27,24,21],font:z=>'400 '+z+'px Fraunces,Georgia,serif'});x.font='400 '+fl.size+'px Fraunces,Georgia,serif';x.fillText(fl.text,0,0)}x.restore();
   const tx=new m.CanvasTexture(c);tx.colorSpace=m.SRGBColorSpace;return tx}
 
- window.BKStage={paintCover,coverTexture,spineTexture}; /* test hook for tools/text_fit_audit.py */
+ window.BKStage={paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
 
  /* Image-based lighting: a tiny studio (soft boxes) baked once into a PMREM map; makes foil, cloth, clearcoat and gold read as real materials. */
  let ENV=null;
@@ -252,6 +252,8 @@
   const src=x.getImageData(0,0,N,N).data,out=x.createImageData(N,N),h=(i,j)=>src[(((j+N)%N)*N+((i+N)%N))*4]/255;
   for(let j=0;j<N;j++)for(let i=0;i<N;i++){const dx=(h(i+1,j)-h(i-1,j))*2.2,dy=(h(i,j+1)-h(i,j-1))*2.2,l=Math.hypot(dx,dy,1),o=(j*N+i)*4;out.data[o]=(-dx/l*.5+.5)*255;out.data[o+1]=(dy/l*.5+.5)*255;out.data[o+2]=(1/l*.5+.5)*255;out.data[o+3]=255}
   x.putImageData(out,0,0);const t=new m.CanvasTexture(c);t.wrapS=t.wrapT=m.RepeatWrapping;return t}
+ const sceneCache=new Map();/* shelf peek + palette preview reuse built book scenes (16 most recent) */
+ function sceneFor(m,rec){let s=sceneCache.get(rec.id);if(!s){s=bookScene(m,null,rec);sceneCache.set(rec.id,s);if(sceneCache.size>16)sceneCache.delete(sceneCache.keys().next().value)}return s}
  function bookScene(m,it,r,real){
   const{scene,camera}=rig(m,30,7.2),g=new m.Group();scene.add(g);const idx=(typeof recordArtIndex==='function')?recordArtIndex(r):0;
   const envMap=studioEnv(m);if(envMap)scene.environment=envMap;
@@ -372,11 +374,11 @@
  function mountListPeek(){
   const host=document.getElementById('cards');if(!host||mountListPeek.done||typeof records==='undefined')return;mountListPeek.done=true;
   const cv=document.createElement('canvas');cv.className='list-peek';cv.setAttribute('aria-hidden','true');cv.hidden=true;document.body.appendChild(cv);
-  const cache=new Map();let it=null,cur=null,pending=null;
+  let it=null,cur=null,pending=null;
   const show=(row)=>{const el=row.querySelector('[data-detail]'),id=el&&el.dataset.detail;if(!id||id===cur)return;const rec=records.find(r=>r.id===id);if(!rec)return;
    const r=row.getBoundingClientRect(),w=148,h=206;cv.style.left=Math.max(8,Math.min(innerWidth-w-8,r.left+r.width*.66-w/2))+'px';/* over the quiet metadata columns, never over the title or the access links */cv.style.top=Math.max(72,Math.min(innerHeight-h-8,r.top+r.height/2-h/2))+'px';
    cur=id;cv.hidden=false;
-   const apply=()=>{if(!it||!it.ready||cur!==id)return;let made=cache.get(id);if(!made){try{made=bookScene(THREE,null,rec)}catch{return}cache.set(id,made);if(cache.size>12){const k=cache.keys().next().value;cache.delete(k)}}
+   const apply=()=>{if(!it||!it.ready||cur!==id)return;let made;try{made=sceneFor(THREE,rec)}catch{return}
     it.scene=made.scene;it.camera=made.camera;it.api=made;it.hover=1;it.dirty=true;cv.classList.add('on');kick()};
    if(!it){it=register(cv,m=>{const dummy=m?{scene:new m.Scene(),camera:new m.PerspectiveCamera(30,1,.1,50),update(){}}:null;return dummy},{host:cv,onReady:()=>{pending=null;apply()}})}else apply()};
   const hide=()=>{cur=null;cv.hidden=true;cv.classList.remove('on')};

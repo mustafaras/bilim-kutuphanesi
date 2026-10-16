@@ -42,7 +42,7 @@
   run:()=>{reset();discoveryIndex=i;populateFilters();render();jump('catalog')},
   pv:()=>{const n=records.filter(r=>d.nobel?r.collection!=='books':r.collection==='books'&&d.categories.includes(r.category)).length;return`<p class="pv-kicker">${esc(t('groupFields'))}</p><h4>${esc(d.title[uiLang==='en'?1:0])}</h4><p class="pv-desc">${esc(d.note[uiLang==='en'?1:0])}</p><p class="pv-stat"><b>${n.toLocaleString(locale())}</b> ${esc(t('records'))}</p><p class="pv-hint">${esc(t('pvOpenField'))} <kbd>↵</kbd></p>`}}))}
  function recordItem(r){return{kind:'record',key:r.id,label:displayTitle(r),sub:[r.author,r.year,label(r.category).replace(/^\d+ - /,'')].filter(Boolean).join(' · '),hay:r.search,run:()=>window.openRecord&&window.openRecord(r.id),
-  pv:()=>`<div class="pv-art spine-${recordArtIndex(r)}" aria-hidden="true">${catalogRecordArt(r)}</div><p class="pv-kicker">${esc(catalogNo(r))} · ${esc(t(r.collection))}${r.year?' · '+esc(r.year):''}</p><h4>${esc(displayTitle(r))}</h4><p class="pv-author">${esc(r.author||'')}</p><p class="pv-desc">${esc(displayDescription(r)||t('pvNoDesc'))}</p><p class="pv-chips">${[r.language,r.kind,r.level].filter(Boolean).map(v=>`<span>${esc(label(v))}</span>`).join('')}</p><p class="pv-hint">${esc(t('pvOpenRecord'))} <kbd>↵</kbd></p>`}}
+  pv:()=>`<div class="pv-art spine-${recordArtIndex(r)}" aria-hidden="true">${catalogRecordArt(r)}<canvas class="pv-3d" data-rec="${esc(r.id)}"></canvas></div><p class="pv-kicker">${esc(catalogNo(r))} · ${esc(t(r.collection))}${r.year?' · '+esc(r.year):''}</p><h4>${esc(displayTitle(r))}</h4><p class="pv-author">${esc(r.author||'')}</p><p class="pv-desc">${esc(displayDescription(r)||t('pvNoDesc'))}</p><p class="pv-chips">${[r.language,r.kind,r.level].filter(Boolean).map(v=>`<span>${esc(label(v))}</span>`).join('')}</p><p class="pv-hint">${esc(t('pvOpenRecord'))} <kbd>↵</kbd></p>`}}
  function recordsFor(tokens,limit){const scored=[];for(const r of records){if(!tokens.every(w=>r.search.includes(w)))continue;const title=norm(displayTitle(r)),author=norm(r.author);let score=1;if(tokens.every(w=>title.includes(w)))score+=4;if(tokens.every(w=>author.includes(w)))score+=3;scored.push([score,r])}
   scored.sort((a,b)=>b[0]-a[0]||a[1].title.localeCompare(b[1].title,locale()));
   return scored.slice(0,limit).map(([,r])=>recordItem(r))}
@@ -102,7 +102,9 @@
   input.setAttribute('aria-expanded',String(isOpen()));input.removeAttribute('aria-activedescendant');
   renderScopes();showPreview(results.length?0:-1);lens()}
 
- function showPreview(i){if(!preview)return;const item=results[i];preview.innerHTML=item&&item.pv?item.pv():`<p class="pv-hint">${esc(t('pvStart'))}</p>`}
+ function showPreview(i){if(!preview)return;const item=results[i];preview.innerHTML=item&&item.pv?item.pv():`<p class="pv-hint">${esc(t('pvStart'))}</p>`;
+  /* H1: the record preview's cover becomes a real, lit 3D book (shared renderer; falls back to the 2D art) */
+  const cv=preview.querySelector?preview.querySelector('canvas.pv-3d'):null;if(cv&&window.BKStage&&window.BKStage.mini&&typeof matchMedia==='function'&&!matchMedia('(prefers-reduced-motion: reduce)').matches){const rec=records.find(x=>x.id===cv.dataset.rec);if(rec)window.BKStage.mini(cv,rec,()=>{const a=cv.closest('.pv-art');if(a)a.classList.add('has-3d')})}}
  /* The lens is one absolutely-positioned element that glides to the active row (transform only). */
  function lens(){const l=list.querySelector?list.querySelector('.pk-lens'):null;if(!l||!l.style)return;const el=all(list,'.pk-opt')[active>=0?active:-1];if(!el){l.style.opacity='0';return}l.style.opacity='1';l.style.height=el.offsetHeight+'px';l.style.transform='translateY('+el.offsetTop+'px)'}
  function setActive(i,scroll){active=i;all(list,'.pk-opt').forEach((o,k)=>{o.setAttribute('aria-selected',String(k===active));o.classList&&o.classList.toggle('active',k===active)});

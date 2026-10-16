@@ -1452,3 +1452,15 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 .list-peek{position:fixed;width:148px;height:206px;z-index:40;pointer-events:none;opacity:0;transition:opacity .22s ease;filter:drop-shadow(0 14px 18px rgba(0,0,0,.32))}
 .list-peek.on{opacity:1}.list-peek[hidden]{display:none}
 @media(max-width:900px),(pointer:coarse){.list-peek{display:none}}
+/* Package 38 — H: palette, record tabs, cite */
+#paletteOverlay,#shortcutMap{background:radial-gradient(90% 70% at 50% 0%,#0d1a2ccc,#04070eb8);-webkit-backdrop-filter:blur(16px) saturate(1.25);backdrop-filter:blur(16px) saturate(1.25)}
+#paletteOverlay::before{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;background:radial-gradient(38% 28% at 24% 10%,rgba(255,96,140,.11),transparent 62%),radial-gradient(40% 30% at 78% 16%,rgba(90,170,255,.13),transparent 62%),radial-gradient(46% 24% at 50% 100%,rgba(232,206,158,.07),transparent 70%)}
+:root[data-theme=light] #paletteOverlay,:root[data-theme=light] #shortcutMap{background:radial-gradient(90% 70% at 50% 0%,#0d1a2cd9,#04070ed0)}
+.pv-art{position:relative}
+.pv-3d{position:absolute;left:-16%;top:-9%;width:132%;height:120%;pointer-events:none;opacity:0;transition:opacity .3s ease}
+.pv-3d.on{opacity:1}
+.pv-art.has-3d{overflow:visible;box-shadow:none;background:none}.pv-art.has-3d>.subject-art,.pv-art.has-3d>.living-art{visibility:hidden}
+#recordCiteCopy{position:relative;overflow:hidden}
+#recordCiteCopy.wave::after{content:"";position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;pointer-events:none;background:radial-gradient(circle,rgba(255,236,190,.95),rgba(232,206,158,.55) 45%,rgba(232,206,158,0) 70%);animation:cite-wave .9s cubic-bezier(.2,.7,.2,1) both}
+@keyframes cite-wave{from{transform:scale(1);opacity:.95}to{transform:scale(34);opacity:0}}
+@media(prefers-reduced-motion:reduce){#recordCiteCopy.wave::after{animation:none;opacity:0}}
