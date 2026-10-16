@@ -1387,7 +1387,7 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 /* Package 31 — record-particle morph overlay */
 .nc-morph{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:6}
 /* Package 32 — C closure: chart view frameless + same stage height as the 3D views (no layout jump), controls locked while records fly */
-.nobel-chronicle .nc-chart,:root[data-theme=light] .nobel-chronicle .nc-chart{background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0 0 12px;min-height:clamp(380px,54vw,580px);display:flex;flex-direction:column;justify-content:flex-end}
+.nobel-chronicle .nc-chart,:root[data-theme=light] .nobel-chronicle .nc-chart{background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0 0 12px;min-height:clamp(380px,54vw,600px);display:flex;flex-direction:column;justify-content:flex-end}
 .nobel-chronicle .nc-strip{height:clamp(260px,38vw,430px)}.nobel-chronicle .nc-gridlines{height:clamp(260px,38vw,430px)}
 @media(max-width:760px){.nobel-chronicle .nc-chart{min-height:420px}.nobel-chronicle .nc-strip,.nobel-chronicle .nc-gridlines{height:300px}}
 .nc-morphing .nc-3d,.nc-morphing .nc-chart,.nc-morphing .nc-viewswitch{pointer-events:none}
