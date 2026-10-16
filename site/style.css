@@ -1402,3 +1402,68 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 #recordTitle:focus,#recordTitle:focus-visible{outline:0;box-shadow:none}
 .nobel-chronicle .nc-strip,.nobel-chronicle .nc-gridlines{height:clamp(300px,44vw,500px)}
 @media(max-width:760px){.nobel-chronicle .nc-strip,.nobel-chronicle .nc-gridlines{height:300px}}
+/* Package 35 — constellation detail card (E5) */
+.rv-pcard{position:absolute;z-index:900;pointer-events:none;display:flex;gap:12px;align-items:flex-start;max-width:250px;padding:12px 14px;border-radius:12px;background:linear-gradient(180deg,rgba(10,22,34,.86),rgba(6,14,24,.9));border:1px solid rgba(232,206,158,.28);box-shadow:0 18px 40px -18px rgba(0,0,0,.7);backdrop-filter:blur(8px);color:#f3ecdc;animation:pcardIn .22s var(--ease-out,ease-out) both}
+.rv-pcard[hidden]{display:none}
+.rv-pcard i{flex:none;width:34px;height:48px;border-radius:3px;background:linear-gradient(158deg,color-mix(in srgb,var(--sp,#e8ce9e) 82%,#fff 6%),color-mix(in srgb,var(--sp,#e8ce9e) 36%,#0b1a2a));border:1px solid #e8ce9e88;box-shadow:inset 3px 0 0 #0003}
+.rv-pcard strong{display:block;font:500 14px/1.3 var(--serif);color:#fff6e2}
+.rv-pcard span{display:block;margin-top:3px;font-size:11.5px;color:#b9c6cf}
+.rv-pcard em{display:block;margin-top:7px;font:600 10.5px var(--mono);letter-spacing:.8px;color:#e8ce9e;font-style:normal;text-transform:uppercase}
+:root[data-theme=light] .rv-pcard{background:linear-gradient(180deg,rgba(255,254,250,.96),rgba(244,236,218,.96));border-color:rgba(19,43,59,.2);color:#132b3b;box-shadow:0 18px 40px -20px rgba(19,43,59,.45)}
+:root[data-theme=light] .rv-pcard strong{color:#132b3b}:root[data-theme=light] .rv-pcard span{color:#4a5b66}:root[data-theme=light] .rv-pcard em{color:#8a5a2c}
+@keyframes pcardIn{from{opacity:0;margin-top:6px}to{opacity:1;margin-top:0}}
+@media(prefers-reduced-motion:reduce){.rv-pcard{animation:none}}
+/* the detail card (.rv-pcard) carries the title/author on hover, so the label stays a compact pill */
+.rv-node:hover .rv-node-label b,.rv-node:focus-visible .rv-node-label b{-webkit-line-clamp:2;line-clamp:2}
+.rv-node:hover .rv-node-label i,.rv-node:focus-visible .rv-node-label i{display:none}
+.rv-constellation.rv-3d .rv-node.hot .rv-node-label{max-width:132px;padding:5px 9px;border-radius:999px;box-shadow:none}
+.rv-constellation.rv-3d .rv-node.hot .rv-node-label i{display:none}
+.rv-constellation.rv-3d .rv-node.hot .rv-node-label b{-webkit-line-clamp:1;line-clamp:1;font-size:11px}
+/* Package 36 — shelf (F4): neighbours step aside when a book is lifted */
+.spotlight-grid .spotlight-card{transition:translate .5s var(--ease-out,cubic-bezier(.2,.7,.2,1))}
+.spotlight-grid .spotlight-card:hover ~ .spotlight-card{translate:9px 0}
+.spotlight-grid .spotlight-card:has(~ .spotlight-card:hover){translate:-9px 0}
+@media(prefers-reduced-motion:reduce){.spotlight-grid .spotlight-card{transition:none}.spotlight-grid .spotlight-card:hover ~ .spotlight-card,.spotlight-grid .spotlight-card:has(~ .spotlight-card:hover){translate:none}}
+/* atlas hover constellation stays in the art zone and fades out under the title/description (legibility) */
+.collection-tile .tile-constellation{-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 36%,rgba(0,0,0,.1) 60%,rgba(0,0,0,.1) 100%);mask-image:linear-gradient(to bottom,#000 0,#000 36%,rgba(0,0,0,.1) 60%,rgba(0,0,0,.1) 100%)}
+/* Package 37 — G: catalogue polish */
+/* G1 card edge glow: a thin conic light travels around the edge on hover (dark: brass, light: copper); hover contrast untouched, the card keeps its own border */
+@property --card-ang{syntax:'<angle>';inherits:false;initial-value:0deg}
+.card{position:relative}
+.card::after{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1px;pointer-events:none;opacity:0;transition:opacity .35s var(--ease-out,ease-out);
+ background:conic-gradient(from var(--card-ang),transparent 0 62%,rgba(232,206,158,.95) 82%,rgba(255,244,214,.95) 88%,transparent 100%);
+ -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+:root[data-theme=light] .card::after{background:conic-gradient(from var(--card-ang),transparent 0 62%,rgba(161,92,57,.9) 82%,rgba(214,150,96,.9) 88%,transparent 100%)}
+.card:hover::after,.card:focus-within::after{opacity:1;animation:card-spin 3.6s linear infinite}
+@keyframes card-spin{to{--card-ang:360deg}}
+.cards.list-view .card::after{display:none}
+.effects-paused .card::after{animation:none}
+@media(prefers-reduced-motion:reduce){.card::after{animation:none!important}}
+/* G2 depth: the living cover's grid and drawing slide against each other with the pointer */
+.card .living-art .art-grid{translate:calc(var(--mx,0)*-5px) calc(var(--my,0)*-4px);transition:translate .25s var(--ease-out,ease-out)}
+.card .living-art svg,.card .atlas-symbol{translate:calc(var(--mx,0)*3px) calc(var(--my,0)*2.5px);transition:translate .25s var(--ease-out,ease-out)}
+@media(prefers-reduced-motion:reduce){.card .living-art .art-grid,.card .living-art svg{translate:none}}
+/* G3 empty state */
+.empty-state{position:relative}
+.empty3d{position:absolute;right:clamp(14px,5vw,56px);top:50%;transform:translateY(-50%);width:210px;height:156px;pointer-events:none;opacity:0;transition:opacity .8s ease}
+.empty3d.on{opacity:1}
+@media(max-width:720px){.empty3d{display:none}}
+/* G4 list preview */
+.list-peek{position:fixed;width:148px;height:206px;z-index:40;pointer-events:none;opacity:0;transition:opacity .22s ease;filter:drop-shadow(0 14px 18px rgba(0,0,0,.32))}
+.list-peek.on{opacity:1}.list-peek[hidden]{display:none}
+@media(max-width:900px),(pointer:coarse){.list-peek{display:none}}
+/* Package 38 — H: palette, record tabs, cite */
+#paletteOverlay,#shortcutMap{background:radial-gradient(90% 70% at 50% 0%,#0d1a2ccc,#04070eb8);-webkit-backdrop-filter:blur(16px) saturate(1.25);backdrop-filter:blur(16px) saturate(1.25)}
+#paletteOverlay::before{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;background:radial-gradient(38% 28% at 24% 10%,rgba(255,96,140,.11),transparent 62%),radial-gradient(40% 30% at 78% 16%,rgba(90,170,255,.13),transparent 62%),radial-gradient(46% 24% at 50% 100%,rgba(232,206,158,.07),transparent 70%)}
+:root[data-theme=light] #paletteOverlay,:root[data-theme=light] #shortcutMap{background:radial-gradient(90% 70% at 50% 0%,#0d1a2cd9,#04070ed0)}
+.pv-art{position:relative}
+.pv-3d{position:absolute;left:-16%;top:-9%;width:132%;height:120%;pointer-events:none;opacity:0;transition:opacity .3s ease}
+.pv-3d.on{opacity:1}
+.pv-art.has-3d{overflow:visible;box-shadow:none;background:none}.pv-art.has-3d>.subject-art,.pv-art.has-3d>.living-art{visibility:hidden}
+#recordCiteCopy{position:relative;overflow:hidden}
+#recordCiteCopy.wave::after{content:"";position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;pointer-events:none;background:radial-gradient(circle,rgba(255,236,190,.95),rgba(232,206,158,.55) 45%,rgba(232,206,158,0) 70%);animation:cite-wave .9s cubic-bezier(.2,.7,.2,1) both}
+@keyframes cite-wave{from{transform:scale(1);opacity:.95}to{transform:scale(34);opacity:0}}
+@media(prefers-reduced-motion:reduce){#recordCiteCopy.wave::after{animation:none;opacity:0}}
+/* chart view: the wide plot scrolls inside its own box instead of stretching the whole Nobel block (found by the 768px screen tour) */
+.nobel-chronicle,.nobel-chronicle>*{min-width:0;max-width:100%}
+.nobel-chronicle .nc-chart,.nobel-chronicle .nc-scroll{min-width:0;max-width:100%;box-sizing:border-box}

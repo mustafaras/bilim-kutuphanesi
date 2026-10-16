@@ -34,6 +34,11 @@
   if(atlas){const top=atlas.getBoundingClientRect().top;st.setProperty('--atlas-in',ease.smooth(1-(top-vh*.28)/(vh*.72)).toFixed(3))}}
  const askScroll=()=>{if(!sq){sq=true;requestAnimationFrame(scrollVars)}};
  addEventListener('scroll',askScroll,{passive:true});addEventListener('resize',askScroll);scrollVars();
+ /* G2: pointer position inside a card/tile as --mx/--my (-1..1): living covers shift their layers against each other (depth) */
+ let pq=null;
+ document.addEventListener('pointermove',e=>{if(rm.matches||e.pointerType==='touch')return;const c=e.target.closest&&e.target.closest('.card,.spotlight-card');if(!c){if(pq&&pq.el){pq.el.style.removeProperty('--mx');pq.el.style.removeProperty('--my');pq=null}return}
+  if(pq&&pq.el!==c){pq.el.style.removeProperty('--mx');pq.el.style.removeProperty('--my')}pq={el:c,x:e.clientX,y:e.clientY,raf:pq&&pq.el===c?pq.raf:0};
+  if(!pq.raf)pq.raf=requestAnimationFrame(()=>{const q=pq;if(!q)return;q.raf=0;const r=q.el.getBoundingClientRect();q.el.style.setProperty('--mx',(((q.x-r.left)/Math.max(1,r.width)-.5)*2).toFixed(3));q.el.style.setProperty('--my',(((q.y-r.top)/Math.max(1,r.height)-.5)*2).toFixed(3))})},{passive:true});
  window.BKMotion={ease,damp,spring,quality,tick,clamp01};
  window.__bkPerf=perf;
 })();

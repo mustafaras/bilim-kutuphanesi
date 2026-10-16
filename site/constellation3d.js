@@ -127,6 +127,8 @@
     const lx=parseFloat(el.style.left)/100*W-CX,ly=parseFloat(el.style.top)/100*H-CY;
     const spine=getComputedStyle(el).getPropertyValue('--spine').trim()||'#e8ce9e';
     return{el,kind,i,spine,base:new m.Vector3(lx,-ly,((i*73%11)-5)*30),ph:i*1.7,sc:0,hot:0}});
+   /* E5: detail card of the hovered / focused planet (cover colour, title, author, year, "open" hint); pure DOM, follows the node */
+   const pcard=document.createElement('aside');pcard.className='rv-pcard';pcard.setAttribute('aria-hidden','true');pcard.hidden=true;box.appendChild(pcard);let pcardFor=-2;
    box.classList.add('rv-3d');box.dataset.hint=typeof t==='function'?t('rvDragHint'):'';
    const sU={uTime:{value:0},uPx:{value:PR},uLight:{value:0},uOpacity:{value:1}};
    /* stars: three depth shells, colour temperature varies */
@@ -241,7 +243,13 @@
     for(let q=0;q<dN;q++){dp[q*3]+=dv[q*3]*dt;dp[q*3+1]+=dv[q*3+1]*dt;if(dp[q*3]>450)dp[q*3]=-450;if(dp[q*3]<-450)dp[q*3]=450;if(dp[q*3+1]>250)dp[q*3+1]=-250;if(dp[q*3+1]<-250)dp[q*3+1]=250}dg.attributes.position.needsUpdate=true;
     world.updateMatrixWorld(true);camera.updateMatrixWorld();planetShared.uTime.value=time;streak.position.setFromMatrixPosition(core.matrixWorld);streak.material.opacity=(lt?0:.3)*intro*(1+coreU.uHot.value*.5);planetShared.uSun.value.setFromMatrixPosition(core.matrixWorld).applyMatrix4(camera.matrixWorldInverse);
     /* re-project the DOM layer */
-    items.forEach((it,i)=>{v.copy(it.base).applyMatrix4(world.matrixWorld).project(camera);const x=(v.x*.5+.5)*100,y=(1-(v.y*.5+.5))*100;it.el.style.left=x.toFixed(2)+'%';it.el.style.top=y.toFixed(2)+'%';it.el.style.zIndex=String(Math.round((1-v.z)*500));it.el.style.opacity=String(Math.min(1,it.sc*1.2)*(hover>=0&&hover!==i?.55:1)*(dive?(dive.i===i?1-Math.max(0,dk-.55)*2.2:1-Math.min(1,dk*1.8)):1))});
+    const dds=items.map(it=>v.copy(it.base).applyMatrix4(world.matrixWorld).distanceTo(camera.position)),dmin=Math.min(...dds),dspan=Math.max(1,Math.max(...dds)-dmin);
+    items.forEach((it,i)=>{const depthF=1-.4*(dds[i]-dmin)/dspan;v.copy(it.base).applyMatrix4(world.matrixWorld).project(camera);const x=(v.x*.5+.5)*100,y=(1-(v.y*.5+.5))*100;it.el.style.left=x.toFixed(2)+'%';it.el.style.top=y.toFixed(2)+'%';it.el.style.zIndex=String(Math.round((1-v.z)*500));it.el.style.opacity=String(Math.min(1,it.sc*1.2)*depthF*(hover>=0&&hover!==i?.55:1)*(dive?(dive.i===i?1-Math.max(0,dk-.55)*2.2:1-Math.min(1,dk*1.8)):1))});
+    {const hi=hover>=0?hover:(document.activeElement&&document.activeElement.classList&&document.activeElement.classList.contains('rv-node')?items.findIndex(q=>q.el===document.activeElement):-1);
+     if(hi!==pcardFor){pcardFor=hi;const rec=hi>=0&&typeof records!=='undefined'?records.find(q=>q.id===items[hi].el.dataset.detail):null;
+      if(rec&&!dive){const esc2=x=>String(x==null?'':x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));pcard.style.setProperty('--sp',items[hi].spine);
+       pcard.innerHTML=`<i aria-hidden="true"></i><div><strong>${esc2(typeof displayTitle==='function'?displayTitle(rec):rec.title)}</strong><span>${esc2([rec.author,rec.year].filter(Boolean).join(' · '))}</span><em>${esc2(typeof t==='function'?t('heroOpen'):'Open')} →</em></div>`;pcard.hidden=false}else pcard.hidden=true}
+     if(!pcard.hidden&&hi>=0){const bw=box.clientWidth,bh=box.clientHeight,px=parseFloat(items[hi].el.style.left)/100*bw,py=parseFloat(items[hi].el.style.top)/100*bh,flip=px>bw*.6;pcard.style.transform=`translate(${flip?'calc(-100% - 46px)':'46px'},-50%)`;pcard.style.left=px.toFixed(1)+'px';pcard.style.top=Math.max(52,Math.min(bh-52,py)).toFixed(1)+'px'}}
     /* label collision avoidance (every 6th frame / on hover change): hovered > nearer to camera; the loser is hidden, never overlapped */
     if(window.BKText&&(++declFrame%6===0||declHover!==hover)){declHover=hover;const bw=box.clientWidth,bh=box.clientHeight,list=[];
      items.forEach((it,i)=>{const lb=it.lab||(it.lab=it.el.querySelector('.rv-node-label'));if(!lb)return;const px=parseFloat(it.el.style.left)/100*bw,py=parseFloat(it.el.style.top)/100*bh;

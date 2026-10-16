@@ -40,9 +40,16 @@
   renderer.setViewport(0,0,w,h);renderer.setScissor(0,0,w,h);renderer.clear();renderer.render(it.scene,it.camera);
   it.ctx.clearRect(0,0,w,h);it.ctx.drawImage(rc,0,rc.height-h,w,h,0,0,w,h);it.dirty=false}
 
+ /* A scene whose canvas left the DOM (record closed, preview re-rendered) releases its GPU memory: geometries, materials and every texture except the shared studio environment. Scenes kept in sceneCache survive (they are reused); shared geometries just re-upload on next use. */
+ function disposeItem(it){const sc=it.scene;if(!sc||it.disposed)return;it.disposed=true;
+  try{if([...sceneCache.values()].some(x=>x.scene===sc))return}catch{}
+  const env=sc.environment;
+  sc.traverse(o=>{if(o.geometry)o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:o.material?[o.material]:[];
+   ms.forEach(mt=>{for(const k in mt){const v=mt[k];if(v&&v.isTexture&&v!==env)v.dispose()}mt.dispose()})});
+  it.scene=null;it.api=null;it.ready=false}
  function tick(now){
   raf=0;const dt=Math.min(.05,(now-last)/1000||0);last=now;
-  items=items.filter(i=>i.canvas.isConnected);let again=false;
+  {const gone=items.filter(i=>!i.canvas.isConnected);if(gone.length){gone.forEach(disposeItem);items=items.filter(i=>i.canvas.isConnected)}}let again=false;
   if(!document.hidden&&renderer){const still=paused();
    for(const it of items){if(!it.ready||!it.visible)continue;
     if(still){if(it.dirty){render(it,dt);}continue}
@@ -182,7 +189,7 @@
   x.save();x.translate(W/2+10,H/2);x.rotate(Math.PI/2);x.fillStyle='#f6efdc';x.textAlign='center';{const fl=TF.fitLine(x,displayTitle(r),{maxW:H-270,sizes:[34,30,27,24,21],font:z=>'400 '+z+'px Fraunces,Georgia,serif'});x.font='400 '+fl.size+'px Fraunces,Georgia,serif';x.fillText(fl.text,0,0)}x.restore();
   const tx=new m.CanvasTexture(c);tx.colorSpace=m.SRGBColorSpace;return tx}
 
- window.BKStage={paintCover,coverTexture,spineTexture}; /* test hook for tools/text_fit_audit.py */
+ window.BKStage={info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
 
  /* Image-based lighting: a tiny studio (soft boxes) baked once into a PMREM map; makes foil, cloth, clearcoat and gold read as real materials. */
  let ENV=null;
@@ -235,14 +242,31 @@
  function canvasTex(m,W,H,draw,srgb){const c=document.createElement('canvas');c.width=W;c.height=H;draw(c.getContext('2d'),W,H);const t=new m.CanvasTexture(c);t.anisotropy=8;if(srgb)t.colorSpace=m.SRGBColorSpace;return t}
  function pageEdge(m,vertical){return canvasTex(m,vertical?512:64,vertical?64:512,(x,W,H)=>{x.fillStyle='#efe5cb';x.fillRect(0,0,W,H);const n=vertical?W:H;for(let i=0;i<n;i+=1){const a=.05+Math.random()*.2;x.fillStyle=`rgba(${110+Math.random()*30|0},${90+Math.random()*30|0},60,${a})`;vertical?x.fillRect(i,0,1,H):x.fillRect(0,i,W,1)}/* leaf ridges: every few px a slightly darker, wobbling leaf boundary so the block reads as stacked sheets */for(let i=0;i<n;i+=5+((i*7)%4)){x.fillStyle='rgba(90,70,40,'+(.16+((i*13)%7)/60).toFixed(3)+')';vertical?x.fillRect(i,0,1,H):x.fillRect(0,i,W,1)}const g=vertical?x.createLinearGradient(0,0,W,0):x.createLinearGradient(0,0,0,H);g.addColorStop(0,'rgba(80,60,30,.25)');g.addColorStop(.15,'rgba(80,60,30,0)');g.addColorStop(.85,'rgba(80,60,30,0)');g.addColorStop(1,'rgba(80,60,30,.25)');x.fillStyle=g;x.fillRect(0,0,W,H)},true)}
  function roundedShape(m,w,h,r){const s=new m.Shape(),x=-w/2,y=-h/2;s.moveTo(x+r,y);s.lineTo(x+w-r,y);s.quadraticCurveTo(x+w,y,x+w,y+r);s.lineTo(x+w,y+h-r);s.quadraticCurveTo(x+w,y+h,x+w-r,y+h);s.lineTo(x+r,y+h);s.quadraticCurveTo(x,y+h,x,y+h-r);s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y);return s}
- function board(m,w,h,T,flipU){const g=new m.ExtrudeGeometry(roundedShape(m,w,h,.07),{depth:T,bevelEnabled:true,bevelSize:.016,bevelThickness:.016,bevelSegments:4,curveSegments:10});g.translate(0,0,-T/2);
+/* F3: books on a shelf share geometry (same dimensions): built once, reused by every bookScene */
+ const GEO=new Map();const shared=(key,make)=>{let g=GEO.get(key);if(!g){g=make();GEO.set(key,g)}return g};
+ function board(m,w,h,T,flipU){return shared('board|'+[w,h,T,flipU].join('|'),()=>board0(m,w,h,T,flipU))}
+ function board0(m,w,h,T,flipU){const g=new m.ExtrudeGeometry(roundedShape(m,w,h,.07),{depth:T,bevelEnabled:true,bevelSize:.016,bevelThickness:.016,bevelSegments:4,curveSegments:10});g.translate(0,0,-T/2);
   const pos=g.attributes.position,uv=g.attributes.uv;for(let i=0;i<pos.count;i++){let u=(pos.getX(i)+w/2)/w;if(flipU)u=1-u;uv.setXY(i,u,(pos.getY(i)+h/2)/h)}uv.needsUpdate=true;return g}
+ /* B1: edge wear (worn tan speckle along the edges / corners; `rough` mode paints rougher, i.e. lighter, pixels) and a fingerprint smudge as clearcoat normal */
+ function wearEdges(x,W,H,seed,mode){let s=seed|0;const rnd=()=>{s=(s*1664525+1013904223)|0;return((s>>>8)&0xffff)/65536};
+  x.save();for(let i=0;i<1100;i++){const side=(rnd()*4)|0,t=rnd(),d=Math.pow(rnd(),3.4)*20;let px,py;
+   if(side===0){px=t*W;py=d}else if(side===1){px=t*W;py=H-d}else if(side===2){px=d;py=t*H}else{px=W-d;py=t*H}
+   const corner=Math.min(Math.min(px,W-px),Math.min(py,H-py));const k=1-Math.min(1,corner/46)*.6,r=.5+rnd()*1.7;
+   x.fillStyle=mode==='rough'?`rgba(255,255,255,${(.25+.4*rnd())*k})`:`rgba(${216+rnd()*24|0},${196+rnd()*22|0},${150+rnd()*30|0},${(.06+.16*rnd())*k})`;x.beginPath();x.arc(px,py,r,0,7);x.fill()}x.restore()}
+ function smudgeNormal(m,seed){const N=256,c=document.createElement('canvas');c.width=c.height=N;const x=c.getContext('2d');x.fillStyle='#000';x.fillRect(0,0,N,N);
+  let s=seed|0;const rnd=()=>{s=(s*1664525+1013904223)|0;return((s>>>8)&0xffff)/65536};
+  x.strokeStyle='#fff';for(let f=0;f<3;f++){const cx=rnd()*N,cy=rnd()*N,rx=22+rnd()*26,ry=rx*(1.25+rnd()*.35),rot=rnd()*3.14;x.save();x.translate(cx,cy);x.rotate(rot);x.globalAlpha=.55;x.lineWidth=1.5;for(let r=3;r<1;r++);for(let k=2;k<rx;k+=3.2){x.beginPath();x.ellipse(0,0,k,k*ry/rx,0,0,6.283);x.stroke()}x.restore()}
+  const src=x.getImageData(0,0,N,N).data,out=x.createImageData(N,N),h=(i,j)=>src[(((j+N)%N)*N+((i+N)%N))*4]/255;
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){const dx=(h(i+1,j)-h(i-1,j))*2.2,dy=(h(i,j+1)-h(i,j-1))*2.2,l=Math.hypot(dx,dy,1),o=(j*N+i)*4;out.data[o]=(-dx/l*.5+.5)*255;out.data[o+1]=(dy/l*.5+.5)*255;out.data[o+2]=(1/l*.5+.5)*255;out.data[o+3]=255}
+  x.putImageData(out,0,0);const t=new m.CanvasTexture(c);t.wrapS=t.wrapT=m.RepeatWrapping;return t}
+ const sceneCache=new Map();/* shelf peek + palette preview reuse built book scenes (16 most recent) */
+ function sceneFor(m,rec){let s=sceneCache.get(rec.id);if(!s){s=bookScene(m,null,rec);sceneCache.set(rec.id,s);if(sceneCache.size>16)sceneCache.delete(sceneCache.keys().next().value)}return s}
  function bookScene(m,it,r,real){
   const{scene,camera}=rig(m,30,7.2),g=new m.Group();scene.add(g);const idx=(typeof recordArtIndex==='function')?recordArtIndex(r):0;
   const envMap=studioEnv(m);if(envMap)scene.environment=envMap;
-  const col=canvasTex(m,512,720,(x,W,H)=>paintCover(x,W,H,r,idx,false),true),mask=canvasTex(m,512,720,(x,W,H)=>paintCover(x,W,H,r,idx,true),false);
-  const rough=canvasTex(m,512,720,(x,W,H)=>{paintCover(x,W,H,r,idx,true);const d=x.getImageData(0,0,W,H),q=d.data;for(let i=0;i<q.length;i+=4){const v=q[i];const rr=Math.round(215-v*.78);q[i]=q[i+1]=q[i+2]=rr}x.putImageData(d,0,0)},false);
-  const MT=matOf(idx),bump=grainBump(m,mask,MT.bind,(idx+1)*7919+String(r.id||'').length*131),cover=new m.MeshPhysicalMaterial({map:col,roughnessMap:rough,roughness:1,metalnessMap:mask,metalness:1,bumpMap:bump,bumpScale:2.6,clearcoat:MT.coat,clearcoatRoughness:MT.rough*.7,sheen:.8,sheenRoughness:.6,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:1.1});
+  const wseed=(idx+3)*2654435+String(r.id||'').length*977,col=canvasTex(m,512,720,(x,W,H)=>{paintCover(x,W,H,r,idx,false);wearEdges(x,W,H,wseed,'col')},true),mask=canvasTex(m,512,720,(x,W,H)=>paintCover(x,W,H,r,idx,true),false);
+  const rough=canvasTex(m,512,720,(x,W,H)=>{paintCover(x,W,H,r,idx,true);const d=x.getImageData(0,0,W,H),q=d.data;for(let i=0;i<q.length;i+=4){const v=q[i];const rr=Math.round(215-v*.78);q[i]=q[i+1]=q[i+2]=rr}x.putImageData(d,0,0);wearEdges(x,W,H,wseed,'rough')},false);
+  const MT=matOf(idx),bump=grainBump(m,mask,MT.bind,(idx+1)*7919+String(r.id||'').length*131),cover=new m.MeshPhysicalMaterial({map:col,roughnessMap:rough,roughness:1,metalnessMap:mask,metalness:1,bumpMap:bump,bumpScale:2.6,clearcoat:MT.coat,clearcoatRoughness:MT.rough*.7,clearcoatNormalMap:smudgeNormal(m,wseed),clearcoatNormalScale:new m.Vector2(.16,.16),anisotropy:.5,anisotropyRotation:Math.PI/2,sheen:.8,sheenRoughness:.6,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:1.1});
   const backCol=canvasTex(m,512,720,(x,W,H)=>{const gr=x.createLinearGradient(0,0,W,H);gr.addColorStop(0,COVER[idx%8]);gr.addColorStop(1,'#0d1822');x.fillStyle=gr;x.fillRect(0,0,W,H);noise(x,W,H,.14,5200);x.strokeStyle=GOLD;x.lineWidth=3;x.strokeRect(24,24,W-48,H-48);x.lineWidth=1.2;x.strokeRect(34,34,W-68,H-68);x.fillStyle=GOLD;x.font='600 64px Fraunces,Georgia,serif';x.textAlign='center';x.fillText('BK',W/2,H/2);x.font='600 15px "IBM Plex Mono",monospace';x.fillText('BİLİM KÜTÜPHANEM',W/2,H/2+42);x.fillStyle='rgba(246,239,220,.16)';for(let i=0;i<9;i++)x.fillRect(80,120+i*22,W-160-((i*53)%90),5)},true);
   const backM=new m.MeshPhysicalMaterial({map:backCol,roughness:.75,sheen:.7,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:.8});
   const clothSide=new m.MeshPhysicalMaterial({color:new m.Color(COVER[idx%8]).multiplyScalar(.7),roughness:.8,sheen:.8,sheenColor:new m.Color(0x8fa3b8)});
@@ -251,16 +275,29 @@
   const back=new m.Mesh(board(m,W-.04,Hh,T,true),[backM,clothSide]);back.position.set(xL+(W-.04)/2,0,-(D/2-T/2));g.add(back);
   /* spine: rounded, with raised bands + foil title */
   const spineTex=(()=>{const t=spineTexture(m,r,idx);t.anisotropy=8;return t})();
-  const spine=new m.Mesh(new m.CylinderGeometry(D/2,D/2,Hh-.01,40,1,true,Math.PI,Math.PI),new m.MeshPhysicalMaterial({map:spineTex,roughness:.5,metalness:.15,sheen:.6,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:1.0,side:m.DoubleSide}));spine.position.set(xL,0,0);g.add(spine);
+  const spine=new m.Mesh(shared('spine',()=>new m.CylinderGeometry(D/2,D/2,Hh-.01,40,1,true,Math.PI,Math.PI)),new m.MeshPhysicalMaterial({map:spineTex,roughness:.5,metalness:.15,sheen:.6,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:1.0,side:m.DoubleSide}));spine.position.set(xL,0,0);g.add(spine);
   [-1.3,-1.2,1.2,1.3].forEach(y=>{const band=new m.Mesh(new m.TorusGeometry(D/2+.002,.008,8,40,Math.PI),new m.MeshStandardMaterial({color:new m.Color(MT.foil),metalness:1,roughness:.28,envMapIntensity:1.3}));band.rotation.set(Math.PI/2,0,Math.PI/2);band.position.set(xL,y,0);g.add(band)});
   /* page block with real page-edge texture + headbands */
   const edgeV=pageEdge(m,true),edgeH=pageEdge(m,false),paper=new m.MeshStandardMaterial({color:0xefe6cf,roughness:.95}),
    pagesMat=[new m.MeshStandardMaterial({map:edgeV,roughness:.92,bumpMap:edgeV,bumpScale:.6}),paper,new m.MeshStandardMaterial({map:edgeH,roughness:.92,bumpMap:edgeH,bumpScale:.6}),new m.MeshStandardMaterial({map:edgeH,roughness:.92}),paper,paper];
-  const pgGeo=new m.BoxGeometry(W-.2,Hh-.14,D-.1,1,1,8),pgPos=pgGeo.attributes.position;for(let i=0;i<pgPos.count;i++){if(pgPos.getX(i)>0){const u=pgPos.getZ(i)/((D-.1)/2);pgPos.setX(i,pgPos.getX(i)+.022*(1-u*u))}}pgGeo.computeVertexNormals();const pages=new m.Mesh(pgGeo,pagesMat);pages.position.set(xL+(W-.2)/2+.01,0,0);g.add(pages);
+  const pgGeo=shared('pages',()=>new m.BoxGeometry(W-.2,Hh-.14,D-.1,28,1,8)),pgPos=pgGeo.attributes.position,PX=(W-.2)/2,PY=(Hh-.14)/2;/* fore-edge bulge + gently wavy head/tail edges (±0.004), so the block reads as loose leaves, not a brick */if(!pgGeo.userData.shaped)for(let i=0;i<pgPos.count;i++){const u=pgPos.getZ(i)/((D-.1)/2),px=pgPos.getX(i);if(px>PX-1e-4)pgPos.setX(i,px+.022*(1-u*u));if(Math.abs(Math.abs(pgPos.getY(i))-PY)<1e-4)pgPos.setY(i,pgPos.getY(i)+Math.sign(pgPos.getY(i))*.004*Math.sin(px*13+u*5.3)*Math.cos(px*5.1-u*2))}if(!pgGeo.userData.shaped){pgGeo.computeVertexNormals();pgGeo.userData.shaped=true}const pages=new m.Mesh(pgGeo,pagesMat);pages.position.set(xL+(W-.2)/2+.01,0,0);g.add(pages);
   [1,-1].forEach(s=>{const hb=new m.Mesh(new m.CylinderGeometry(.02,.02,D-.12,12),new m.MeshStandardMaterial({color:0xb8423a,roughness:.5}));hb.rotation.x=Math.PI/2;hb.position.set(xL+.03,s*(Hh/2-.085),0);g.add(hb)});
-  /* ribbon bookmark */
-  const rg=new m.PlaneGeometry(.07,1.05,1,14),rp=rg.attributes.position;for(let i=0;i<rp.count;i++){const y=rp.getY(i);rp.setZ(i,Math.sin((y+.5)*5)*.02);rp.setX(i,rp.getX(i)+Math.sin((y+.5)*3.2)*.025)}rg.computeVertexNormals();
-  const rp0=Float32Array.from(rp.array),ribbon=new m.Mesh(rg,new m.MeshPhysicalMaterial({color:0xa5262c,roughness:.4,sheen:1,sheenColor:new m.Color(0xff8a80),side:m.DoubleSide}));ribbon.position.set(xL+.55,-Hh/2-.38,.02);g.add(ribbon);
+  /* ribbon bookmark: 6-segment verlet chain hanging from the head of the block (gravity follows the book's pose; a fast yaw flicks the tail); the plane's rows are skinned onto the chain */
+  const rg=new m.PlaneGeometry(.07,1.05,1,14),RN=6,RL=1.05/RN,AX=xL+.55,AY=-Hh/2+.145,AZ=.02,chain=[];for(let i=0;i<=RN;i++)chain.push({x:AX,y:AY-i*RL,z:AZ,px:AX,py:AY-i*RL,pz:AZ});
+  const rpos=rg.attributes.position,rrow=new Float32Array(rpos.count),rside=new Float32Array(rpos.count);for(let i=0;i<rpos.count;i++){rrow[i]=(.525-rpos.getY(i))/1.05*RN;rside[i]=rpos.getX(i)}
+  const ribbon=new m.Mesh(rg,new m.MeshPhysicalMaterial({color:0xa5262c,roughness:.4,sheen:1,sheenColor:new m.Color(0xff8a80),side:m.DoubleSide}));ribbon.frustumCulled=false;g.add(ribbon);
+  const gdown=new m.Vector3(),qInv=new m.Quaternion();let lastYaw=null;
+  const stepRibbon=(dt,yawV,t)=>{dt=Math.min(dt,.033);g.updateMatrixWorld(true);g.getWorldQuaternion(qInv).invert();gdown.set(0,-1,0).applyQuaternion(qInv);
+   const G=7.5,wx=Math.sin(t*1.3)*.5+yawV*.9;
+   for(let i=1;i<=RN;i++){const n=chain[i],tail=i/RN,vx=(n.x-n.px)*.955,vy=(n.y-n.py)*.955,vz=(n.z-n.pz)*.955;n.px=n.x;n.py=n.y;n.pz=n.z;
+    n.x+=vx+(gdown.x*G+wx*tail)*dt*dt;n.y+=vy+gdown.y*G*dt*dt;n.z+=vz+(gdown.z*G+Math.cos(t*1.1+i)*.35*tail)*dt*dt}
+   for(let it2=0;it2<5;it2++){chain[0].x=AX;chain[0].y=AY;chain[0].z=AZ;
+    for(let i=0;i<RN;i++){const a=chain[i],b=chain[i+1];let dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z;const d=Math.hypot(dx,dy,dz)||1e-6,k=(d-RL)/d*(i===0?1:.5);
+     if(i===0){b.x-=dx*k;b.y-=dy*k;b.z-=dz*k}else{a.x+=dx*k;a.y+=dy*k;a.z+=dz*k;b.x-=dx*k;b.y-=dy*k;b.z-=dz*k}}
+    chain.forEach(n=>{if(n.z<.004&&n.x>xL-.05&&n.x<xL+W-.1&&n.y>-Hh/2)n.z=.004})}
+   for(let i=0;i<rpos.count;i++){const f=Math.min(RN-1e-4,rrow[i]),k=Math.floor(f),u=f-k,a=chain[k],b=chain[k+1];rpos.setXYZ(i,a.x+(b.x-a.x)*u+rside[i],a.y+(b.y-a.y)*u,a.z+(b.z-a.z)*u)}
+   rpos.needsUpdate=true;rg.computeVertexNormals()};
+  for(let i=0;i<30;i++)stepRibbon(.016,0,0);
   /* contact shadow: two soft layers */
   const shMap=(()=>{const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d'),gr=x.createRadialGradient(128,64,0,128,64,120);gr.addColorStop(0,'rgba(0,0,0,.62)');gr.addColorStop(.5,'rgba(0,0,0,.22)');gr.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=gr;x.fillRect(0,0,256,128);return new m.CanvasTexture(c)})();
   const shadow=new m.Mesh(new m.PlaneGeometry(3.8,1.3),new m.MeshBasicMaterial({map:shMap,transparent:true,depthWrite:false}));shadow.rotation.x=-Math.PI/2;shadow.position.y=-1.78;scene.add(shadow);
@@ -283,8 +320,37 @@
     else{yaw+=((BASE+Math.sin(t*.7)*.1)+it.px*.55*hov-yaw)*.12}
     const calm=mode==='read'?0:1,openT=mode==='read'||mode==='drag'?0:hov*.21;open+=(openT-open)*k7;zoom+=((mode==="read"?1.06:1)-zoom)*k7;
     hinge.rotation.y=-open;g.scale.setScalar(zoom);
-    g.rotation.y=yaw;g.rotation.x=pitch+(mode==='auto'?it.py*.2*hov:0)+Math.sin(t*.9)*.015*calm;g.position.y=Math.sin(t*1.1)*.08*calm+hov*.12*calm;
-    ribbon.rotation.z=Math.sin(t*1.3)*.05+yaw*.02;{const a=rg.attributes.position;for(let i=0;i<a.count;i++){const y0=rp0[i*3+1],tail=Math.max(0,(-y0+.525)/1.05);a.setZ(i,rp0[i*3+2]+Math.sin(t*2.1+y0*6)*.014*tail);a.setX(i,rp0[i*3]+Math.sin(t*1.7+y0*4)*.012*tail)}a.needsUpdate=true}ribbon.position.x=xL+.55+Math.sin(t*1.2)*.01;shadow.material.opacity=(real?.4:.95)-it.hoverT*.2;key.intensity=dark()?2.3:2.0;rim.intensity=dark()?1.1:.7}}}
+    g.rotation.y=yaw;g.rotation.x=pitch+(mode==='auto'?it.py*.2*hov:0)+Math.sin(t*.9)*.015*calm;g.position.y=Math.sin(t*1.1)*.08*calm+hov*.12*calm;g.position.z=hov*.3*calm;
+    {const yv=lastYaw==null?0:(yaw-lastYaw)/Math.max(dt,.001);lastYaw=yaw;stepRibbon(dt,Math.max(-3,Math.min(3,yv))*.5,t)}shadow.material.opacity=(real?.4:.95)-it.hoverT*.2;key.intensity=dark()?2.3:2.0;rim.intensity=dark()?1.1:.7}}}
+
+
+ /* F1: every atlas tile gets solid, lit objects in its own material (glass atom core, glass DNA with gold rungs, glass globe, gold lattice nodes, lit banded planet, gold armillary rings), all under the same studio IBL (one PMREM, see studioEnv). F2: the camera drifts with the pointer so the layers separate (parallax). */
+ const SOLID={
+  0:(m,sc,g,col)=>{const mat=new m.MeshPhysicalMaterial({color:col.clone().lerp(new m.Color(1,1,1),.35),transparent:true,opacity:.62,roughness:.06,metalness:0,clearcoat:1,clearcoatRoughness:.04,envMapIntensity:1.7});
+   [[0,0,0,.3],[.2,.12,.05,.2],[-.16,-.1,.12,.17]].forEach(([x,y,z,r])=>{const n=new m.Mesh(new m.SphereGeometry(r,36,24),mat);n.position.set(x,y,z);g.add(n)});
+   const gold=new m.MeshStandardMaterial({color:0xe8ce9e,metalness:1,roughness:.22,envMapIntensity:1.5});[0,1,2].forEach(i=>{const o=new m.Mesh(new m.TorusGeometry(1.6,.012,8,120),gold);o.scale.y=.55;o.rotation.set(i*1.05,i*.6,i*.8);g.add(o)})},
+  1:(m,sc,g,col)=>{const N=72,A=[],B=[];for(let i=0;i<=N;i++){const y=(i/N-.5)*3.4,a=i/N*Math.PI*4;A.push(new m.Vector3(Math.cos(a)*.62,y,Math.sin(a)*.62));B.push(new m.Vector3(Math.cos(a+Math.PI)*.62,y,Math.sin(a+Math.PI)*.62))}
+   const glassA=new m.MeshPhysicalMaterial({color:col.clone().lerp(new m.Color(1,1,1),.25),transparent:true,opacity:.7,roughness:.08,clearcoat:1,envMapIntensity:1.6}),glassB=new m.MeshPhysicalMaterial({color:0xcfe0ff,transparent:true,opacity:.6,roughness:.08,clearcoat:1,envMapIntensity:1.6});
+   g.add(new m.Mesh(new m.TubeGeometry(new m.CatmullRomCurve3(A),160,.05,10,false),glassA),new m.Mesh(new m.TubeGeometry(new m.CatmullRomCurve3(B),160,.05,10,false),glassB));
+   const rungs=[];for(let i=0;i<=N;i+=3)rungs.push(i);const im=new m.InstancedMesh(new m.CylinderGeometry(.018,.018,1,8),new m.MeshStandardMaterial({color:0xe8ce9e,metalness:1,roughness:.25,envMapIntensity:1.4}),rungs.length),M=new m.Matrix4(),q=new m.Quaternion(),up=new m.Vector3(0,1,0),d=new m.Vector3(),c=new m.Vector3();
+   rungs.forEach((i,k)=>{d.copy(B[i]).sub(A[i]);const len=d.length();c.copy(A[i]).add(B[i]).multiplyScalar(.5);q.setFromUnitVectors(up,d.normalize());M.compose(c,q,new m.Vector3(1,len,1));im.setMatrixAt(k,M)});g.add(im)},
+  2:(m,sc,g,col)=>{g.add(new m.Mesh(new m.SphereGeometry(1.38,48,32),new m.MeshPhysicalMaterial({color:col.clone().lerp(new m.Color(1,1,1),.5),transparent:true,opacity:.2,roughness:.05,clearcoat:1,envMapIntensity:1.8})));
+   const ring=new m.Mesh(new m.TorusGeometry(1.46,.018,10,128),new m.MeshStandardMaterial({color:0xe8ce9e,metalness:1,roughness:.2,envMapIntensity:1.5}));ring.rotation.x=Math.PI/2;g.add(ring)},
+  4:(m,sc,g,col)=>{const n=4,s=.62,im=new m.InstancedMesh(new m.SphereGeometry(.075,16,12),new m.MeshStandardMaterial({color:0xe8ce9e,metalness:1,roughness:.2,envMapIntensity:1.5}),n*n*n),M=new m.Matrix4();let k=0;
+   for(let z=0;z<n;z++)for(let y=0;y<n;y++)for(let x=0;x<n;x++){M.makeTranslation((x-1.5)*s,(y-1.5)*s,(z-1.5)*s);im.setMatrixAt(k++,M)}g.add(im)},
+  5:(m,sc,g,col)=>{const P=g.children.find(o=>o.isMesh&&o.geometry.parameters&&o.geometry.parameters.radius===1),mo=g.children.find(o=>o.isMesh&&o.geometry.parameters&&o.geometry.parameters.radius===.2);
+   if(P){const map=P.material.map;P.material=new m.MeshStandardMaterial({map,roughness:.62,metalness:.05,envMapIntensity:1})}
+   if(mo)mo.material=new m.MeshStandardMaterial({color:0xe8ce9e,metalness:1,roughness:.28,envMapIntensity:1.4})},
+  6:(m,sc,g,col)=>{const gold=new m.MeshStandardMaterial({color:0xe8ce9e,metalness:1,roughness:.22,envMapIntensity:1.5});
+   [[0,0,0],[Math.PI/2,0,0],[0,Math.PI/2,0]].forEach(r=>{const t=new m.Mesh(new m.TorusGeometry(1.5,.026,10,120),gold);t.rotation.set(...r);g.add(t)});
+   g.add(new m.Mesh(new m.SphereGeometry(.2,24,18),new m.MeshStandardMaterial({color:0xffe9b8,emissive:0xffc870,emissiveIntensity:.8,roughness:.3})))}};
+ ATLAS.forEach((f,i)=>{if(!SOLID[i])return;ATLAS[i]=(m,it,col)=>{const made=f(m,it,col);if(!made)return made;
+  const env=studioEnv(m),g=made.scene.children.find(o=>o.type==='Group');
+  if(env)made.scene.environment=env;
+  try{SOLID[i](m,made.scene,g,col)}catch{}
+  made.scene.add(new m.AmbientLight(0xffffff,.45));const key=new m.DirectionalLight(0xfff1d6,2);key.position.set(-3,4,5);made.scene.add(key);
+  const up0=made.update;made.update=(t,dt,it2)=>{if(up0)up0(t,dt,it2);made.camera.position.x=it2.px*.45*it2.hoverT;made.camera.position.y=-it2.py*.28*it2.hoverT;made.camera.lookAt(0,0,0)};
+  return made}});
 
  /* ---------- mounting ---------- */
  function mountAtlas(){
@@ -311,9 +377,23 @@
    if(on&&!cv){cv=document.createElement('canvas');cv.className='rec-3d';cv.setAttribute('aria-hidden','true');art.appendChild(cv);
     (document.fonts&&document.fonts.load?Promise.all([document.fonts.load('400 44px Fraunces'),document.fonts.load('400 24px Inter'),document.fonts.load('600 22px "IBM Plex Mono"')]).catch(()=>{}):Promise.resolve()).then(()=>
      register(cv,(m)=>{try{return bookScene(m,null,r,true)}catch{return null}},{host:art,drag:true,dbl:true,onReady:()=>art.classList.add('rec-ready')}))}})}
+ /* G4: list view — hovering a row shows a small real 3D cover beside it. One canvas, one registered item; the scene is swapped per record (cached). */
+ function mountListPeek(){
+  const host=document.getElementById('cards');if(!host||mountListPeek.done||typeof records==='undefined')return;mountListPeek.done=true;
+  const cv=document.createElement('canvas');cv.className='list-peek';cv.setAttribute('aria-hidden','true');cv.hidden=true;document.body.appendChild(cv);
+  let it=null,cur=null,pending=null;
+  const show=(row)=>{const el=row.querySelector('[data-detail]'),id=el&&el.dataset.detail;if(!id||id===cur)return;const rec=records.find(r=>r.id===id);if(!rec)return;
+   const r=row.getBoundingClientRect(),w=148,h=206;cv.style.left=Math.max(8,Math.min(innerWidth-w-8,r.left+r.width*.66-w/2))+'px';/* over the quiet metadata columns, never over the title or the access links */cv.style.top=Math.max(72,Math.min(innerHeight-h-8,r.top+r.height/2-h/2))+'px';
+   cur=id;cv.hidden=false;
+   const apply=()=>{if(!it||!it.ready||cur!==id)return;let made;try{made=sceneFor(THREE,rec)}catch{return}
+    it.scene=made.scene;it.camera=made.camera;it.api=made;it.hover=1;it.dirty=true;cv.classList.add('on');kick()};
+   if(!it){it=register(cv,m=>{const dummy=m?{scene:new m.Scene(),camera:new m.PerspectiveCamera(30,1,.1,50),update(){}}:null;return dummy},{host:cv,onReady:()=>{pending=null;apply()}})}else apply()};
+  const hide=()=>{cur=null;cv.hidden=true;cv.classList.remove('on')};
+  host.addEventListener('pointerover',e=>{if(!host.classList.contains('list-view')||matchMedia('(pointer:coarse)').matches)return;const row=e.target.closest&&e.target.closest('.card,.ledger-row');if(row&&host.contains(row))show(row)});
+  host.addEventListener('pointerleave',hide);addEventListener('scroll',hide,{passive:true});document.addEventListener('library:render',hide)}
  function mountAll(){mountAtlas();mountShelf()}
  const start=()=>{mountAll();if(typeof MutationObserver==='function')for(const id of ['collectionGrid','spotlightGrid']){const el=document.getElementById(id);if(el)new MutationObserver(()=>{clearTimeout(start.t);start.t=setTimeout(mountAll,60)}).observe(el,{childList:true})}};
  const go=()=>{if(typeof requestIdleCallback==='function')requestIdleCallback(start,{timeout:1800});else setTimeout(start,400)};
  {const sh=document.getElementById('recordSheet');if(sh&&typeof MutationObserver==='function')new MutationObserver(()=>setTimeout(mountRecord,80)).observe(sh,{childList:true})}
- document.addEventListener('library:ready',()=>setTimeout(go,300));if(typeof records!=='undefined'&&records.length)setTimeout(go,300);
+ document.addEventListener('library:ready',()=>setTimeout(()=>{go();mountListPeek()},300));if(typeof records!=='undefined'&&records.length)setTimeout(go,300);
 })();
