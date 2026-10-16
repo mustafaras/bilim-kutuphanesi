@@ -265,3 +265,10 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - `constellation3d.js`: her 6. karede ve hover değişiminde etiketler `declutter` ile çözülür (hover > kameraya yakın); kaybeden `visibility:hidden`.
 - `tools/text_fit_audit.py`: gerçek boyama fonksiyonlarını (`window.BKStage` test kancası) kayıt yapan bağlamda çalıştırır; en kötü ~60 kayıt × 3 yüzey; güvenli alan taşması ve metin kutusu kesişimi varsa kırmızı. Yerel kapı (CI'da değil). Mutasyonla doğrulandı: `BOT` bozulunca FAIL verir.
 **Tuzaklar:** `textfit.js`, `stage.js`'ten ÖNCE yüklenmeli (index.html, sw.js FILES, pages.yml `node --check`). `stage.js` `BKText` yoksa sessizce çıkar. Madalya çevresel yazısı sabit metin (`· NOBEL · ARCHIVE · 1901 – 2026 ·`), dil bağımsız; uzatılırsa yay uzunluğu ölçülmeli. SVG `LA_LABEL` dizeleri sabit ve kısa (≤14 karakter, viewBox 140'ta ~56px), çeviri yok.
+
+## 37. Paket A5 + B (dilim) (v87)
+- **A5:** Nobel Silüet ve Galaksi etiketleri her 6. karede `BKText.declutter` ile çözülür (Silüet: 16 etiket, Galaksi: 7; 1440/768 × açık/koyu: 0 çakışma, 0 konsol hatası). Takımyıldızı 3 kayıt × 2 tema: 8/8 etiket, 0 çakışma.
+- **B1/B6 (dilim):** `MATS` (stage.js): konu indeksine göre cilt (deri / keten / mat karton), folyo metali (altın / gümüş / bakır), cila. `grainBump` prosedürel ve **deterministik** (tohum = indeks + kayıt) deri benekleri / keten dokuma / karton tanesi üretir; folyo kabartma maskesiyle birleşip `bumpMap` olur (`metalnessMap` hâlâ yalnız maske). Aşınmış kenar (açık rub çizgisi + koyu rim) renk haritasında. Sırt çizgileri ve bantlar folyo rengini izler.
+- **B3 (dilim):** şerit ayraç kuyruğu yayılan dalga ile hareket eder (`rp0` taban konumu).
+- **Tuzak:** grain boyama ~370k piksel; deri için 24px ızgara ile en yakın nokta araması (düz O(n) çok yavaş). Gerçek GPU/CPU süresi ölçülmedi.
+- **Yapılmadı:** B2 (sayfa kıvrımı), B4 (gerçek gölge), B5 (madalya portresi/iridescence), B7 (snap + okuma pozu).

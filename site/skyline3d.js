@@ -44,7 +44,7 @@ window.NobelSkyline=(()=>{
   const key=new THREE.DirectionalLight(0xfff0d6,2.0);key.position.set(-4,8,7);scene.add(key);const rim=new THREE.DirectionalLight(0x9fc4ff,.9);rim.position.set(6,3,-5);scene.add(rim);scene.add(new THREE.AmbientLight(0xffffff,.35));
   /* labels (decades + rulers) */
   const decs=[];for(let d=Math.ceil(Y0/10)*10;d<=Y1;d+=10)decs.push(d);
-  labels.innerHTML=decs.map(d=>`<span data-d="${d}">${d}</span>`).join('')+rulers.map(v=>`<span class="r" data-r="${v}">${v}</span>`).join('');const lab=[...labels.children];
+  labels.innerHTML=decs.map(d=>`<span data-d="${d}">${d}</span>`).join('')+rulers.map(v=>`<span class="r" data-r="${v}">${v}</span>`).join('');const lab=[...labels.children];let labFrame=0;
   /* camera state */
   let yaw=0,pitch=.2,dist=18.6,distT=18.6,tx=0,txT=0,vy=0,drag=null,mouse={x:0,y:0,in:false},visible=true,raf=0,t0=performance.now(),time=0;
   const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),v3=new THREE.Vector3();
@@ -88,6 +88,7 @@ window.NobelSkyline=(()=>{
    if(selYear>=0){const e=idx.get(String(Y0+selYear));beam.position.set(X0+selYear*DX,3,0);beam.lookAt(camera.position.x,3,camera.position.z);if(chip&&e){chip.hidden=false;chip.textContent=(Y0+selYear)+' · '+e.total}}else if(chip)chip.hidden=true;
    const w=canvas.clientWidth,h=canvas.clientHeight;grp.updateMatrixWorld(true);
    lab.forEach(el=>{if(el.dataset.d){v3.set(X0+(Number(el.dataset.d)-Y0)*DX,0,.55)}else{v3.set(X0-.35,Number(el.dataset.r)*HS,-.34)}v3.project(camera);el.style.transform=`translate(${((v3.x*.5+.5)*w).toFixed(1)}px,${((-v3.y*.5+.5)*h).toFixed(1)}px)`;el.style.opacity=v3.z<1?1:0});
+   if(window.BKText&&++labFrame%6===0){const L=lab.filter(el=>el.style.opacity==='1').map(el=>{const b=el.getBoundingClientRect();return{el,x:b.left+b.width/2,y:b.top,w:b.width,h:b.height,prio:el.dataset.d?2:1}});lab.forEach(el=>{el.style.visibility=''});window.BKText.declutter(L,2)}
    if(chip&&selYear>=0){const e=idx.get(String(Y0+selYear));v3.set(X0+selYear*DX,(e?e.total:0)*HS*0+Math.min(1,cur.length?1:0)*0+(()=>{let s=0;for(let k=0;k<K;k++)if(keys[k].i===selYear)s+=cur[k];return s})()+.5,0);v3.project(camera);chip.style.transform=`translate(${((v3.x*.5+.5)*w).toFixed(1)}px,${((-v3.y*.5+.5)*h).toFixed(1)}px)`}
    renderer.render(scene,camera);
    const still=reduced.matches||root.classList.contains('effects-paused');if(!still||moving||drag||Math.abs(vy)>1e-4||Math.abs(distT-dist)>.01||Math.abs(txT-tx)>.002)raf=requestAnimationFrame(frame)}

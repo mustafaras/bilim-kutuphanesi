@@ -161,7 +161,7 @@
   x.strokeStyle='rgba(232,206,158,.5)';x.lineWidth=2;x.strokeRect(26,26,W-52,H-52);x.fillStyle='rgba(232,206,158,.85)';x.font='600 64px Fraunces,Georgia,serif';x.textAlign='center';x.fillText('BK',W/2,H/2);x.font='600 16px "IBM Plex Mono",monospace';x.fillText('BİLİM KÜTÜPHANEM',W/2,H/2+44);
   x.fillStyle='rgba(246,239,220,.18)';for(let i=0;i<9;i++)x.fillRect(80,120+i*22,W-160-((i*53)%90),5);
   const t=new m.CanvasTexture(c);t.colorSpace=m.SRGBColorSpace;return t}
- function spineTexture(m,r,idx){const W=128,H=720,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle=COVER[idx%8];x.fillRect(0,0,W,H);x.fillStyle='rgba(232,206,158,.7)';x.fillRect(0,40,W,2);x.fillRect(0,H-42,W,2);
+ function spineTexture(m,r,idx){const W=128,H=720,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle=COVER[idx%8];x.fillRect(0,0,W,H);x.globalAlpha=.75;x.fillStyle=matOf(idx).foil;x.fillRect(0,40,W,2);x.fillRect(0,H-42,W,2);x.globalAlpha=1;
   x.save();x.translate(W/2+10,H/2);x.rotate(Math.PI/2);x.fillStyle='#f6efdc';x.textAlign='center';{const fl=TF.fitLine(x,displayTitle(r),{maxW:H-270,sizes:[34,30,27,24,21],font:z=>'400 '+z+'px Fraunces,Georgia,serif'});x.font='400 '+fl.size+'px Fraunces,Georgia,serif';x.fillText(fl.text,0,0)}x.restore();
   const tx=new m.CanvasTexture(c);tx.colorSpace=m.SRGBColorSpace;return tx}
 
@@ -176,12 +176,33 @@
    const pm=new m.PMREMGenerator(renderer);renderer.setScissorTest(false);ENV=pm.fromScene(es,.035).texture;renderer.setScissorTest(true);pm.dispose()}catch{ENV=null}
   return ENV}
  const GOLD='#e8cf94';
+ /* Cover material identity per subject index: binding (leather / linen cloth / matte board), foil metal and finish. */
+ const FOIL={gold:'#e8cf94',silver:'#d9dee6',copper:'#dc9b72'};
+ const MATS=[{bind:'leather',foil:FOIL.gold,rough:.62,coat:.26},{bind:'linen',foil:FOIL.gold,rough:.86,coat:.04},{bind:'leather',foil:FOIL.silver,rough:.58,coat:.3},{bind:'leather',foil:FOIL.copper,rough:.66,coat:.2},
+  {bind:'board',foil:FOIL.gold,rough:.9,coat:.02},{bind:'linen',foil:FOIL.silver,rough:.84,coat:.05},{bind:'board',foil:FOIL.copper,rough:.88,coat:.03},{bind:'leather',foil:FOIL.gold,rough:.7,coat:.18}];
+ const matOf=idx=>MATS[((idx|0)%8+8)%8];
+ /* deterministic grain so a given book always looks the same */
+ const rng=seed=>{let a=seed>>>0||1;return()=>((a=Math.imul(a^a>>>15,1|a)+0x6D2B79F5|0,(a^a>>>7)>>>0)/4294967296)};
+ /* bump texture = foil emboss (from the mask) lifted by a procedural binding grain: leather pebbles, linen weave or fine board tooth */
+ function grainBump(m,mask,bind,seed){
+  const W=mask.image.width,H=mask.image.height,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.drawImage(mask.image,0,0);
+  const d=x.getImageData(0,0,W,H),q=d.data,R=rng(seed),amp=bind==='board'?9:bind==='linen'?16:20;
+  const GS=24,GW=Math.ceil(W/GS)+3,grid=[];if(bind==='leather')for(let i=0;i<900;i++){const px=R()*W,py=R()*H,key=((py/GS|0)+1)*GW+((px/GS|0)+1);(grid[key]||(grid[key]=[])).push([px,py])}
+  for(let yy=0;yy<H;yy++)for(let xx=0;xx<W;xx++){
+   let g;
+   if(bind==='leather'){let best=1e9;const cx=(xx/GS|0)+1,cy=(yy/GS|0)+1;for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){const bk=grid[(cy+oy)*GW+(cx+ox)];if(bk)for(const pt of bk){const dx=pt[0]-xx,dy=pt[1]-yy,dd=dx*dx+dy*dy;if(dd<best)best=dd}}g=Math.min(1,Math.sqrt(best)/9)*2-1}
+   else if(bind==='linen'){g=((xx%3===0?1:0)+(yy%3===0?1:0))-.6+(R()-.5)*.5}
+   else g=(R()-.5)*1.2;
+   const i=(yy*W+xx)*4,v=40+q[i]*.75+g*amp;q[i]=q[i+1]=q[i+2]=v<0?0:v>255?255:v;q[i+3]=255;
+  }
+  x.putImageData(d,0,0);const t=new m.CanvasTexture(c);t.anisotropy=8;return t}
  function noise(x,W,H,a,n){for(let i=0;i<n;i++){x.fillStyle=`rgba(${Math.random()<.5?'255,240,210':'0,0,0'},${(Math.random()*a).toFixed(3)})`;x.fillRect(Math.random()*W,Math.random()*H,1+Math.random()*1.5,1+Math.random()*1.5)}}
  /* cover = colour map + foil mask (white = gold leaf: drives metalness, roughness and the embossing bump) */
  function paintCover(x,W,H,r,idx,mask){
   if(mask){x.fillStyle='#000';x.fillRect(0,0,W,H);x.strokeStyle='rgba(255,255,255,.07)';x.lineWidth=1;for(let i=0;i<H;i+=3){x.beginPath();x.moveTo(0,i);x.lineTo(W,i);x.stroke()}for(let i=0;i<W;i+=3){x.beginPath();x.moveTo(i,0);x.lineTo(i,H);x.stroke()}}
   else{const g=x.createLinearGradient(0,0,W,H);g.addColorStop(0,COVER[idx%8]);g.addColorStop(1,'#0d1822');x.fillStyle=g;x.fillRect(0,0,W,H);x.strokeStyle='rgba(0,0,0,.10)';for(let i=0;i<H;i+=3){x.beginPath();x.moveTo(0,i);x.lineTo(W,i);x.stroke()}for(let i=0;i<W;i+=3){x.beginPath();x.moveTo(i,0);x.lineTo(i,H);x.stroke()}noise(x,W,H,.14,5200)}
-  const F=mask?'#fff':GOLD,T=mask?'#9a9a9a':'#f6efdc';
+  const F=mask?'#fff':matOf(idx).foil,T=mask?'#9a9a9a':'#f6efdc';
+  if(!mask){x.save();x.strokeStyle='rgba(244,226,190,.13)';x.lineWidth=14;x.strokeRect(2,2,W-4,H-4);x.strokeStyle='rgba(0,0,0,.16)';x.lineWidth=22;x.strokeRect(-6,-6,W+12,H+12);x.restore()} /* worn edges: lighter rub line, darker rim */
   x.strokeStyle=F;x.lineWidth=3;x.strokeRect(24,24,W-48,H-48);x.lineWidth=1.2;x.strokeRect(34,34,W-68,H-68);
   [[24,24],[W-24,24],[24,H-24],[W-24,H-24]].forEach(([cx,cy])=>{x.beginPath();x.arc(cx,cy,9,0,Math.PI*2);x.stroke()});
   {const cat=String(label(r.category)).replace(/^\d+ - /,'').toUpperCase(),fl=TF.fitLine(x,cat,{maxW:W-104,sizes:[21,19,17,15],font:z=>'600 '+z+'px "IBM Plex Mono",monospace'});x.fillStyle=F;x.font='600 '+fl.size+'px "IBM Plex Mono",monospace';x.fillText(fl.text,52,84);x.fillRect(52,100,W-104,2)}
@@ -204,7 +225,7 @@
   const envMap=studioEnv(m);if(envMap)scene.environment=envMap;
   const col=canvasTex(m,512,720,(x,W,H)=>paintCover(x,W,H,r,idx,false),true),mask=canvasTex(m,512,720,(x,W,H)=>paintCover(x,W,H,r,idx,true),false);
   const rough=canvasTex(m,512,720,(x,W,H)=>{paintCover(x,W,H,r,idx,true);const d=x.getImageData(0,0,W,H),q=d.data;for(let i=0;i<q.length;i+=4){const v=q[i];const rr=Math.round(215-v*.78);q[i]=q[i+1]=q[i+2]=rr}x.putImageData(d,0,0)},false);
-  const cover=new m.MeshPhysicalMaterial({map:col,roughnessMap:rough,roughness:1,metalnessMap:mask,metalness:1,bumpMap:mask,bumpScale:2.2,clearcoat:.18,clearcoatRoughness:.5,sheen:.8,sheenRoughness:.6,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:1.1});
+  const MT=matOf(idx),bump=grainBump(m,mask,MT.bind,(idx+1)*7919+String(r.id||'').length*131),cover=new m.MeshPhysicalMaterial({map:col,roughnessMap:rough,roughness:1,metalnessMap:mask,metalness:1,bumpMap:bump,bumpScale:2.6,clearcoat:MT.coat,clearcoatRoughness:MT.rough*.7,sheen:.8,sheenRoughness:.6,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:1.1});
   const backCol=canvasTex(m,512,720,(x,W,H)=>{const gr=x.createLinearGradient(0,0,W,H);gr.addColorStop(0,COVER[idx%8]);gr.addColorStop(1,'#0d1822');x.fillStyle=gr;x.fillRect(0,0,W,H);noise(x,W,H,.14,5200);x.strokeStyle=GOLD;x.lineWidth=3;x.strokeRect(24,24,W-48,H-48);x.lineWidth=1.2;x.strokeRect(34,34,W-68,H-68);x.fillStyle=GOLD;x.font='600 64px Fraunces,Georgia,serif';x.textAlign='center';x.fillText('BK',W/2,H/2);x.font='600 15px "IBM Plex Mono",monospace';x.fillText('BİLİM KÜTÜPHANEM',W/2,H/2+42);x.fillStyle='rgba(246,239,220,.16)';for(let i=0;i<9;i++)x.fillRect(80,120+i*22,W-160-((i*53)%90),5)},true);
   const backM=new m.MeshPhysicalMaterial({map:backCol,roughness:.75,sheen:.7,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:.8});
   const clothSide=new m.MeshPhysicalMaterial({color:new m.Color(COVER[idx%8]).multiplyScalar(.7),roughness:.8,sheen:.8,sheenColor:new m.Color(0x8fa3b8)});
@@ -214,7 +235,7 @@
   /* spine: rounded, with raised bands + foil title */
   const spineTex=(()=>{const t=spineTexture(m,r,idx);t.anisotropy=8;return t})();
   const spine=new m.Mesh(new m.CylinderGeometry(D/2,D/2,Hh-.01,40,1,true,Math.PI,Math.PI),new m.MeshPhysicalMaterial({map:spineTex,roughness:.5,metalness:.15,sheen:.6,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:1.0,side:m.DoubleSide}));spine.position.set(xL,0,0);g.add(spine);
-  [-1.3,-1.2,1.2,1.3].forEach(y=>{const band=new m.Mesh(new m.TorusGeometry(D/2+.002,.008,8,40,Math.PI),new m.MeshStandardMaterial({color:0xe3c88a,metalness:1,roughness:.28,envMapIntensity:1.3}));band.rotation.set(Math.PI/2,0,Math.PI/2);band.position.set(xL,y,0);g.add(band)});
+  [-1.3,-1.2,1.2,1.3].forEach(y=>{const band=new m.Mesh(new m.TorusGeometry(D/2+.002,.008,8,40,Math.PI),new m.MeshStandardMaterial({color:new m.Color(MT.foil),metalness:1,roughness:.28,envMapIntensity:1.3}));band.rotation.set(Math.PI/2,0,Math.PI/2);band.position.set(xL,y,0);g.add(band)});
   /* page block with real page-edge texture + headbands */
   const edgeV=pageEdge(m,true),edgeH=pageEdge(m,false),paper=new m.MeshStandardMaterial({color:0xefe6cf,roughness:.95}),
    pagesMat=[new m.MeshStandardMaterial({map:edgeV,roughness:.92,bumpMap:edgeV,bumpScale:.6}),paper,new m.MeshStandardMaterial({map:edgeH,roughness:.92,bumpMap:edgeH,bumpScale:.6}),new m.MeshStandardMaterial({map:edgeH,roughness:.92}),paper,paper];
@@ -222,7 +243,7 @@
   [1,-1].forEach(s=>{const hb=new m.Mesh(new m.CylinderGeometry(.02,.02,D-.12,12),new m.MeshStandardMaterial({color:0xb8423a,roughness:.5}));hb.rotation.x=Math.PI/2;hb.position.set(xL+.03,s*(Hh/2-.085),0);g.add(hb)});
   /* ribbon bookmark */
   const rg=new m.PlaneGeometry(.07,1.05,1,14),rp=rg.attributes.position;for(let i=0;i<rp.count;i++){const y=rp.getY(i);rp.setZ(i,Math.sin((y+.5)*5)*.02);rp.setX(i,rp.getX(i)+Math.sin((y+.5)*3.2)*.025)}rg.computeVertexNormals();
-  const ribbon=new m.Mesh(rg,new m.MeshPhysicalMaterial({color:0xa5262c,roughness:.4,sheen:1,sheenColor:new m.Color(0xff8a80),side:m.DoubleSide}));ribbon.position.set(xL+.55,-Hh/2-.38,.02);g.add(ribbon);
+  const rp0=Float32Array.from(rp.array),ribbon=new m.Mesh(rg,new m.MeshPhysicalMaterial({color:0xa5262c,roughness:.4,sheen:1,sheenColor:new m.Color(0xff8a80),side:m.DoubleSide}));ribbon.position.set(xL+.55,-Hh/2-.38,.02);g.add(ribbon);
   /* contact shadow: two soft layers */
   const shMap=(()=>{const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d'),gr=x.createRadialGradient(128,64,0,128,64,120);gr.addColorStop(0,'rgba(0,0,0,.62)');gr.addColorStop(.5,'rgba(0,0,0,.22)');gr.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=gr;x.fillRect(0,0,256,128);return new m.CanvasTexture(c)})();
   const shadow=new m.Mesh(new m.PlaneGeometry(3.8,1.3),new m.MeshBasicMaterial({map:shMap,transparent:true,depthWrite:false}));shadow.rotation.x=-Math.PI/2;shadow.position.y=-1.78;scene.add(shadow);
@@ -231,7 +252,7 @@
   let yaw=-.42,pitch=.08,vy=0;const dark=()=>root.dataset.theme!=='light';
   return{scene,camera,drag(dx,dy){yaw+=dx*.012;pitch=Math.max(-.5,Math.min(.5,pitch+dy*.008));vy=dx*.012},
    update(t,dt,it){if(!it.drag){yaw+=vy;vy*=.93}const base=it.drag?0:-.42+Math.sin(t*.7)*.1;const target=it.drag?yaw:(Math.abs(vy)>1e-3?yaw:base+it.px*.55*it.hoverT);if(!it.drag&&Math.abs(vy)<=1e-3)yaw+=(target-yaw)*.12;g.rotation.y=yaw;g.rotation.x=pitch+it.py*.2*it.hoverT+Math.sin(t*.9)*.015;g.position.y=Math.sin(t*1.1)*.08+it.hoverT*.12;
-    ribbon.rotation.z=Math.sin(t*1.3)*.05+yaw*.02;ribbon.position.x=xL+.55+Math.sin(t*1.2)*.01;shadow.material.opacity=.95-it.hoverT*.2;key.intensity=dark()?2.3:2.0;rim.intensity=dark()?1.1:.7}}}
+    ribbon.rotation.z=Math.sin(t*1.3)*.05+yaw*.02;{const a=rg.attributes.position;for(let i=0;i<a.count;i++){const y0=rp0[i*3+1],tail=Math.max(0,(-y0+.525)/1.05);a.setZ(i,rp0[i*3+2]+Math.sin(t*2.1+y0*6)*.014*tail);a.setX(i,rp0[i*3]+Math.sin(t*1.7+y0*4)*.012*tail)}a.needsUpdate=true}ribbon.position.x=xL+.55+Math.sin(t*1.2)*.01;shadow.material.opacity=.95-it.hoverT*.2;key.intensity=dark()?2.3:2.0;rim.intensity=dark()?1.1:.7}}}
 
  /* ---------- mounting ---------- */
  function mountAtlas(){
