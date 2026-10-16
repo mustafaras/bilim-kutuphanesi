@@ -162,7 +162,7 @@
   x.fillStyle='rgba(246,239,220,.18)';for(let i=0;i<9;i++)x.fillRect(80,120+i*22,W-160-((i*53)%90),5);
   const t=new m.CanvasTexture(c);t.colorSpace=m.SRGBColorSpace;return t}
  function spineTexture(m,r,idx){const W=128,H=720,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle=COVER[idx%8];x.fillRect(0,0,W,H);x.fillStyle='rgba(232,206,158,.7)';x.fillRect(0,40,W,2);x.fillRect(0,H-42,W,2);
-  x.save();x.translate(W/2+10,H/2);x.rotate(Math.PI/2);x.fillStyle='#f6efdc';x.font='400 34px Fraunces,Georgia,serif';x.textAlign='center';let t=String(displayTitle(r));while(x.measureText(t).width>H-170&&t.length>6)t=t.slice(0,-2);x.fillText(t.length<String(displayTitle(r)).length?t+'…':t,0,0);x.restore();
+  x.save();x.translate(W/2+10,H/2);x.rotate(Math.PI/2);x.fillStyle='#f6efdc';x.font='400 34px Fraunces,Georgia,serif';x.textAlign='center';let t=String(displayTitle(r));while(x.measureText(t).width>H-270&&t.length>6)t=t.slice(0,-2);x.fillText(t.length<String(displayTitle(r)).length?t+'…':t,0,0);x.restore();
   const tx=new m.CanvasTexture(c);tx.colorSpace=m.SRGBColorSpace;return tx}
 
  /* Image-based lighting: a tiny studio (soft boxes) baked once into a PMREM map; makes foil, cloth, clearcoat and gold read as real materials. */
@@ -210,7 +210,7 @@
   /* spine: rounded, with raised bands + foil title */
   const spineTex=(()=>{const t=spineTexture(m,r,idx);t.anisotropy=8;return t})();
   const spine=new m.Mesh(new m.CylinderGeometry(D/2,D/2,Hh-.01,40,1,true,Math.PI,Math.PI),new m.MeshPhysicalMaterial({map:spineTex,roughness:.5,metalness:.15,sheen:.6,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:1.0,side:m.DoubleSide}));spine.position.set(xL,0,0);g.add(spine);
-  [-1.1,-.55,.55,1.1].forEach(y=>{const band=new m.Mesh(new m.TorusGeometry(D/2+.002,.008,8,40,Math.PI),new m.MeshStandardMaterial({color:0xe3c88a,metalness:1,roughness:.28,envMapIntensity:1.3}));band.rotation.set(Math.PI/2,0,Math.PI/2);band.position.set(xL,y,0);g.add(band)});
+  [-1.3,-1.2,1.2,1.3].forEach(y=>{const band=new m.Mesh(new m.TorusGeometry(D/2+.002,.008,8,40,Math.PI),new m.MeshStandardMaterial({color:0xe3c88a,metalness:1,roughness:.28,envMapIntensity:1.3}));band.rotation.set(Math.PI/2,0,Math.PI/2);band.position.set(xL,y,0);g.add(band)});
   /* page block with real page-edge texture + headbands */
   const edgeV=pageEdge(m,true),edgeH=pageEdge(m,false),paper=new m.MeshStandardMaterial({color:0xefe6cf,roughness:.95}),
    pagesMat=[new m.MeshStandardMaterial({map:edgeV,roughness:.92,bumpMap:edgeV,bumpScale:.6}),paper,new m.MeshStandardMaterial({map:edgeH,roughness:.92,bumpMap:edgeH,bumpScale:.6}),new m.MeshStandardMaterial({map:edgeH,roughness:.92}),paper,paper];

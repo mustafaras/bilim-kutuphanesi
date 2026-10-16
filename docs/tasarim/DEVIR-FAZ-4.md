@@ -247,3 +247,5 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 
 - `constellation3d.js` yeniden yazıldı: shader yıldızlar (renk sıcaklığı, kıvılcım), bulutsu sprite'ları, shader tabanlı korona merkez yıldızı (ışınlar, halka, nabız; açık temada ışınsız mürekkep halesi), her kayıt için bantlı gezegen (fresnel atmosfer, hover'da yörünge halkası + uydu), enerji tüpleri (TubeGeometry + akan darbe shader'ı) ve parçacıklar, süzülen toz, sinematik dolly-in, hover odağı (kamera düğüme yaslanır, diğerleri sönükleşir), sürükle-yörünge + atalet. DOM düğmeleri erişilebilir katman olarak kalır.
 - Etiketler sakin: tek satır kapsül, hover/odakta açılır (başlık+yazar). Düğmeye basınca sıcak flaş (`.warp`).
+
+- v83: 3B kitap sırt bantları uçlara taşındı (±1.2/±1.3), başlık genişliği H-270; başlık bantlara değmez.
