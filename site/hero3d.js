@@ -19,14 +19,14 @@
   try{
    const THREE=await import('./vendor/three.module.min.js');let post=null;
    try{const [ec,rp,ub,sp]=await Promise.all([import('./vendor/jsm/postprocessing/EffectComposer.js'),import('./vendor/jsm/postprocessing/RenderPass.js'),import('./vendor/jsm/postprocessing/UnrealBloomPass.js'),import('./vendor/jsm/postprocessing/ShaderPass.js')]);post={EffectComposer:ec.EffectComposer,RenderPass:rp.RenderPass,UnrealBloomPass:ub.UnrealBloomPass,ShaderPass:sp.ShaderPass}}catch{post=null}
-   init(THREE,post)}catch{}}
+   init(THREE,post)}catch(e){console.error("hero3d",e)}}
  if(document.readyState==='complete')idle(boot);else addEventListener('load',()=>idle(boot),{once:true});
 
  function init(THREE,post){
   const canvas=document.createElement('canvas');canvas.id='heroGL';canvas.setAttribute('aria-hidden','true');
   sceneEl.insertBefore(canvas,sceneEl.firstChild);
   let renderer;
-  try{renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:false,powerPreference:'high-performance'})}catch{canvas.remove();return}
+  try{renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:false,powerPreference:"high-performance"})}catch(e){console.error("hero renderer",e);canvas.remove();return}
   const small=innerWidth<760,FOV=42,CAMZ=14,scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(FOV,2,.1,200);
   camera.position.set(0,0,CAMZ);
 
@@ -188,18 +188,64 @@
   /* gravity lens / singularity is opt-in (default off): the toggle lives in the zoom dock and is remembered */
   let lensOn=false;try{lensOn=localStorage.getItem('bk-hero-lens')==='on'}catch{}
   if(post){try{composer=new post.EffectComposer(renderer);composer.addPass(new post.RenderPass(scene,camera));bloom=new post.UnrealBloomPass(new THREE.Vector2(256,256),.56,.6,.24);composer.addPass(bloom);
-   if(post.ShaderPass){grade=new post.ShaderPass({uniforms:{tDiffuse:{value:null},uTime:{value:0},uCA:{value:.3},uMouse:{value:new THREE.Vector2(.5,.5)},uLens:{value:0},uAspect:{value:1.6}},
+   if(post.ShaderPass){grade=new post.ShaderPass({uniforms:{tDiffuse:{value:null},uTime:{value:0},uCA:{value:.3},uMouse:{value:new THREE.Vector2(.5,.5)},uLens:{value:0},uAspect:{value:1.6},uBlur:{value:0},uBlurC:{value:new THREE.Vector2(.5,.5)}},
     vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader:`uniform sampler2D tDiffuse;uniform float uTime,uCA,uLens,uAspect;uniform vec2 uMouse;varying vec2 vUv;
+    fragmentShader:`uniform sampler2D tDiffuse;uniform float uTime,uCA,uLens,uAspect,uBlur;uniform vec2 uMouse,uBlurC;varying vec2 vUv;
      float hs(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
      void main(){vec2 uv=vUv;vec2 c=uv-.5;
       vec2 d=uv-uMouse;d.x*=uAspect;float r=length(d);float k=uLens*.008/(r*r+.02);vec2 off=vec2(d.x/uAspect,d.y)/(r+1e-4)*k;uv-=off;
       float ca=uCA*(.0012+.010*dot(c,c))+k*.04;
       vec3 col=vec3(texture2D(tDiffuse,uv+c*ca).r,texture2D(tDiffuse,uv).g,texture2D(tDiffuse,uv-c*ca).b);
+      if(uBlur>.004){/* dive: radial blur streaming away from the chosen star */vec2 bd=uv-uBlurC;vec3 acc=col;for(int i=1;i<7;i++){acc+=texture2D(tDiffuse,uv-bd*(float(i)/7.)*uBlur*.16).rgb;}col=mix(col,acc/7.,smoothstep(0.,.08,uBlur));}
       float vg=smoothstep(.28,.98,length(c*vec2(uAspect*.62,1.)));col*=1.-.42*vg;
       col+=(hs(uv*vec2(1731.,973.)+fract(uTime))-.5)*.032;
       gl_FragColor=vec4(col,1.);}`});composer.addPass(grade)}}catch{composer=null}}
 
+  /* ---------- observatory dome: real 3D (replaces the 2D silhouette) ----------
+     Own tiny orthographic scene drawn over the galaxy, positioned from the horizon coordinates effects.js publishes (BKHorizon).
+     Lit hemisphere shell with a slit that tracks the sky, a warm interior, a brass rim; the lamp pulse is published back for the ground reflection. */
+  const dome=(()=>{
+   try{
+    const sc=new THREE.Scene(),cam=new THREE.OrthographicCamera(0,2,2,0,-600,600),g=new THREE.Group();sc.add(g);
+    const body=new THREE.MeshStandardMaterial({color:0x0a1220,roughness:.58,metalness:.4}),brass=new THREE.MeshStandardMaterial({color:0xceac76,roughness:.3,metalness:.92,emissive:0x4a3410,emissiveIntensity:.5});
+    const inner=new THREE.MeshBasicMaterial({color:0x8a6228,side:THREE.BackSide}),GAP=.36;
+    const base=new THREE.Mesh(new THREE.CylinderGeometry(.74,.9,.95,48,1),body);base.position.y=.475;
+    const shell=new THREE.Mesh(new THREE.SphereGeometry(1,64,32,GAP/2,Math.PI*2-GAP,0,Math.PI/2),body);shell.position.y=.95;
+    const core=new THREE.Mesh(new THREE.SphereGeometry(.975,48,24,0,Math.PI*2,0,Math.PI/2),inner);core.position.y=.95;
+    const rim=new THREE.Mesh(new THREE.TorusGeometry(1,.032,12,96),brass);rim.rotation.x=Math.PI/2;rim.position.y=.95;
+    const foot=new THREE.Mesh(new THREE.TorusGeometry(.9,.025,10,96),brass);foot.rotation.x=Math.PI/2;foot.position.y=.04;
+    const dom=new THREE.Group();dom.add(shell,core,rim);dom.position.y=0;g.add(base,foot,dom);
+    /* slit lamp: additive soft sprite at the slit's mid height */
+    const lc=document.createElement('canvas');lc.width=lc.height=64;const lx=lc.getContext('2d'),gr=lx.createRadialGradient(32,32,0,32,32,32);gr.addColorStop(0,'rgba(255,226,170,1)');gr.addColorStop(.4,'rgba(255,200,120,.35)');gr.addColorStop(1,'rgba(255,200,120,0)');lx.fillStyle=gr;lx.fillRect(0,0,64,64);
+    const lamp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(lc),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.7}));lamp.scale.setScalar(1.1);g.add(lamp);
+    sc.add(new THREE.AmbientLight(0x6f84ad,.55));const key=new THREE.DirectionalLight(0xcfe0ff,1.5);key.position.set(-1.2,1.4,1.6);sc.add(key);
+    const warm=new THREE.PointLight(0xffc27a,0,0,2);sc.add(warm);
+    return{sc,cam,g,dom,body,brass,inner,lamp,warm,light:false,ready:false,lampK:.7,ry:2.62}
+   }catch{return null}})();
+  function domeTheme(light){if(!dome)return;dome.body.color.set(light?0x2a4054:0x0a1220);dome.brass.color.set(light?0x9a6a3a:0xceac76);dome.inner.color.set(light?0xc78a3c:0x8a6228);dome.light=light}
+  function domeFrame(dt,cw,ch){
+   if(!dome)return false;const hz=window.BKHorizon;if(!hz||!hz.w||!cw)return false;
+   dome.cam.right=cw;dome.cam.top=ch;dome.cam.updateProjectionMatrix();
+   const s=clamp(hz.w/1440,.75,1.3)*40;dome.g.scale.setScalar(s);dome.g.position.set(hz.ox,ch-hz.oy-s*.12,0);
+   /* the slit slowly tracks across the sky (a real dome follows its target), the lamp breathes */
+   dome.dom.rotation.y=dome.ry+Math.sin(time*.045)*.42;
+   const breathe=.62+.38*Math.sin(time*1.4+1.2);dome.lampK=breathe;
+   const a=dome.dom.rotation.y;/* slit direction in the group's frame = -x rotated by a about y */
+   dome.lamp.position.set(-Math.cos(a)*.93*.84,.95+.62,Math.sin(a)*.93*.84);dome.lamp.material.opacity=(dome.light?.85:.7)*(.55+.45*breathe)*(Math.cos(a)<0?1:.25);
+   dome.warm.position.set(hz.ox-Math.cos(a)*s*.9,ch-hz.oy+s*1.5,Math.sin(a)*s*.9+s*.8);dome.warm.intensity=(dome.light?1.1:1.6)*s*s*(.6+.4*breathe);
+   hz.lamp=breathe*(Math.cos(a)<0?1:.35);hz.live=true;
+   return true}
+  function domeDraw(){
+   if(!dome)return;const cw=renderer.domElement.clientWidth||sceneEl.clientWidth,ch=renderer.domElement.clientHeight||sceneEl.clientHeight;
+   if(!domeFrame(0,cw,ch)){if(window.BKHorizon)window.BKHorizon.live=false;return}
+   const a=renderer.autoClear;renderer.autoClear=false;renderer.clearDepth();renderer.render(dome.sc,dome.cam);renderer.autoClear=a;
+   if(!dome.ready){dome.ready=true;window.BKDome={on:true};document.dispatchEvent(new CustomEvent('bk:dome'))}}
+
+  /* ---------- scroll camera path: a CatmullRom spline for the eye and one for its target, sampled by eased scroll progress ---------- */
+  let camPath=null,lookPath=null;const cp=new THREE.Vector3(0,0,14),cl=new THREE.Vector3();
+  function buildPath(){const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+   camPath=new THREE.CatmullRomCurve3([V(0,0,CAMZ),V(W*.012,H*.025,CAMZ*1.13),V(W*.04,H*.085,CAMZ*1.36),V(W*.075,H*.18,CAMZ*1.55)],false,'centripetal');
+   lookPath=new THREE.CatmullRomCurve3([V(0,0,0),V(W*.008,H*.02,0),V(W*.025,H*.065,0),V(W*.045,H*.13,0)],false,'centripetal')}
   /* ---------- layout + theme ---------- */
   let W=24,H=11,portrait=false,quality=1.6,pr=1,gStart=performance.now();
   function layout(){
@@ -209,19 +255,21 @@
    camera.aspect=w/h;camera.updateProjectionMatrix();
    H=2*CAMZ*Math.tan(FOV*Math.PI/360);W=H*camera.aspect;portrait=camera.aspect<1.05;
    uniforms.uScale.value=renderer.domElement.height/(2*Math.tan(FOV*Math.PI/360));
+   buildPath();
    const sc=portrait?.52:Math.min(1.3,W/21);
    rig.position.set(portrait?W*.08:(.68-.5)*W,portrait?-H*.2:(.5-.44)*H,-1);rig.scale.setScalar(sc);
    }
   function applyTheme(){
-   const light=root.dataset.theme==='light';uniforms.uLight.value=light?1:0;
+   const light=root.dataset.theme==='light';uniforms.uLight.value=light?1:0;domeTheme(light);
    mats.forEach(m=>{m.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;m.needsUpdate=true});
    lanes.visible=!light;glow.material.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;glow.material.color.set(light?0xffd9a0:0xffffff);glow.material.needsUpdate=true;
    meteors.forEach(m=>{if(light)m.l.visible=false});
    useBloom=!light&&!!composer;canvas.classList.toggle('screen',useBloom);renderer.setClearColor(0x000000,useBloom?1:0)}
-  const draw=()=>{if(useBloom)composer.render();else renderer.render(scene,camera)};
+  const draw=()=>{if(useBloom)composer.render();else renderer.render(scene,camera);domeDraw()};
 
   /* ---------- camera: zoom-to-cursor, pan, intro, scroll ---------- */
-  let zoom=1,zoomT=1,pan=new THREE.Vector2(),panT=new THREE.Vector2(),scrollP=0;
+  let zoom=1,zoomT=1,pan=new THREE.Vector2(),panT=new THREE.Vector2(),scrollP=0,scrollS=NaN,blurK=0,blurT=0;const blurC=new THREE.Vector2(.5,.5);
+  const MO=window.BKMotion,dmp=MO?MO.damp:(c,t,l,d)=>t+(c-t)*Math.exp(-l*d);
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const ndcOf=(cx,cy)=>{const r=canvas.getBoundingClientRect();return{x:((cx-r.left)/r.width)*2-1,y:-((cy-r.top)/r.height)*2+1}};
   function zoomAt(f,cx,cy){const n=ndcOf(cx,cy),old=zoomT;zoomT=clamp(zoomT*f,.8,ZMAX);const k=1/old-1/zoomT;panT.x=clamp(panT.x+n.x*W/2*k,-W,W);panT.y=clamp(panT.y+n.y*H/2*k,-H,H);wake()}
@@ -238,7 +286,7 @@
    if(dy<0&&zoomT<ZMAX-.05){e.preventDefault();zoomAt(Math.exp(-dy*.0018),e.clientX,e.clientY)}
    else if(dy>0&&zoomT>1.04){e.preventDefault();zoomAt(Math.exp(-dy*.0018),e.clientX,e.clientY);if(zoomT<1.04)zoomReset()}},{passive:false});
   hero.addEventListener('dblclick',e=>{if(interactive(e.target)||hover>=0)return;if(zoomT>1.4)zoomReset();else zoomAt(2.6,e.clientX,e.clientY)});
-    addEventListener('scroll',()=>{scrollP=clamp(scrollY/Math.max(1,hero.clientHeight*.9),0,1)},{passive:true});
+  const readScroll=()=>{scrollP=clamp(scrollY/Math.max(1,hero.clientHeight*.9),0,1)};addEventListener('scroll',readScroll,{passive:true});readScroll();
 
   /* ---------- interaction ---------- */
   let px=0,py=0,tx=0,ty=0,yaw=0,pitch=0,vYaw=0,drag=null,hover=-1,mouse={x:-1,y:-1,in:false},time=0,pulseQueued=null;
@@ -282,8 +330,15 @@
   function fly(i){const r=records[i];if(!r||!window.openRecord)return;
    if(reduced.matches||paused()){window.openRecord(r.id);return}
    const ang=rec.a[i]+time*.2/(.7+rec.r[i]*.5);tilt.updateMatrixWorld(true);v3.set(Math.cos(ang)*rec.r[i],rec.y[i]+.022*rec.r[i]*rec.r[i]*Math.sin(ang-.6),Math.sin(ang)*rec.r[i]);tilt.localToWorld(v3);v3.project(camera);
-   const b=canvas.getBoundingClientRect();zoomAt(3.4,b.left+(v3.x*.5+.5)*b.width,b.top+(-v3.y*.5+.5)*b.height);uniforms.uPulse.value.set(uniforms.uMouse.value.x,uniforms.uMouse.value.y,time);caSpike=3;
-   setTimeout(()=>window.openRecord(r.id),560)}
+   const b=canvas.getBoundingClientRect(),sx=b.left+(v3.x*.5+.5)*b.width,sy=b.top+(-v3.y*.5+.5)*b.height;
+   zoomAt(3.4,sx,sy);uniforms.uPulse.value.set(uniforms.uMouse.value.x,uniforms.uMouse.value.y,time);caSpike=3;
+   blurC.set(v3.x*.5+.5,v3.y*.5+.5);blurT=1;
+   /* ghost cover: the star becomes a book that grows toward the reader; the record then morphs out of it (view transition 'bk-cover') */
+   let ghost=null;
+   try{ghost=document.createElement('div');ghost.className='fly-ghost';ghost.setAttribute('aria-hidden','true');ghost.style.cssText=`--fc:#${FIELD[rec.g[i]].getHexString()};left:${sx}px;top:${sy}px`;ghost.innerHTML='<div class="card-illustration"></div>';document.body.appendChild(ghost);
+    const tx0=innerWidth*.5-sx,ty0=innerHeight*.46-sy;
+    if(ghost.animate)ghost.animate([{transform:'translate(-50%,-50%) scale(.2)',opacity:0},{transform:'translate(-50%,-50%) scale(1)',opacity:1,offset:.25},{transform:`translate(calc(-50% + ${tx0*.55}px),calc(-50% + ${ty0*.55}px)) scale(5.2)`,opacity:1}],{duration:560,easing:'cubic-bezier(.45,0,.2,1)',fill:'forwards'})}catch{ghost=null}
+   setTimeout(()=>{window.openRecord(r.id,ghost);blurT=0;if(ghost)setTimeout(()=>ghost.remove(),1100)},560)}
   const rvEl=document.getElementById('recordView');if(rvEl&&typeof MutationObserver==='function')new MutationObserver(()=>{if(rvEl.hidden)zoomReset()}).observe(rvEl,{attributes:true,attributeFilter:['hidden']});
   hero.addEventListener('pointerleave',()=>{mouse.in=false;uniforms.uMouseOn.value=0;setHover(-1)});
 
@@ -294,20 +349,22 @@
   function update(dt){
    time+=dt;uniforms.uTime.value=time;
    if(!drag){yaw+=vYaw;vYaw*=.94;if(Math.abs(vYaw)<1e-4)vYaw=0}
-   const k=Math.min(1,dt*6);zoom+=(zoomT-zoom)*k;pan.x+=(panT.x-pan.x)*k;pan.y+=(panT.y-pan.y)*k;
-   tx+=(px-tx)*Math.min(1,dt*2.4);ty+=(py-ty)*Math.min(1,dt*2.4);
+   zoom=dmp(zoom,zoomT,6.5,dt);pan.x=dmp(pan.x,panT.x,6.5,dt);pan.y=dmp(pan.y,panT.y,6.5,dt);
+   tx=dmp(tx,px,2.4,dt);ty=dmp(ty,py,2.4,dt);
+   if(scrollS!==scrollS)scrollS=scrollP;scrollS=dt>0.002?dmp(scrollS,scrollP,4.2,dt):scrollS;const sp=MO?MO.ease.smooth(scrollS):scrollS;
    const prog=introDone?1:Math.min(1,(performance.now()-introT0)/3200);if(prog>=1)introDone=true;const intro=1-Math.pow(1-prog,3);
-   const zEff=zoom*(.62+.38*intro)/(1+scrollP*.55);
-   camera.position.set(pan.x+tx*.8/zoom,pan.y-ty*.45/zoom,CAMZ/zEff);camera.lookAt(pan.x,pan.y,0);
-   rig.rotation.y=yaw+Math.sin(time*.07)*.12-(1-intro)*.9+scrollP*.45;rig.rotation.x=pitch;
-   uniforms.uFade.value=intro*(1-scrollP*.75);
+   const zEff=zoom*(.62+.38*intro);
+   camPath.getPoint(sp,cp);lookPath.getPoint(sp,cl);
+   camera.position.set(pan.x+cp.x+tx*.8/zoom,pan.y+cp.y-ty*.45/zoom,cp.z/zEff);camera.lookAt(pan.x+cl.x,pan.y+cl.y,0);
+   rig.rotation.y=yaw+Math.sin(time*.07)*.12-(1-intro)*.9+sp*.45;rig.rotation.x=pitch;
+   uniforms.uFade.value=intro*(1-sp*.75);
    glow.material.opacity=(root.dataset.theme==='light'?.3:.1)*uniforms.uFade.value+.03*Math.sin(time*.9);
    uniforms.uMouseOn.value+=((mouse.in&&!drag?1:0)-uniforms.uMouseOn.value)*Math.min(1,dt*5);
    /* hold still on the galaxy = singularity: gravity well + lensing; release = shock + chromatic burst */
    wellT=lensOn&&drag&&!drag.moved&&performance.now()-drag.t0>320?1:0;if(wellT)uniforms.uMouseOn.value=Math.max(uniforms.uMouseOn.value,1);
    well+=(wellT-well)*Math.min(1,dt*(wellT?3.2:5));uniforms.uWell.value=well;hero.classList.toggle('hero-well',well>.15);
    if(grade){caSpike=Math.max(0,caSpike-dt*2.2);const zv=Math.abs(zoomT-zoom)*2.2;const tgt=.28+zv+caSpike+well*.9;grade.uniforms.uCA.value+=(tgt-grade.uniforms.uCA.value)*Math.min(1,dt*10);
-    grade.uniforms.uTime.value=time;lensS+=(((lensOn&&mouse.in?1:0)*(.22+well*1.1))-lensS)*Math.min(1,dt*6);grade.uniforms.uLens.value=lensS;
+    grade.uniforms.uTime.value=time;blurK=dmp(blurK,blurT,blurT?7:4.5,dt);grade.uniforms.uBlur.value=blurK;grade.uniforms.uBlurC.value.copy(blurC);lensS+=(((lensOn&&mouse.in?1:0)*(.22+well*1.1))-lensS)*Math.min(1,dt*6);grade.uniforms.uLens.value=lensS;
     const b=canvas.getBoundingClientRect();grade.uniforms.uMouse.value.set((mouse.x-b.left)/Math.max(1,b.width),1-(mouse.y-b.top)/Math.max(1,b.height))}
    hint.classList.toggle('show',time>1.2&&time<10);
    if(focus!==lastFocus){lastFocus=focus;setReadout(focus)}
@@ -321,10 +378,10 @@
    if(!running)return;requestAnimationFrame(frame);
    const dt=Math.min(.05,(now-tPrev)/1000||0);tPrev=now;
    if(!visible||document.hidden||paused()||reduced.matches)return;
-   update(dt);draw();
+   update(dt);draw();if(MO)MO.tick(dt*1000);
    /* quality governor: bloom -> resolution -> fewer stars -> fewer still (weak GPUs / software rendering) */
-   if(degrade<4&&(++frames>=90||(frames>=4&&performance.now()-gStart>1400))){const avg=acc/frames;gStart=performance.now();if(avg>(degrade<2?.026:.04)){degrade++;if(useBloom&&degrade===1){composer=null;useBloom=false;canvas.classList.remove('screen');renderer.setClearColor(0x000000,0)}else{const f=[1,1,1,.7,.55][degrade];quality=f;if(degrade>=3){const keep=degrade===3?.55:.3;dust.geometry.setDrawRange(0,Math.floor(GN*keep));lanes.geometry.setDrawRange(0,Math.floor(LN*keep))}layout()}}frames=0;acc=0}else acc+=dt}
-  function still(){introDone=true;time=3.6;update(0.001);draw()}
+   if(degrade<4&&(++frames>=90||(frames>=4&&performance.now()-gStart>1400))){const avg=acc/frames;gStart=performance.now();if(avg>(degrade<2?.026:.04)){degrade++;if(MO)MO.quality.set(degrade);if(useBloom&&degrade===1){composer=null;useBloom=false;canvas.classList.remove('screen');renderer.setClearColor(0x000000,0)}else{const f=[1,1,1,.7,.55][degrade];quality=f;if(degrade>=3){const keep=degrade===3?.55:.3;dust.geometry.setDrawRange(0,Math.floor(GN*keep));lanes.geometry.setDrawRange(0,Math.floor(LN*keep))}layout()}}frames=0;acc=0}else acc+=dt}
+  function still(){introDone=true;time=3.6;scrollS=scrollP;update(0.001);draw()}
 
   /* ---------- wiring ---------- */
   layout();applyTheme();buildRecords();

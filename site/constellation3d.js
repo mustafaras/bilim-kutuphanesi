@@ -17,7 +17,7 @@
  const load=()=>loading||(loading=import('./vendor/three.module.min.js').then(m=>{THREE=m;return m}).catch(()=>null));
  const rgb=a=>a.map(v=>v/255);
  const ease=x=>1-Math.pow(1-Math.min(1,Math.max(0,x)),3);
- const easeIO=x=>{x=Math.min(1,Math.max(0,x));return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2};
+ const easeIO=(window.BKMotion&&BKMotion.ease.inOut3)||(x=>{x=Math.min(1,Math.max(0,x));return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2});
  const DIVE_MS=1250;
 
  function glowTexture(m,inner){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),r=g.createRadialGradient(64,64,0,64,64,64);r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(inner||.18,'rgba(255,255,255,.55)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,128,128);const t=new m.CanvasTexture(c);t.colorSpace=m.SRGBColorSpace;return t}
@@ -119,7 +119,7 @@
    const W=1000,H=560,CX=500,CY=284;
    const canvas=document.createElement('canvas');canvas.className='rv-gl';canvas.setAttribute('aria-hidden','true');box.insertBefore(canvas,box.firstChild);
    let renderer;try{renderer=new m.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'high-performance'})}catch{canvas.remove();return}
-   renderer.setClearColor(0,0);const PR=Math.min(devicePixelRatio||1,1.75);renderer.setPixelRatio(PR);
+   renderer.setClearColor(0,0);const PR=Math.max(.6,Math.min(devicePixelRatio||1,1.75)*([1,1,.85,.7,.55][window.BKMotion?BKMotion.quality.level:0]||1));renderer.setPixelRatio(PR);
    const scene=new m.Scene(),camera=new m.PerspectiveCamera(38,1,10,4000),world=new m.Group(),sky=new m.Group();scene.add(sky,world);
    const glow=glowTexture(m);
    const light=()=>root.dataset.theme==='light';

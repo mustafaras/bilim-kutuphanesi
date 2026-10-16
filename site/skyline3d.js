@@ -105,8 +105,8 @@ window.NobelSkyline=(()=>{
   /* camera state */
   let yaw=0,pitch=.2,dist=18.6,distT=18.6,tx=0,txT=0,vy=0,drag=null,mouse={x:0,y:0,in:false},visible=true,raf=0,t0=performance.now(),time=0;
   const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),v3=new THREE.Vector3();
-  function size(){const w=canvas.clientWidth||800,h=canvas.clientHeight||460,dpr=Math.min(devicePixelRatio||1,1.5);renderer.setPixelRatio(dpr);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
-  const wake=()=>{if(!raf&&visible)raf=requestAnimationFrame(frame)};
+  function size(){const w=canvas.clientWidth||800,h=canvas.clientHeight||460,dpr=Math.max(.6,Math.min(devicePixelRatio||1,1.5)*([1,1,.85,.7,.55][window.BKMotion?BKMotion.quality.level:0]||1));renderer.setPixelRatio(dpr);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
+  const wake=()=>{if(!raf&&visible)raf=requestAnimationFrame(frame)};document.addEventListener('bk:quality',()=>{size();wake()});
   function syncSel(){const y=typeof nobelYear!=='undefined'&&nobelYear?Number(nobelYear):-1,i=y>0?y-Y0:-1;if(i!==selYear){selYear=i;colorsDirty.v=true;if(i>=0){txT=X0+i*DX}beam.visible=i>=0;updateCompare();if(i>=0){slider.value=Y0+i;paintSlider();const e=idx.get(String(Y0+i));if(e)srTab.innerHTML=`<caption>${Y0+i}</caption>`+e.cats.map((n,k)=>n?`<tr><th>${esc(catName(k))}</th><td>${n}</td></tr>`:'').join('')}}}
   /* tooltip */
   function showTip(i,c){if(i<0){tip.hidden=true;return}const e=idx.get(String(Y0+i));if(!e){tip.hidden=true;return}
