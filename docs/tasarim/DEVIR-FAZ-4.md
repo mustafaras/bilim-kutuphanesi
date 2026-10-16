@@ -242,3 +242,8 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 ## 33. Paket 22 (v81) — Nobel bölümü tek enstrüman
 
 - Başlık = üç büyük rakam (yıl/kayıt/en yoğun yıl) + görünüm anahtarı; eski meta satırı ve yinelenen lejant gizli. HUD: canlı okuma (hover yılı / seçili yıl, kayıt·ödüllü sayısı, kategori payı çubuğu) + tüm görünümlerde ortak kategori çipleri (`window.NobelFilter`: Silüet, Galaksi ve Grafik aynı anda süzülür; Shift/Alt = izole). Galaksi: kategori attribute + `uOn[7]` uniform, kategori bulutsuları, büyük çekirdek. Silüet: ortalanmış kamera. Üç görünüm aynı sahne çerçevesinde; ondalık seçici tek satır; açık tema uyumlu.
+
+## 34. Paket 23 (v82) — Keşif takımyıldızı v2
+
+- `constellation3d.js` yeniden yazıldı: shader yıldızlar (renk sıcaklığı, kıvılcım), bulutsu sprite'ları, shader tabanlı korona merkez yıldızı (ışınlar, halka, nabız; açık temada ışınsız mürekkep halesi), her kayıt için bantlı gezegen (fresnel atmosfer, hover'da yörünge halkası + uydu), enerji tüpleri (TubeGeometry + akan darbe shader'ı) ve parçacıklar, süzülen toz, sinematik dolly-in, hover odağı (kamera düğüme yaslanır, diğerleri sönükleşir), sürükle-yörünge + atalet. DOM düğmeleri erişilebilir katman olarak kalır.
+- Etiketler sakin: tek satır kapsül, hover/odakta açılır (başlık+yazar). Düğmeye basınca sıcak flaş (`.warp`).

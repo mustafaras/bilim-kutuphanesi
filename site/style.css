@@ -1279,3 +1279,17 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 :root[data-theme=light] .nc-3d-hint{color:#566b75!important}
 :root[data-theme=light] .nc-head{border-color:rgba(19,43,59,.14)}
 :root[data-theme=light] .nc-stats div:last-child b,:root[data-theme=light] .nc-read-k{color:#8a5a32}
+
+/* Package 23: constellation v2 — quiet labels that bloom on hover, warp flash */
+.rv-constellation.rv-3d .rv-node-label{max-width:132px;padding:5px 9px;border-radius:999px;background:rgba(4,9,18,.5);border:1px solid rgba(255,255,255,.1);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:max-width .35s var(--ease-out),background .25s,border-color .25s,opacity .25s}
+.rv-constellation.rv-3d .rv-node-label i{display:none;max-height:0;transition:max-height .3s}
+.rv-constellation.rv-3d .rv-node-label b{font-weight:500;font-size:11px;-webkit-line-clamp:1;line-clamp:1;opacity:.82}
+.rv-constellation.rv-3d .rv-node.hot .rv-node-label{max-width:210px;padding:8px 12px;border-radius:12px;background:rgba(6,12,22,.9);border-color:color-mix(in srgb,var(--spine,#e8ce9e) 60%,transparent);box-shadow:0 12px 32px rgba(0,0,0,.45)}
+.rv-constellation.rv-3d .rv-node.hot .rv-node-label i{display:block;max-height:20px}
+.rv-constellation.rv-3d .rv-node.hot .rv-node-label b{-webkit-line-clamp:3;line-clamp:3;opacity:1;font-size:12.5px}
+.rv-constellation.rv-3d .rv-dot{opacity:0}
+.rv-constellation.rv-3d.warp::after{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle,rgba(255,244,214,.55),transparent 60%);animation:rv-warp .5s ease-out both}
+@keyframes rv-warp{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1.6)}}
+:root[data-theme=light] .rv-constellation.rv-3d .rv-node-label{background:rgba(255,253,247,.72);border-color:rgba(19,43,59,.14);color:#13283a}
+:root[data-theme=light] .rv-constellation.rv-3d .rv-node.hot .rv-node-label{background:#fffdf7;border-color:var(--spine,#a15c39);box-shadow:0 12px 30px rgba(60,40,20,.25)}
+:root[data-theme=light] .rv-constellation.rv-3d.warp::after{background:radial-gradient(circle,rgba(161,92,57,.3),transparent 60%)}

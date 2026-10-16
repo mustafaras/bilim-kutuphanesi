@@ -1,9 +1,11 @@
 'use strict';
-/* Record-page constellation as a live 3D scene.
-   The DOM buttons (.rv-node) stay the accessible, clickable layer; this file draws the sky behind them with three.js
-   (depth-layered stars, nebula, glowing core + orbit rings, relation-coloured edges with flowing particles) and
-   re-projects every button each frame so labels follow when you drag to orbit. Dark = additive glow on deep space,
-   light = ink on parchment. Falls back to the static SVG when WebGL / motion is unavailable. */
+/* Record-page constellation as a live 3D scene (v2).
+   The DOM buttons (.rv-node) stay the accessible, clickable layer; this file draws the sky behind them with three.js:
+   shader stars + drifting nebulae, a procedural corona star at the centre, banded glowing planets for every related record
+   (fresnel atmosphere, orbit ring on hover), relation-coloured energy tubes with travelling pulses and particles, a cinematic
+   dolly-in, hover focus (the camera leans toward the node, the rest dims) and drag-to-orbit with inertia.
+   Labels are re-projected each frame. Dark = additive glow on deep space, light = ink and matte planets on parchment.
+   Falls back to the static SVG when WebGL / motion is unavailable. */
 (()=>{
  if(typeof document==='undefined'||typeof MutationObserver!=='function')return;
  const sheet=document.getElementById('recordSheet');if(!sheet)return;
@@ -13,10 +15,43 @@
  const REL_INK={author:[150,96,40],year:[104,82,160],lang:[26,128,108],field:[64,92,116]};
  let THREE=null,loading=null,cur=null;
  const load=()=>loading||(loading=import('./vendor/three.module.min.js').then(m=>{THREE=m;return m}).catch(()=>null));
+ const rgb=a=>a.map(v=>v/255);
+ const ease=x=>1-Math.pow(1-Math.min(1,Math.max(0,x)),3);
 
  function glowTexture(m,inner){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),r=g.createRadialGradient(64,64,0,64,64,64);r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(inner||.18,'rgba(255,255,255,.55)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,128,128);const t=new m.CanvasTexture(c);t.colorSpace=m.SRGBColorSpace;return t}
- function dotTexture(m){const c=document.createElement('canvas');c.width=c.height=32;const g=c.getContext('2d'),r=g.createRadialGradient(16,16,0,16,16,16);r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(.4,'rgba(255,255,255,.8)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,32,32);return new m.CanvasTexture(c)}
- const rgb=a=>a.map(v=>v/255);
+ /* cloudy nebula puff: many soft blobs on one canvas */
+ function cloudTexture(m,seed){const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');let s=seed*9301+49297;const R=()=>{s=(s*9301+49297)%233280;return s/233280};
+  for(let i=0;i<46;i++){const x=64+R()*128,y=64+R()*128,r=22+R()*58,a=.05+R()*.1,gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,`rgba(255,255,255,${a})`);gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.fillRect(0,0,256,256)}
+  const t=new m.CanvasTexture(c);t.colorSpace=m.SRGBColorSpace;return t}
+ /* planet bands tinted by the record's spine colour */
+ function planetTexture(m,hex,seed){const c=document.createElement('canvas');c.width=256;c.height=128;const g=c.getContext('2d');let s=seed*7919+13;const R=()=>{s=(s*9301+49297)%233280;return s/233280};
+  const base=new m.Color(hex);const rr=base.r*255|0,gg=base.g*255|0,bb=base.b*255|0;
+  const gr=g.createLinearGradient(0,0,0,128);gr.addColorStop(0,`rgb(${rr*.55|0},${gg*.55|0},${bb*.55|0})`);gr.addColorStop(.5,`rgb(${Math.min(255,rr*1.15)|0},${Math.min(255,gg*1.15)|0},${Math.min(255,bb*1.15)|0})`);gr.addColorStop(1,`rgb(${rr*.5|0},${gg*.5|0},${bb*.5|0})`);g.fillStyle=gr;g.fillRect(0,0,256,128);
+  for(let i=0;i<22;i++){const y=R()*128,h=2+R()*9;g.fillStyle=`rgba(${R()<.5?'255,255,255':'0,0,0'},${(.05+R()*.14).toFixed(3)})`;g.fillRect(0,y,256,h)}
+  for(let i=0;i<30;i++){g.fillStyle=`rgba(255,255,255,${(R()*.12).toFixed(3)})`;g.beginPath();g.ellipse(R()*256,R()*128,6+R()*18,1+R()*3,0,0,7);g.fill()}
+  const t=new m.CanvasTexture(c);t.colorSpace=m.SRGBColorSpace;t.wrapS=m.RepeatWrapping;return t}
+
+ const STAR_V=`attribute float aS,aT;attribute vec3 aC;uniform float uTime,uPx;varying vec3 vC;varying float vA;
+  void main(){vec4 mv=modelViewMatrix*vec4(position,1.);gl_Position=projectionMatrix*mv;float tw=.55+.45*sin(uTime*(.6+aT*2.2)+aT*40.);gl_PointSize=aS*uPx*(300./-mv.z)*(.7+.5*tw);vC=aC;vA=tw;}`;
+ const STAR_F=`uniform float uLight,uOpacity;varying vec3 vC;varying float vA;void main(){vec2 p=gl_PointCoord-.5;float d=length(p);float core=smoothstep(.5,0.,d);float spike=max(0.,1.-abs(p.x)*14.)*max(0.,1.-abs(p.y)*1.4)+max(0.,1.-abs(p.y)*14.)*max(0.,1.-abs(p.x)*1.4);float a=(core*core+spike*.25*step(.62,vA))*vA*uOpacity;if(a<.01)discard;gl_FragColor=vec4(vC,a);}`;
+ const CORE_V=`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
+ const CORE_F=`uniform float uTime,uLight,uHot;uniform vec3 uColor;varying vec2 vUv;
+  void main(){vec2 p=(vUv-.5)*2.;float r=length(p),a=atan(p.y,p.x);
+   float glow=exp(-r*4.2)*.75+exp(-r*11.)*1.0;
+   float rays=(.5+.5*cos(a*7.+uTime*.35))*(.5+.5*cos(a*3.-uTime*.22))*exp(-r*2.6)*.9;
+   float ring=exp(-pow((r-.46-.02*sin(uTime*1.3))*14.,2.))*.35;
+   float flick=1.+.07*sin(uTime*2.1)+.04*sin(uTime*5.3);
+   float v=(glow+rays*(uLight>.5?.0:.8)+ring)*flick*(1.+uHot*.3);float alpha=clamp(v,0.,1.)*smoothstep(1.,.78,r);
+   vec3 col=mix(vec3(1.,.96,.86),uColor,clamp(r*1.1,0.,1.))*(1.+glow*.3);
+   if(uLight>.5){col=mix(vec3(.45,.27,.1),uColor*.55,clamp(r,0.,1.));alpha*=.55;}
+   gl_FragColor=vec4(col,alpha);}`;
+ const FRES_V=`varying vec3 vN,vV;void main(){vec4 mv=modelViewMatrix*vec4(position,1.);vN=normalize(normalMatrix*normal);vV=normalize(-mv.xyz);gl_Position=projectionMatrix*mv;}`;
+ const FRES_F=`uniform vec3 uColor;uniform float uPow,uAmp;varying vec3 vN,vV;void main(){float f=pow(1.-max(0.,dot(vN,vV)),uPow);gl_FragColor=vec4(uColor,f*uAmp);}`;
+ const TUBE_V=`varying float vU;varying float vF;void main(){vU=uv.x;vec4 mv=modelViewMatrix*vec4(position,1.);vF=pow(1.-abs(dot(normalize(normalMatrix*normal),normalize(-mv.xyz))),1.);gl_Position=projectionMatrix*mv;}`;
+ const TUBE_F=`uniform float uTime,uHot,uDim,uLight,uPh;uniform vec3 uColor;varying float vU;varying float vF;
+  void main(){float pulse=smoothstep(.0,.16,fract(vU*1.+uPh-uTime*.18))*smoothstep(.34,.16,fract(vU*1.+uPh-uTime*.18));
+   float base=.16+.2*uHot;float a=(base+pulse*(.55+.5*uHot))*(.35+.65*vF)*uDim*(1.-.35*smoothstep(.85,1.,vU));
+   gl_FragColor=vec4(uColor,clamp(a,0.,1.)*(uLight>.5?.9:1.));}`;
 
  function mount(box){
   if(cur&&cur.box===box)return;if(cur)cur.destroy();
@@ -27,78 +62,103 @@
    const W=1000,H=560,CX=500,CY=284;
    const canvas=document.createElement('canvas');canvas.className='rv-gl';canvas.setAttribute('aria-hidden','true');box.insertBefore(canvas,box.firstChild);
    let renderer;try{renderer=new m.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'high-performance'})}catch{canvas.remove();return}
-   renderer.setClearColor(0,0);renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.75));
+   renderer.setClearColor(0,0);const PR=Math.min(devicePixelRatio||1,1.75);renderer.setPixelRatio(PR);
    const scene=new m.Scene(),camera=new m.PerspectiveCamera(38,1,10,4000),world=new m.Group(),sky=new m.Group();scene.add(sky,world);
-   const glow=glowTexture(m),dot=dotTexture(m);
+   const glow=glowTexture(m);
    const light=()=>root.dataset.theme==='light';
    const items=nodes.map((el,i)=>{const kind=(el.className.match(/rel-(author|year|lang|field)/)||[])[1]||'field';
     const lx=parseFloat(el.style.left)/100*W-CX,ly=parseFloat(el.style.top)/100*H-CY;
-    return{el,kind,i,base:new m.Vector3(lx,-ly,((i*73%11)-5)*26),ph:i*1.7}});
+    const spine=getComputedStyle(el).getPropertyValue('--spine').trim()||'#e8ce9e';
+    return{el,kind,i,spine,base:new m.Vector3(lx,-ly,((i*73%11)-5)*30),ph:i*1.7,sc:0,hot:0}});
    box.classList.add('rv-3d');box.dataset.hint=typeof t==='function'?t('rvDragHint'):'';
-
-   /* stars in three depth shells (parallax when orbiting) */
-   const starN=240,sp=new Float32Array(starN*3),sc=new Float32Array(starN*3),sh=new Float32Array(starN);
-   for(let k=0;k<starN;k++){sp[k*3]=(Math.random()-.5)*1300;sp[k*3+1]=(Math.random()-.5)*760;sp[k*3+2]=-120-Math.random()*520;sh[k]=Math.random()}
-   const sg=new m.BufferGeometry();sg.setAttribute('position',new m.BufferAttribute(sp,3));sg.setAttribute('color',new m.BufferAttribute(sc,3));
-   const sm=new m.PointsMaterial({size:3.4,sizeAttenuation:false,map:dot,transparent:true,depthWrite:false,vertexColors:true,opacity:.9});
-   sky.add(new m.Points(sg,sm));
-   /* nebula wash */
-   const neb=[[-260,60,-300,820,[90,120,190]],[300,-80,-340,760,[190,140,90]],[0,160,-420,900,[110,90,170]]].map(([x,y,z,s,c])=>{const sp2=new m.Sprite(new m.SpriteMaterial({map:glow,transparent:true,depthWrite:false,opacity:.2,color:new m.Color(...rgb(c))}));sp2.position.set(x,y,z);sp2.scale.set(s,s*.62,1);sky.add(sp2);return{s:sp2,c}});
-
-   /* core, rings */
-   const core=new m.Sprite(new m.SpriteMaterial({map:glow,transparent:true,depthWrite:false}));core.scale.set(120,120,1);world.add(core);
-   const core2=new m.Sprite(new m.SpriteMaterial({map:glow,transparent:true,depthWrite:false}));core2.scale.set(44,44,1);world.add(core2);
-   const ringGeo=r=>{const pts=[];for(let a=0;a<=96;a++){const t=a/96*Math.PI*2;pts.push(new m.Vector3(Math.cos(t)*r,Math.sin(t)*r*.62,0))}return new m.BufferGeometry().setFromPoints(pts)};
-   const rings=[120,205].map((r,i)=>{const l=new m.Line(ringGeo(r),new m.LineBasicMaterial({transparent:true,opacity:.22,depthWrite:false}));l.rotation.x=.5+i*.25;l.rotation.z=i*.6;world.add(l);return l});
-
-   /* edges + flowing particles */
-   const FLOW=12,edges=items.map(it=>{
-    const mid=it.base.clone().multiplyScalar(.5);mid.z+=40;mid.y+=(it.i%2?1:-1)*Math.min(46,it.base.length()*.16);
+   const sU={uTime:{value:0},uPx:{value:PR},uLight:{value:0},uOpacity:{value:1}};
+   /* stars: three depth shells, colour temperature varies */
+   const starN=420,sp=new Float32Array(starN*3),sc=new Float32Array(starN*3),ss=new Float32Array(starN),st=new Float32Array(starN),temp=new Float32Array(starN);
+   for(let k=0;k<starN;k++){const shell=k%3;sp[k*3]=(Math.random()-.5)*1500;sp[k*3+1]=(Math.random()-.5)*860;sp[k*3+2]=-80-shell*190-Math.random()*160;ss[k]=(shell===0?2.6:shell===1?1.8:1.2)*(.6+Math.random()*.9);st[k]=Math.random();temp[k]=Math.random()}
+   const sg=new m.BufferGeometry();sg.setAttribute('position',new m.BufferAttribute(sp,3));sg.setAttribute('aS',new m.BufferAttribute(ss,1));sg.setAttribute('aT',new m.BufferAttribute(st,1));sg.setAttribute('aC',new m.BufferAttribute(sc,3));
+   const starMat=new m.ShaderMaterial({uniforms:sU,vertexShader:STAR_V,fragmentShader:STAR_F,transparent:true,depthWrite:false});
+   const stars=new m.Points(sg,starMat);stars.frustumCulled=false;sky.add(stars);
+   /* nebulae */
+   const neb=[[-300,70,-340,900,[80,120,200],1],[320,-90,-380,860,[200,140,80],2],[0,170,-460,1000,[120,90,180],3],[-120,-160,-300,700,[60,160,150],4]].map(([x,y,z,s,c,sd])=>{const mat=new m.SpriteMaterial({map:cloudTexture(m,sd),transparent:true,depthWrite:false,opacity:.2,color:new m.Color(...rgb(c))});const sp2=new m.Sprite(mat);sp2.position.set(x,y,z);sp2.scale.set(s,s*.7,1);sky.add(sp2);return{s:sp2,c,rot:(sd%2?1:-1)*.012*sd}});
+   /* the record itself: a corona star */
+   const coreU={uTime:{value:0},uLight:{value:0},uHot:{value:0},uColor:{value:new m.Color(0xe8ce9e)}};
+   const core=new m.Mesh(new m.PlaneGeometry(250,250),new m.ShaderMaterial({uniforms:coreU,vertexShader:CORE_V,fragmentShader:CORE_F,transparent:true,depthWrite:false}));world.add(core);
+   const rings=[120,205].map((r,i)=>{const pts=[];for(let a=0;a<=96;a++){const tt=a/96*Math.PI*2;pts.push(new m.Vector3(Math.cos(tt)*r,Math.sin(tt)*r*.62,0))}const l=new m.Line(new m.BufferGeometry().setFromPoints(pts),new m.LineBasicMaterial({transparent:true,opacity:.2,depthWrite:false}));l.rotation.x=.5+i*.25;l.rotation.z=i*.6;world.add(l);return l});
+   /* planets */
+   const planets=items.map(it=>{const g=new m.Group();g.position.copy(it.base);world.add(g);
+    const tex=planetTexture(m,it.spine,it.i+3),r0=12+(it.kind==='author'?3:0)+(it.i%3)*1;
+    const body=new m.Mesh(new m.SphereGeometry(r0,40,28),new m.MeshStandardMaterial({map:tex,roughness:.62,metalness:.05,emissive:new m.Color(it.spine),emissiveIntensity:.16,emissiveMap:tex}));g.add(body);
+    const atmoU={uColor:{value:new m.Color(it.spine)},uPow:{value:2.2},uAmp:{value:1.1}};
+    const atmo=new m.Mesh(new m.SphereGeometry(r0*1.28,32,24),new m.ShaderMaterial({uniforms:atmoU,vertexShader:FRES_V,fragmentShader:FRES_F,transparent:true,depthWrite:false,blending:m.AdditiveBlending,side:m.FrontSide}));g.add(atmo);
+    const halo=new m.Sprite(new m.SpriteMaterial({map:glow,transparent:true,depthWrite:false,color:new m.Color(it.spine)}));halo.scale.set(r0*6,r0*6,1);g.add(halo);
+    const op=[];for(let a=0;a<=64;a++){const tt=a/64*Math.PI*2;op.push(new m.Vector3(Math.cos(tt)*r0*1.9,Math.sin(tt)*r0*1.9*.4,0))}
+    const orbit=new m.LineLoop(new m.BufferGeometry().setFromPoints(op),new m.LineBasicMaterial({color:new m.Color(it.spine),transparent:true,opacity:0,depthWrite:false}));orbit.rotation.x=.9;orbit.rotation.z=.4+it.i*.5;g.add(orbit);
+    const moon=new m.Mesh(new m.SphereGeometry(r0*.17,12,10),new m.MeshBasicMaterial({color:new m.Color(it.spine)}));moon.visible=false;g.add(moon);
+    return{g,body,atmo,atmoU,halo,orbit,moon,r0}});
+   /* energy tubes: base curve + pulses; particles ride the same curve */
+   const FLOW=10,edges=items.map(it=>{const mid=it.base.clone().multiplyScalar(.5);mid.z+=44;mid.y+=(it.i%2?1:-1)*Math.min(50,it.base.length()*.17);
     const curve=new m.QuadraticBezierCurve3(new m.Vector3(0,0,0),mid,it.base.clone());
-    const line=new m.Line(new m.BufferGeometry().setFromPoints(curve.getPoints(40)),new m.LineBasicMaterial({transparent:true,opacity:.34,depthWrite:false}));world.add(line);
-    return{it,curve,line}});
-   const fN=items.length*FLOW,fp=new Float32Array(fN*3),fc=new Float32Array(fN*3);
+    const tu={uTime:{value:0},uHot:{value:0},uDim:{value:1},uLight:{value:0},uPh:{value:it.i*.21},uColor:{value:new m.Color()}};
+    const tube=new m.Mesh(new m.TubeGeometry(curve,56,1.15,6,false),new m.ShaderMaterial({uniforms:tu,vertexShader:TUBE_V,fragmentShader:TUBE_F,transparent:true,depthWrite:false,side:m.DoubleSide}));world.add(tube);
+    return{it,curve,tube,tu}});
+   const fN=items.length*FLOW,fp=new Float32Array(fN*3),fc=new Float32Array(fN*3),dotT=(()=>{const c=document.createElement('canvas');c.width=c.height=32;const g=c.getContext('2d'),r=g.createRadialGradient(16,16,0,16,16,16);r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(.4,'rgba(255,255,255,.8)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,32,32);return new m.CanvasTexture(c)})();
    const fg=new m.BufferGeometry();fg.setAttribute('position',new m.BufferAttribute(fp,3));fg.setAttribute('color',new m.BufferAttribute(fc,3));
-   const fm=new m.PointsMaterial({size:4.2,sizeAttenuation:false,map:dot,transparent:true,depthWrite:false,vertexColors:true,opacity:.95});
-   world.add(new m.Points(fg,fm));
-   /* node halos */
-   const halos=items.map(it=>{const s=new m.Sprite(new m.SpriteMaterial({map:glow,transparent:true,depthWrite:false}));s.position.copy(it.base);world.add(s);return s});
+   const fm=new m.PointsMaterial({size:4.6,sizeAttenuation:false,map:dotT,transparent:true,depthWrite:false,vertexColors:true,opacity:.95});world.add(new m.Points(fg,fm));
+   /* shooting dust: tiny motes drifting through the scene */
+   const dN=70,dp=new Float32Array(dN*3),dv=new Float32Array(dN*3);for(let k=0;k<dN;k++){dp[k*3]=(Math.random()-.5)*900;dp[k*3+1]=(Math.random()-.5)*500;dp[k*3+2]=(Math.random()-.5)*260;dv[k*3]=(Math.random()-.5)*6;dv[k*3+1]=(Math.random()-.5)*3;dv[k*3+2]=0}
+   const dg=new m.BufferGeometry();dg.setAttribute('position',new m.BufferAttribute(dp,3));const dm=new m.PointsMaterial({size:2.2,sizeAttenuation:false,map:dotT,transparent:true,depthWrite:false,opacity:.5});world.add(new m.Points(dg,dm));
+   /* lights for planets */
+   const keyL=new m.DirectionalLight(0xfff0d6,2.2);keyL.position.set(-300,260,420);scene.add(keyL);const rimL=new m.DirectionalLight(0x9fc4ff,.9);rimL.position.set(400,-100,-200);scene.add(rimL);scene.add(new m.AmbientLight(0xffffff,.35));
+   const coreLight=new m.PointLight(0xffe2b0,60000,0,2);world.add(coreLight);
 
-   let w=1,h=1,yaw=0,pitch=0,vyaw=0,vpitch=0,tyaw=0,tpitch=0,drag=null,hover=-1,raf=0,visible=true,t0=performance.now(),idle=true,lastTheme='';
+   let w=1,h=1,yaw=0,pitch=0,vyaw=0,vpitch=0,tyaw=0,tpitch=0,drag=null,hover=-1,raf=0,visible=true,t0=performance.now(),idle=true,lastTheme='',leanX=0,leanY=0,distK=1;
    const resize=()=>{const r=box.getBoundingClientRect();w=Math.max(2,r.width);h=Math.max(2,r.height);renderer.setSize(w,h,false);camera.aspect=w/h;
-    /* the 1000x560 design box must stay fully visible, even when min-height makes the panel taller than 1000:560 */
-    const visH=Math.max(H,W/camera.aspect)*1.02,d=(visH/2)/Math.tan(camera.fov*Math.PI/360);camera.position.set(0,0,d);camera.updateProjectionMatrix();camera.lookAt(0,0,0)};
+    const visH=Math.max(H,W/camera.aspect)*1.02,d=(visH/2)/Math.tan(camera.fov*Math.PI/360);camera.userData.d=d;camera.position.set(0,0,d);camera.updateProjectionMatrix();camera.lookAt(0,0,0)};
    const ro=typeof ResizeObserver==='function'?new ResizeObserver(resize):null;if(ro)ro.observe(box);resize();
 
-   const v=new m.Vector3();
+   const v=new m.Vector3(),tmpC=new m.Color();
+   function applyTheme(){const lt=light();lastTheme=lt?'l':'d';const add=lt?m.NormalBlending:m.AdditiveBlending;
+    sU.uLight.value=lt?1:0;coreU.uLight.value=lt?1:0;starMat.blending=add;starMat.needsUpdate=true;
+    for(let k=0;k<starN;k++){const b=.5+Math.random()*.5,w2=temp[k];const c=lt?[.2*b,.27*b,.36*b]:(w2<.3?[1*b,.82*b,.62*b]:w2<.7?[.9*b,.94*b,1*b]:[.7*b,.8*b,1*b]);sc[k*3]=c[0];sc[k*3+1]=c[1];sc[k*3+2]=c[2]}sg.attributes.aC.needsUpdate=true;
+    sU.uOpacity.value=lt?.7:1;
+    neb.forEach(n=>{n.s.material.blending=add;n.s.material.opacity=lt?.11:.2;n.s.material.color.setRGB(...rgb(lt?[n.c[0]*.7+60,n.c[1]*.7+50,n.c[2]*.7+30]:n.c));n.s.material.needsUpdate=true});
+    rings.forEach(r=>r.material.color.setRGB(...(lt?[.2,.28,.36]:[.98,.96,.92])));
+    coreU.uColor.value.setRGB(...(lt?[.62,.38,.18]:[.91,.81,.62]));core.material.blending=add;core.material.needsUpdate=true;
+    planets.forEach((p,i)=>{p.atmo.material.blending=add;p.atmo.material.needsUpdate=true;p.atmoU.uAmp.value=lt?.55:1.1;p.halo.material.blending=add;p.halo.material.opacity=lt?.22:.5;p.halo.material.needsUpdate=true;p.body.material.emissiveIntensity=lt?.02:.16});
+    edges.forEach(e=>{const c=(lt?REL_INK:REL)[e.it.kind];e.tu.uColor.value.setRGB(...rgb(c));e.tu.uLight.value=lt?1:0;e.tube.material.blending=add;e.tube.material.needsUpdate=true});
+    fm.blending=add;fm.needsUpdate=true;dm.blending=add;dm.color.setHex(lt?0x13283a:0xffffff);dm.opacity=lt?.35:.5;dm.needsUpdate=true;
+    coreLight.intensity=lt?25000:60000;keyL.intensity=lt?2.4:2.0;rimL.intensity=lt?.4:.9}
    function paint(now){
-    const time=(now-t0)/1000,lt=light();
-    if(lastTheme!==(lt?'l':'d')){lastTheme=lt?'l':'d';
-     const add=lt?m.NormalBlending:m.AdditiveBlending;
-     [sm,fm,core.material,core2.material,...halos.map(s=>s.material),...neb.map(n=>n.s.material)].forEach(mt=>{mt.blending=add;mt.needsUpdate=true});
-     rings.forEach(r=>r.material.color.setRGB(...(lt?[.2,.28,.36]:[.98,.96,.92])));
-     core.material.color.setRGB(...(lt?[.62,.38,.18]:[.91,.81,.62]));core2.material.color.setRGB(...(lt?[.25,.15,.08]:[1,.96,.86]));
-     neb.forEach(n=>{n.s.material.opacity=lt?.1:.2;n.s.material.color.setRGB(...rgb(lt?[n.c[0]*.7+60,n.c[1]*.7+50,n.c[2]*.7+30]:n.c))});
-     for(let k=0;k<starN;k++){const b=.45+sh[k]*.55,c=lt?[.2*b,.27*b,.36*b]:[.85*b,.9*b,1*b];sc[k*3]=c[0];sc[k*3+1]=c[1];sc[k*3+2]=c[2]}sg.attributes.color.needsUpdate=true;
-     edges.forEach(e=>{const c=(lt?REL_INK:REL)[e.it.kind];e.line.material.color.setRGB(...rgb(c));e.line.material.blending=add;e.line.material.needsUpdate=true});
-     items.forEach((it,i)=>{halos[i].material.color.setRGB(...rgb((lt?REL_INK:REL)[it.kind]))});
-     sm.opacity=lt?.55:.9}
-    /* orbit: drag + inertia + gentle idle sway */
-    if(!drag){tyaw+=vyaw;tpitch+=vpitch;vyaw*=.93;vpitch*=.93;tyaw=Math.max(-.85,Math.min(.85,tyaw));tpitch=Math.max(-.45,Math.min(.45,tpitch));
-     if(idle){tyaw+=((Math.sin(time*.22)*.18)-tyaw)*.006;tpitch+=((Math.cos(time*.17)*.06)-tpitch)*.006}}
+    const time=(now-t0)/1000,lt=light(),dt=Math.min(.05,(now-(paint.l||now))/1000);paint.l=now;
+    if(lastTheme!==(lt?'l':'d'))applyTheme();
+    const intro=ease(time/2.1);
+    sU.uTime.value=time;coreU.uTime.value=time;
+    /* orbit: drag + inertia + idle sway */
+    if(!drag){tyaw+=vyaw;tpitch+=vpitch;vyaw*=.93;vpitch*=.93;tyaw=Math.max(-.9,Math.min(.9,tyaw));tpitch=Math.max(-.5,Math.min(.5,tpitch));
+     if(idle){tyaw+=((Math.sin(time*.22)*.2)-tyaw)*.006;tpitch+=((Math.cos(time*.17)*.07)-tpitch)*.006}}
     yaw+=(tyaw-yaw)*.12;pitch+=(tpitch-pitch)*.12;
-    world.rotation.y=yaw;world.rotation.x=pitch;sky.rotation.y=-yaw*.35;sky.rotation.x=-pitch*.35;
+    world.rotation.y=yaw;world.rotation.x=pitch;sky.rotation.y=-yaw*.4;sky.rotation.x=-pitch*.4;
+    neb.forEach(n=>{n.s.material.rotation+=n.rot*dt});
     rings.forEach((r,i)=>{r.rotation.z+=.0012*(i?-1:1)});
-    const pulse=1+.08*Math.sin(time*2.1);core.scale.set(120*pulse,120*pulse,1);core.material.opacity=lt?.55:.8;core2.material.opacity=lt?.9:1;
-    /* flowing particles */
-    let k=0;edges.forEach((e,ei)=>{const hot=hover===ei,c=(lt?REL_INK:REL)[e.it.kind],sp=.07+(hot?.09:0);e.line.material.opacity=hover<0?(lt?.4:.34):(hot?.9:.1);
-     for(let j=0;j<FLOW;j++){const u=((time*sp+j/FLOW+ei*.13)%1);e.curve.getPoint(u,v);fp[k*3]=v.x;fp[k*3+1]=v.y;fp[k*3+2]=v.z;const a=Math.sin(u*Math.PI)*(hover<0||hot?1:.25);fc[k*3]=c[0]/255*a;fc[k*3+1]=c[1]/255*a;fc[k*3+2]=c[2]/255*a;k++}});
+    /* hover focus: camera leans toward the node, dist eases in */
+    const hv=hover>=0?items[hover]:null,tl=hv?hv.base:null;
+    const lx=tl?tl.x*.08:0,ly=tl?tl.y*.08:0;leanX+=(lx-leanX)*Math.min(1,dt*3);leanY+=(ly-leanY)*Math.min(1,dt*3);distK+=((hv?.9:1)-distK)*Math.min(1,dt*3);
+    const d=camera.userData.d*(1.25-.25*intro)*distK;camera.position.set(leanX,leanY,d);camera.lookAt(leanX*.5,leanY*.5,0);
+    const pulse=1+.06*Math.sin(time*2.1);core.scale.set(pulse*(.6+.4*intro),pulse*(.6+.4*intro),1);core.lookAt(camera.position);coreU.uHot.value+=((hv?1:0)-coreU.uHot.value)*Math.min(1,dt*4);
+    /* planets */
+    planets.forEach((p,i)=>{const it=items[i],on=hover===i,tgt=on?1:0;it.hot+=(tgt-it.hot)*Math.min(1,dt*6);
+     const born=ease((time-.35-i*.09)/.9);it.sc=born;const s=born*(1+it.hot*.28);p.g.scale.setScalar(Math.max(.001,s));
+     p.body.rotation.y=time*(.08+(i%3)*.03);p.orbit.material.opacity=it.hot*.85;p.orbit.rotation.z+=dt*.5;p.moon.visible=it.hot>.05;if(p.moon.visible){const a=time*1.8+i;p.moon.position.set(Math.cos(a)*p.r0*1.9,Math.sin(a)*p.r0*1.9*.4*Math.cos(.9)*1.0,Math.sin(a)*p.r0*.8);p.moon.position.applyEuler(p.orbit.rotation)}
+     const dim=hover>=0&&!on?.35:1;p.halo.material.opacity=(lt?.22:.5)*(.7+it.hot*.7)*dim;p.atmoU.uAmp.value=(lt?.55:1.1)*(.8+it.hot*.9);p.g.position.y=it.base.y+Math.sin(time*.8+it.ph)*3;});
+    /* energy tubes */
+    edges.forEach((e,ei)=>{e.tu.uTime.value=time;e.tu.uHot.value+=((hover===ei?1:0)-e.tu.uHot.value)*Math.min(1,dt*6);e.tu.uDim.value+=((hover>=0&&hover!==ei?.35:1)*intro-e.tu.uDim.value)*Math.min(1,dt*6)});
+    let k=0;edges.forEach((e,ei)=>{const hot=hover===ei,c=(lt?REL_INK:REL)[e.it.kind],spd=.07+(hot?.1:0);
+     for(let j=0;j<FLOW;j++){const u=((time*spd+j/FLOW+ei*.13)%1);e.curve.getPoint(u,v);fp[k*3]=v.x;fp[k*3+1]=v.y;fp[k*3+2]=v.z;const a=Math.sin(u*Math.PI)*(hover<0||hot?1:.25)*intro;fc[k*3]=c[0]/255*a;fc[k*3+1]=c[1]/255*a;fc[k*3+2]=c[2]/255*a;k++}});
     fg.attributes.position.needsUpdate=true;fg.attributes.color.needsUpdate=true;
-    halos.forEach((s,i)=>{const hot=hover===i,p=1+.12*Math.sin(time*1.6+items[i].ph),sz=(hot?84:52)*p;s.scale.set(sz,sz,1);s.material.opacity=lt?(hot?.8:.45):(hot?1:.7)});
+    for(let q=0;q<dN;q++){dp[q*3]+=dv[q*3]*dt;dp[q*3+1]+=dv[q*3+1]*dt;if(dp[q*3]>450)dp[q*3]=-450;if(dp[q*3]<-450)dp[q*3]=450;if(dp[q*3+1]>250)dp[q*3+1]=-250;if(dp[q*3+1]<-250)dp[q*3+1]=250}dg.attributes.position.needsUpdate=true;
     world.updateMatrixWorld(true);
     /* re-project the DOM layer */
-    items.forEach(it=>{v.copy(it.base).applyMatrix4(world.matrixWorld).project(camera);const x=(v.x*.5+.5)*100,y=(1-(v.y*.5+.5))*100;
-     it.el.style.left=x.toFixed(2)+'%';it.el.style.top=y.toFixed(2)+'%';it.el.style.zIndex=String(Math.round((1-v.z)*500))});
+    items.forEach((it,i)=>{v.copy(it.base).applyMatrix4(world.matrixWorld).project(camera);const x=(v.x*.5+.5)*100,y=(1-(v.y*.5+.5))*100;it.el.style.left=x.toFixed(2)+'%';it.el.style.top=y.toFixed(2)+'%';it.el.style.zIndex=String(Math.round((1-v.z)*500));it.el.style.opacity=String(Math.min(1,it.sc*1.2)*(hover>=0&&hover!==i?.55:1))});
     renderer.render(scene,camera)}
    function loop(now){raf=0;if(!visible||document.hidden||!box.isConnected){if(!box.isConnected)destroy();return}paint(now);raf=requestAnimationFrame(loop)}
    const kick=()=>{if(!raf)raf=requestAnimationFrame(loop)};
@@ -106,19 +166,20 @@
    const onVis=()=>{if(!document.hidden)kick()};document.addEventListener('visibilitychange',onVis);
 
    /* interaction */
-   const down=e=>{if(e.target.closest&&e.target.closest('.rv-node'))return;drag={x:e.clientX,y:e.clientY,id:e.pointerId};idle=false;vyaw=vpitch=0;try{box.setPointerCapture(e.pointerId)}catch{}box.classList.add('dragging')};
+   const down=e=>{if(e.target.closest&&e.target.closest('.rv-node'))return;drag={x:e.clientX,y:e.clientY};idle=false;vyaw=vpitch=0;try{box.setPointerCapture(e.pointerId)}catch{}box.classList.add('dragging')};
    const move=e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;vyaw=dx*.0035;vpitch=dy*.0028;tyaw+=vyaw;tpitch+=vpitch};
    const up=()=>{if(!drag)return;drag=null;box.classList.remove('dragging');setTimeout(()=>{idle=true},2600)};
    box.addEventListener('pointerdown',down);box.addEventListener('pointermove',move);box.addEventListener('pointerup',up);box.addEventListener('pointercancel',up);
    box.addEventListener('dblclick',()=>{tyaw=0;tpitch=0;vyaw=vpitch=0});
-   items.forEach((it,i)=>{const on=()=>{hover=i;it.el.classList.add('hot')},off=()=>{if(hover===i)hover=-1;it.el.classList.remove('hot')};it.el.addEventListener('mouseenter',on);it.el.addEventListener('focus',on);it.el.addEventListener('mouseleave',off);it.el.addEventListener('blur',off)});
+   items.forEach((it,i)=>{const on=()=>{hover=i;it.el.classList.add('hot')},off=()=>{if(hover===i)hover=-1;it.el.classList.remove('hot')};it.el.addEventListener('mouseenter',on);it.el.addEventListener('focus',on);it.el.addEventListener('mouseleave',off);it.el.addEventListener('blur',off);
+    it.el.addEventListener('pointerdown',()=>{box.classList.add('warp')},{capture:true})});
    const kb=e=>{if(!box.contains(document.activeElement))return;const k=e.key;if(k==='ArrowLeft'&&e.shiftKey)tyaw-=.12;else if(k==='ArrowRight'&&e.shiftKey)tyaw+=.12;else if(k==='ArrowUp'&&e.shiftKey)tpitch-=.1;else if(k==='ArrowDown'&&e.shiftKey)tpitch+=.1;else return;e.preventDefault()};
    box.addEventListener('keydown',kb);
 
    function destroy(){if(raf)cancelAnimationFrame(raf);raf=0;if(ro)ro.disconnect();if(io)io.disconnect();document.removeEventListener('visibilitychange',onVis);
-    scene.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(x=>x.dispose())}});glow.dispose();dot.dispose();
-    try{renderer.dispose();renderer.forceContextLoss()}catch{}canvas.remove();box.classList.remove('rv-3d','dragging');items.forEach(it=>{it.el.style.zIndex=''});if(cur&&cur.box===box)cur=null}
-   cur={box,destroy};kick()})}
+    scene.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(x=>{if(x.map)x.map.dispose();x.dispose()})}});glow.dispose();dotT.dispose();
+    try{renderer.dispose();renderer.forceContextLoss()}catch{}canvas.remove();box.classList.remove('rv-3d','dragging','warp');items.forEach(it=>{it.el.style.zIndex='';it.el.style.opacity=''});if(cur&&cur.box===box)cur=null}
+   applyTheme();cur={box,destroy};kick()})}
 
  function scan(){const box=sheet.querySelector('.rv-constellation');if(box)mount(box);else if(cur&&!cur.box.isConnected){cur.destroy()}}
  new MutationObserver(scan).observe(sheet,{childList:true});scan();
