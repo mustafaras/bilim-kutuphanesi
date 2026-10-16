@@ -49,7 +49,7 @@
   ui={canvas:panel.querySelector('canvas'),labels:panel.querySelector('.nc-3d-labels'),tip:panel.querySelector('.nc-3d-tip'),hint:panel.querySelector('.nc-3d-hint'),note:panel.querySelector('.nc-3d-note'),ctl:panel.querySelector('.nc-3d-ctl')};
   labelsOf();
   ui.ctl.setAttribute('aria-label',t('heroZoom'));[['in','heroZoomIn'],['out','heroZoomOut'],['reset','heroZoomReset']].forEach(([k,key])=>ui.ctl.querySelector(`[data-z=${k}]`).setAttribute('aria-label',t(key)));
-  const setView=v=>{view=v;chart.hidden=view!=='chart';panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';labelsOf();
+  const setView=v=>{if(morphing)return;{const from=view;if(from!==v&&!reduced.matches&&MN>0&&ready(from)&&ready(v)){morphTo(from,v);return}}view=v;chart.hidden=view!=='chart';panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';labelsOf();
    const shown=view==='galaxy'?panel:view==='skyline'?sky:chart;if(!reduced.matches){shown.classList.remove('nc-enter');void shown.offsetWidth;shown.classList.add('nc-enter');setTimeout(()=>shown.classList.remove('nc-enter'),900)}
    if(view==='galaxy'){if(!booted){booted=true;boot()}else if(api){api.wake();if(api.enter)api.enter()}}
    if(view==='skyline'&&window.NobelSkyline){const si=window.NobelSkyline.inst;if(si){si.sync();if(si.enter)si.enter()}else window.NobelSkyline.init(sky).then(r=>{if(!r){setView('chart')}})}
@@ -70,6 +70,41 @@
   function linkKick(){if(!linkRaf)linkRaf=requestAnimationFrame(linkFrame)}
   if(typeof IntersectionObserver==='function')new IntersectionObserver(es=>{linkVis=es[es.length-1].isIntersecting;if(linkVis)linkKick()}).observe(chron);
   document.addEventListener('nobel:filter',linkKick);addEventListener('scroll',linkKick,{passive:true});addEventListener('resize',linkKick);setTimeout(linkKick,800);
+  /* ---- one record = one particle: Grafik ⇄ Silüet ⇄ Galaksi morph the SAME records ----
+     chart: a record sits inside its year × category segment; skyline: one block per record in the tower; galaxy: its star.
+     Positions are read from whichever view is on screen, the next view is revealed invisibly, then every record flies along a swirling arc. */
+  const mrows=records.filter(r=>r.collection!=='books'&&/^\d{4}$/.test(r.year||'')),MN=mrows.length,mYear=new Int16Array(MN),mCat=new Uint8Array(MN),mLvl=new Int16Array(MN),mCnt=new Int16Array(MN),mAward=new Uint8Array(MN);
+  {const cnt=new Map();mrows.forEach((r,i)=>{mYear[i]=Number(r.year);mCat[i]=typeof nobelCat==='function'?nobelCat(r):6;mAward[i]=r.collection==='awards'?1:0;const k=mYear[i]*8+mCat[i];mLvl[i]=cnt.get(k)||0;cnt.set(k,mLvl[i]+1)});mrows.forEach((r,i)=>{mCnt[i]=cnt.get(mYear[i]*8+mCat[i])})}
+  const mHash=i=>{let x=Math.imul(i+1,2654435761)>>>0;x^=x>>>13;x=Math.imul(x,1274126177)>>>0;return((x^x>>>16)>>>0)/4294967296};
+  const mList=mrows.map((r,i)=>({year:mYear[i],c:mCat[i],l:mLvl[i],n:mCnt[i],jx:mHash(i)-.5,jz:mHash(i+977)-.5}));
+  let morphing=false;
+  const ready=v=>v==='chart'||(v==='skyline'&&window.NobelSkyline&&window.NobelSkyline.inst)||(v==='galaxy'&&booted&&api&&api.projectRecords);
+  function positions(v){const xy=new Float32Array(MN*2),al=new Float32Array(MN).fill(1);
+   if(v==='chart'){const cache=new Map();for(let i=0;i<MN;i++){const key=mYear[i]*8+mCat[i];let seg=cache.get(key);if(seg===undefined){const el=chart.querySelector(`.nc-year[data-year="${mYear[i]}"] .nc-c${mCat[i]}`)||chart.querySelector(`.nc-year[data-year="${mYear[i]}"]`);seg=el?el.getBoundingClientRect():null;cache.set(key,seg)}
+     if(seg){xy[i*2]=seg.left+seg.width*(.5+(mHash(i)-.5)*.55);xy[i*2+1]=seg.bottom-((mLvl[i]+.5)/mCnt[i])*seg.height}else{const cr0=chart.getBoundingClientRect();xy[i*2]=cr0.left+cr0.width/2;xy[i*2+1]=cr0.bottom}al[i]=NF.on[mCat[i]]?1:.12}}
+   else if(v==='skyline'){const a=window.NobelSkyline.inst.projectRecords(mList,xy);for(let i=0;i<MN;i++)al[i]=a[i]}
+   else{api.projectRecords(xy);for(let i=0;i<MN;i++)al[i]=NF.on[mCat[i]]?1:.12}
+   return{xy,al}}
+  const easeIO=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2,clamp01=x=>x<0?0:x>1?1:x;
+  function morphTo(from,to){morphing=true;linkSvg.classList.remove('on');
+   const A=positions(from);view=to;chart.hidden=view!=='chart';panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';labelsOf();
+   const shown=view==='galaxy'?panel:view==='skyline'?sky:chart;shown.style.transition='none';shown.style.opacity='0';
+   if(view==='galaxy'&&api)api.wake();if(view==='skyline'&&window.NobelSkyline.inst)window.NobelSkyline.inst.sync();
+   let fr=0;const wait=()=>{if(++fr<4){requestAnimationFrame(wait);return}run(A,positions(to),shown)};requestAnimationFrame(wait)}
+  function run(A,B,shown){
+   const cr=chron.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,1.5),cv=document.createElement('canvas');cv.className='nc-morph';cv.width=Math.round(cr.width*dpr);cv.height=Math.round(cr.height*dpr);chron.appendChild(cv);
+   const g=cv.getContext('2d'),DUR=1600,t0=performance.now(),light=root.dataset.theme==='light',RGB=CATC.map(c=>{const n=parseInt(c.slice(1),16),k=light?.62:1;return[(n>>16&255)*k|0,(n>>8&255)*k|0,(n&255)*k|0]});
+   const ox=cr.left,oy=cr.top;let revealed=false;
+   function at(i,T,o){const d=(mYear[i]-1901)/125*.3;let tt=clamp01((T-d)/.7),e=easeIO(tt);const ax=A.xy[i*2]-ox,ay=A.xy[i*2+1]-oy,bx=B.xy[i*2]-ox,by=B.xy[i*2+1]-oy,dx=bx-ax,dy=by-ay,len=Math.hypot(dx,dy)||1,sw=Math.sin(Math.PI*e),amp=(mHash(i)-.5)*Math.min(len,700)*.5*sw,lift=-sw*70*mHash(i+7);
+    o.x=ax+dx*e+(-dy/len)*amp;o.y=ay+dy*e+(dx/len)*amp+lift;o.e=e;o.sw=sw}
+   const p0={},p1={};
+   function frame(now){const T=clamp01((now-t0)/DUR);g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,cr.width,cr.height);g.globalCompositeOperation=light?'source-over':'lighter';g.lineCap='round';
+    if(T>.55&&!revealed){revealed=true;shown.style.transition='opacity .65s ease';shown.style.opacity='1'}
+    for(let i=0;i<MN;i++){at(i,T,p1);at(i,Math.max(0,T-.045),p0);const al=(A.al[i]+(B.al[i]-A.al[i])*p1.e)*(.5+.5*p1.sw+.25*(1-p1.sw)),c=RGB[mCat[i]],rr=(mAward[i]?2.5:1.5)*(1+.7*p1.sw);
+     if(p1.sw>.02){g.strokeStyle=`rgba(${c[0]},${c[1]},${c[2]},${(al*.4).toFixed(3)})`;g.lineWidth=rr*.9;g.beginPath();g.moveTo(p0.x,p0.y);g.lineTo(p1.x,p1.y);g.stroke()}
+     g.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${Math.min(1,al).toFixed(3)})`;g.beginPath();g.arc(p1.x,p1.y,rr,0,6.2832);g.fill()}
+    if(T<1)requestAnimationFrame(frame);else{cv.remove();shown.style.opacity='';shown.style.transition='';morphing=false;if(view==='galaxy'&&api)api.wake();linkKick()}}
+   requestAnimationFrame(frame)}
   let api=null;
   async function boot(){
    let THREE;try{THREE=await import('./vendor/three.module.min.js')}catch{return}
@@ -85,7 +120,7 @@
    const U={uTime:{value:0},uScale:{value:600},uSel:{value:0},uPick:{value:-99},uOn:{value:new Float32Array(7).fill(1)},uLight:{value:0}};
    const mat=new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
     vertexShader:`attribute vec3 aC;attribute float aS,aYr,aI,aT,aK;uniform float uTime,uScale,uSel,uPick;uniform float uOn[7];varying vec3 vC;varying float vA,vBig;void main(){vec4 mv=modelViewMatrix*vec4(position,1.);gl_Position=projectionMatrix*mv;float sel=abs(aYr-uSel)<.5?1.:0.;float pk=abs(aI-uPick)<.5?1.:0.;float tw=.82+.18*sin(uTime*(.7+aT*2.)+aT*50.);float on=uOn[int(aK+.5)];gl_PointSize=clamp(aS*uScale/-mv.z*tw*(1.+sel*1.4+pk*2.6)*(.35+.9*on),1.5,40.);vC=mix(aC,vec3(1.),pk*.7);vBig=max(smoothstep(.2,.26,aS)*.5,sel*.9+pk);vA=(tw*(uSel>0.?(.55+sel*1.6):1.)+pk)*(.08+.92*on);}`,
-    fragmentShader:`uniform float uLight;varying vec3 vC;varying float vA,vBig;void main(){vec2 pc=gl_PointCoord-.5;float d=length(pc);if(uLight>.5){/* light theme: opaque ink-like stars (normal blending, deepened colour, crisp core + faint halo) instead of additive glow that washes out on parchment */float lum=dot(vC,vec3(.3,.59,.11));vec3 c=mix(vec3(lum),vC,1.18)*.8;float core=1.-smoothstep(.16,.26,d);float halo=smoothstep(.5,.12,d)*.28;gl_FragColor=vec4(c,clamp((core*.95+halo)*vA,0.,1.));return;}float a=smoothstep(.5,0.,d);a=a*a*.8+(1.-smoothstep(0.,.14,d))*.9;/* diffraction spikes on prize records and the selected year */float spk=(exp(-abs(pc.x)*46.)*exp(-abs(pc.y)*4.5)+exp(-abs(pc.y)*46.)*exp(-abs(pc.x)*4.5))*vBig;a=max(a,spk*.75);float rim=smoothstep(.5,.3,d)*.25;gl_FragColor=vec4(vC*1.35+rim*vC,clamp(a*vA,0.,1.));}`});
+    fragmentShader:`uniform float uLight;varying vec3 vC;varying float vA,vBig;void main(){vec2 pc=gl_PointCoord-.5;float d=length(pc);if(uLight>.5){/* light theme: opaque ink-like stars (normal blending, deepened colour, crisp core + faint halo) instead of additive glow that washes out on parchment */float lum=dot(vC,vec3(.3,.59,.11));vec3 c=mix(vec3(lum),vC,1.18)*.8;float core=1.-smoothstep(.16,.26,d);float halo=smoothstep(.5,.12,d)*.28;gl_FragColor=vec4(c,clamp((core*.95+halo)*vA,0.,1.));return;}float a=smoothstep(.5,0.,d);a=a*a*.8+(1.-smoothstep(0.,.14,d))*.9;/* sphere impostor: the bright core is shaded like a lit ball (normal from the sprite coordinate) */{vec2 q=pc*3.6;float r2=dot(q,q);if(r2<1.){vec3 nn=vec3(q,sqrt(1.-r2));float lit=.62+.55*max(dot(nn,normalize(vec3(-.5,.6,.65))),0.)+.35*pow(max(dot(reflect(-normalize(vec3(-.5,.6,.65)),nn),vec3(0.,0.,1.)),0.),18.);a=min(1.,a*(.78+.3*lit));}}/* diffraction spikes on prize records and the selected year */float spk=(exp(-abs(pc.x)*46.)*exp(-abs(pc.y)*4.5)+exp(-abs(pc.y)*46.)*exp(-abs(pc.x)*4.5))*vBig;a=max(a,spk*.75);float rim=smoothstep(.5,.3,d)*.25;gl_FragColor=vec4(vC*1.35+rim*vC,clamp(a*vA,0.,1.));}`});
    const stars=new THREE.Points(geo,mat);stars.frustumCulled=false;grp.add(stars);
    /* spiral guide + selected-year ring */
    const guide=[];for(let i=0;i<=240;i++){const t=i/240,th=t*Math.PI*2*TURNS;guide.push(new THREE.Vector3(Math.cos(th)*(1.3+t*4.2),0,Math.sin(th)*(1.3+t*4.2)))}
@@ -163,7 +198,8 @@
    function frame(now){raf=0;const dt=Math.min(.05,(now-(frame.l||now))/1000||0);frame.l=now;if(view!=='galaxy'||!visible||document.hidden)return;draw(dt);const still=reduced.matches||root.classList.contains('effects-paused');if(!still||drag||Math.abs(vYaw)>1e-4||Math.abs(zoomT-zoom)>.002)raf=requestAnimationFrame(frame)}
    size();new ResizeObserver(()=>{size();wake()}).observe(panel);addEventListener('scroll',()=>{if(visible&&view==='galaxy')wake()},{passive:true});document.addEventListener('nobel:filter',wake);if(typeof IntersectionObserver==='function')new IntersectionObserver(es=>{visible=es[0].isIntersecting;if(visible)wake()}).observe(panel);
    new MutationObserver(wake).observe(root,{attributes:true,attributeFilter:['class','data-theme']});
-   api={wake,enter(){if(!reduced.matches){zoom=zoomT*.7;vYaw=.015}wake()},anchor(){if(!sel||!anchorLocal)return null;const r=canvas.getBoundingClientRect();return{x:r.left+anchorLocal.x,y:r.top+anchorLocal.y}}};draw(.016);wake();canvas.classList.add('on')}
+   const projectRecords=out=>{const r=canvas.getBoundingClientRect();grp.updateMatrixWorld(true);camera.updateMatrixWorld();const vv=new THREE.Vector3();for(let i=0;i<N;i++){vv.set(pos[i*3],pos[i*3+1],pos[i*3+2]);grp.localToWorld(vv);vv.project(camera);out[i*2]=r.left+(vv.x*.5+.5)*r.width;out[i*2+1]=r.top+(-vv.y*.5+.5)*r.height}};
+   api={wake,projectRecords,enter(){if(!reduced.matches){zoom=zoomT*.7;vYaw=.015}wake()},anchor(){if(!sel||!anchorLocal)return null;const r=canvas.getBoundingClientRect();return{x:r.left+anchorLocal.x,y:r.top+anchorLocal.y}}};draw(.016);wake();canvas.classList.add('on')}
  }
  const go=()=>setTimeout(mount,400);document.addEventListener('library:ready',go);if(typeof records!=='undefined'&&records.length)go();
 })();
