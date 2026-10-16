@@ -1472,3 +1472,16 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 @media(prefers-reduced-motion:reduce){.atlas-tile.diving{scale:none;filter:none}}
 /* A2: return flight reuses the dive ghost */
 .fly-return{opacity:1}
+/* Package 41 — B5: the 3D book opens into a reading stage */
+.rv-book-ctl{position:absolute;left:12px;top:12px;z-index:7;display:none;gap:6px;align-items:center}
+.rv-art.rec-ready.has-3d .rv-book-ctl{display:flex}
+.rv-book-ctl button{height:30px;min-width:34px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(8,14,24,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#fff;font:600 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.rv-book-ctl button:hover:not(:disabled),.rv-book-ctl button[aria-pressed="true"]{background:var(--accent);border-color:transparent}
+.rv-book-ctl button:disabled{opacity:.35;cursor:default}
+.rv-book-ctl button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.rv-book-scrim{display:none}
+.rv-art.book-open .rv-book-scrim{display:block;position:fixed;inset:0;z-index:85;background:radial-gradient(70% 60% at 50% 45%,rgba(8,14,24,.55),rgba(4,7,14,.9));-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);animation:pk-fade .25s ease both}
+.rv-art.book-open .rec-3d{position:fixed;left:50%;top:50%;transform:translate(-50%,-52%);width:min(1100px,96vw);height:min(720px,78vh);z-index:90}
+.rv-art.book-open .rv-book-ctl{position:fixed;left:50%;top:auto;bottom:max(22px,calc((100vh - min(720px,78vh))/2 - 8px));transform:translateX(-50%);z-index:95}
+.rv-art.book-open .rv-3d-toggle{z-index:95}
+@media(prefers-reduced-motion:reduce){.rv-art.book-open .rv-book-scrim{animation:none}}

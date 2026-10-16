@@ -215,20 +215,30 @@
     const rim=new THREE.Mesh(new THREE.TorusGeometry(1,.032,12,96),brass);rim.rotation.x=Math.PI/2;rim.position.y=.95;
     const foot=new THREE.Mesh(new THREE.TorusGeometry(.9,.025,10,96),brass);foot.rotation.x=Math.PI/2;foot.position.y=.04;
     const dom=new THREE.Group();dom.add(shell,core,rim);dom.position.y=0;g.add(base,foot,dom);
+    /* B7: the telescope. It sits in the dome's own frame, so it always lies in the slit's meridian plane (tube pitch = elevation); a brass tube with bands and a small blue lens. */
+    const tel=new THREE.Group();tel.position.y=.95;dom.add(tel);
+    const tube=new THREE.Mesh(new THREE.CylinderGeometry(.05,.068,2.2,20),brass);tube.position.y=.7;tel.add(tube);
+    [-.1,.65,1.5].forEach(y=>{const r=new THREE.Mesh(new THREE.TorusGeometry(.07,.013,8,20),brass);r.rotation.x=Math.PI/2;r.position.y=y;tel.add(r)});
+    const lens=new THREE.Mesh(new THREE.CircleGeometry(.05,20),new THREE.MeshStandardMaterial({color:0x9fd0ff,emissive:0x4a86c0,emissiveIntensity:.6,metalness:.2,roughness:.05}));lens.position.y=1.81;lens.rotation.x=-Math.PI/2;tel.add(lens);
     /* slit lamp: additive soft sprite at the slit's mid height */
     const lc=document.createElement('canvas');lc.width=lc.height=64;const lx=lc.getContext('2d'),gr=lx.createRadialGradient(32,32,0,32,32,32);gr.addColorStop(0,'rgba(255,226,170,1)');gr.addColorStop(.4,'rgba(255,200,120,.35)');gr.addColorStop(1,'rgba(255,200,120,0)');lx.fillStyle=gr;lx.fillRect(0,0,64,64);
     const lamp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(lc),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.7}));lamp.scale.setScalar(1.1);g.add(lamp);
     sc.add(new THREE.AmbientLight(0x6f84ad,.55));const key=new THREE.DirectionalLight(0xcfe0ff,1.5);key.position.set(-1.2,1.4,1.6);sc.add(key);
     const warm=new THREE.PointLight(0xffc27a,0,0,2);sc.add(warm);
-    return{sc,cam,g,dom,body,brass,inner,lamp,warm,light:false,ready:false,lampK:.7,ry:2.62}
+    return{sc,cam,g,dom,tel,body,brass,inner,lamp,warm,light:false,ready:false,lampK:.7,ry:2.62,fa:0,fe:.95}
    }catch{return null}})();
   function domeTheme(light){if(!dome)return;dome.body.color.set(light?0x2a4054:0x0a1220);dome.brass.color.set(light?0x9a6a3a:0xceac76);dome.inner.color.set(light?0xc78a3c:0x8a6228);dome.light=light}
+  let domeDt=0;
   function domeFrame(dt,cw,ch){
    if(!dome)return false;const hz=window.BKHorizon;if(!hz||!hz.w||!cw)return false;
    dome.cam.right=cw;dome.cam.top=ch;dome.cam.updateProjectionMatrix();
    const s=clamp(hz.w/1440,.8,1.35)*56;dome.g.scale.setScalar(s);dome.g.position.set(hz.ox,ch-hz.oy-s*.12,0);
    /* the slit slowly tracks across the sky (a real dome follows its target), the lamp breathes */
-   dome.dom.rotation.y=dome.ry+Math.sin(time*.045)*.42;
+   /* B7: the dome follows the pointer (slit turns toward it) and the telescope lifts or lowers with it; idle, it tracks the sky slowly */
+   const sr=sceneEl.getBoundingClientRect(),inHero=mouse&&mouse.x>=0&&mouse.in,tx=inHero?clamp((mouse.x-sr.left-hz.ox)/(hz.w*.5),-1,1):0,ty=inHero?clamp((mouse.y-sr.top-hz.oy)/(sr.height*.8),-1,1):0,kf=1-Math.exp(-3*Math.min(.05,domeDt||.016));
+   dome.fa+=(tx*.42-dome.fa)*kf;dome.fe+=((.95-ty*.4)-dome.fe)*kf;
+   dome.dom.rotation.y=dome.ry+dome.fa+Math.sin(time*.045)*(inHero?.05:.3);
+   dome.tel.rotation.z=Math.PI/2-clamp(dome.fe,.45,1.5);if(window.BKDome)window.BKDome.state={ry:+dome.dom.rotation.y.toFixed(3),el:+dome.fe.toFixed(3)};
    const breathe=.62+.38*Math.sin(time*1.4+1.2);dome.lampK=breathe;
    const a=dome.dom.rotation.y;/* slit direction in the group's frame = -x rotated by a about y */
    dome.lamp.position.set(-Math.cos(a)*.93*.84,.95+.62,Math.sin(a)*.93*.84);dome.lamp.material.opacity=(dome.light?.85:.7)*(.55+.45*breathe)*(Math.cos(a)<0?1:.25);
@@ -360,7 +370,7 @@
   const paused=()=>root.classList.contains('effects-paused');
   const wake=()=>{};
   function update(dt){
-   time+=dt;uniforms.uTime.value=time;
+   time+=dt;domeDt=dt;uniforms.uTime.value=time;
    if(!drag){yaw+=vYaw;vYaw*=.94;if(Math.abs(vYaw)<1e-4)vYaw=0}
    zoom=dmp(zoom,zoomT,6.5,dt);pan.x=dmp(pan.x,panT.x,6.5,dt);pan.y=dmp(pan.y,panT.y,6.5,dt);
    tx=dmp(tx,px,2.4,dt);ty=dmp(ty,py,2.4,dt);
