@@ -27,6 +27,8 @@
    function draw(t){theme();g.rotation.y=t*.12;box.rotation.y=t*.05+.4;box.rotation.x=.3;r.render(scene,camera)}
    function loop(now){raf=0;if(!cv.isConnected){try{r.dispose();r.forceContextLoss()}catch{}return}if(!visible||document.hidden){return}draw((now-t0)/1000);raf=requestAnimationFrame(loop)}
    if(reduced.matches){draw(3);cv.classList.add('on')}else{raf=requestAnimationFrame(loop);cv.classList.add('on')}
+   /* GPU context loss: three re-initialises itself on restore but nothing repaints a static frame, so ask for one. */
+   cv.addEventListener('webglcontextrestored',()=>{if(reduced.matches)draw(3);else if(!raf)raf=requestAnimationFrame(loop)});
   });
  }
  const scan=()=>document.querySelectorAll('.empty-state').forEach(mount);

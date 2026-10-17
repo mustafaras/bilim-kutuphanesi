@@ -7,7 +7,7 @@ A2 a record opened from a hero star spawns a return ghost when it closes (and no
 A3 the quality governor degrades at once, recovers one level at a time only after sustained fast windows, and locks recovery after a flip-flop;
 B5 the 3D book opens into a centred reading stage, pages turn and Escape closes it; B6 the medal uses a normal-map relief with a reeded rim; B7 the dome/telescope follows the pointer.
 A4 clicking an atlas tile shows the dive (class .diving), delays the filter ~420 ms, then applies it exactly once."""
-import argparse, os, socket, subprocess, sys, time
+import json, argparse, os, socket, subprocess, sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
@@ -144,8 +144,34 @@ with sync_playwright() as p:
     for _ in range(30):
         pg.wait_for_timeout(1000); after = pg.evaluate(LUM)
         if base and after >= base * .9: break
+    # the 3D hero steps aside for its 2D fallback while the context is gone and must come back with it (it used to be torn down for good)
+    hero_back = False
+    for _ in range(20):
+        pg.wait_for_timeout(1000); hero_back = pg.evaluate("document.querySelector('.hero-gl')!==null&&document.querySelector('.hero-gl canvas.on')!==null")
+        if hero_back: break
+    note(f"B8 hero 3D back after restore: {hero_back}")
+    if not hero_back: problems.append("B8 the 3D hero did not return after a GPU context loss")
     note(f"B8 shelf brightness before context loss {base:.0f}, after restore {after:.0f}")
     if not base or after < base * .9: problems.append(f"B8 shelf books did not recover from a GPU context loss (brightness {base:.0f} -> {after:.0f})")
+    # ---- B9 broken GPU: the shelf must never show a broken book. Inject a shader fault (fragment shaders containing the given text get a syntax error appended)
+    # and require that the stage steps down until the books paint again (level 2 with no PBR) or, when nothing compiles, falls back to the CSS covers.
+    def faulty(pats, done):
+        ctx = b.new_context(viewport={"width": 1590, "height": 615}, service_workers="block"); fp = ctx.new_page()
+        fp.add_init_script("try{localStorage.setItem('bk-theme','dark')}catch(e){}")
+        fp.add_init_script("window.__pats=%s;for(const K of [WebGLRenderingContext,WebGL2RenderingContext]){const P=K.prototype,ss=P.shaderSource;P.shaderSource=function(s,src){if((src.includes('gl_FragColor')||src.includes('pc_fragColor'))&&window.__pats.some(p=>src.includes(p)))src=src+'\\n@@@broken@@@';return ss.call(this,s,src)}}" % json.dumps(pats))
+        fp.goto(a.url + "?fault=" + str(time.time()), wait_until="load")
+        fp.wait_for_function('typeof records!=="undefined"&&records.length&&window.BKStage', timeout=120000); fp.wait_for_timeout(4000)
+        fp.evaluate("document.querySelector('#spotlightGrid').scrollIntoView({block:'start'})")
+        Q = "({lvl:BKStage.diag().level,cards:document.querySelectorAll('.spotlight-card.has-3d').length,cover:BKStage.diag().items})"
+        out = fp.evaluate(Q)
+        for _ in range(150):   # software GL is slow: poll for the settled state instead of a fixed wait
+            fp.wait_for_timeout(1000); out = fp.evaluate(Q)
+            if done(out): break
+        ctx.close(); return out
+    f_std = faulty(["#define STANDARD"], lambda o: o["lvl"] >= 1 and o["cards"] == 4 and all(c and c != "failed" and c["cover"] >= .1 for c in o["cover"])); note(f"B9 standard/physical shaders broken -> {f_std}")
+    if f_std["lvl"] < 1 or f_std["cards"] != 4 or any((not c) or c == "failed" or c["cover"] < .1 for c in f_std["cover"]): problems.append(f"B9 books did not recover when the PBR shaders fail: {f_std}")
+    f_all = faulty(["gl_FragColor", "pc_fragColor"], lambda o: o["lvl"] == 4 and o["cards"] == 0); note(f"B9 nothing compiles -> {f_all}")
+    if f_all["lvl"] != 4 or f_all["cards"] != 0: problems.append(f"B9 stage did not fall back to the CSS covers when nothing compiles: {f_all}")
     if errs: problems.append(f"console errors: {errs[:3]}")
     b.close()
 if srv: srv.terminate()
