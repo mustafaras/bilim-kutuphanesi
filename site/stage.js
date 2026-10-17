@@ -337,8 +337,8 @@
   const pgGeo=shared('pages',()=>new m.BoxGeometry(W-.2,Hh-.14,D-.1,28,1,8)),pgPos=pgGeo.attributes.position,PX=(W-.2)/2,PY=(Hh-.14)/2;/* fore-edge bulge + gently wavy head/tail edges (±0.004), so the block reads as loose leaves, not a brick */if(!pgGeo.userData.shaped)for(let i=0;i<pgPos.count;i++){const u=pgPos.getZ(i)/((D-.1)/2),px=pgPos.getX(i);if(px>PX-1e-4)pgPos.setX(i,px+.022*(1-u*u));if(Math.abs(Math.abs(pgPos.getY(i))-PY)<1e-4)pgPos.setY(i,pgPos.getY(i)+Math.sign(pgPos.getY(i))*.004*Math.sin(px*13+u*5.3)*Math.cos(px*5.1-u*2))}if(!pgGeo.userData.shaped){pgGeo.computeVertexNormals();pgGeo.userData.shaped=true}const pages=new m.Mesh(pgGeo,pagesMat);pages.position.set(xL+(W-.2)/2+.01,0,0);g.add(pages);
   [1,-1].forEach(s=>{const hb=new m.Mesh(new m.CylinderGeometry(.02,.02,D-.12,12),new m.MeshStandardMaterial({color:0xb8423a,roughness:.5}));hb.rotation.x=Math.PI/2;hb.position.set(xL+.03,s*(Hh/2-.085),0);g.add(hb)});
   /* ribbon bookmark: 6-segment verlet chain hanging from the head of the block (gravity follows the book's pose; a fast yaw flicks the tail); the plane's rows are skinned onto the chain */
-  const rg=new m.PlaneGeometry(.07,1.05,1,14),RN=6,RL=1.05/RN,AX=xL+.55,AY=-Hh/2+.145,AZ=.02,chain=[];for(let i=0;i<=RN;i++)chain.push({x:AX,y:AY-i*RL,z:AZ,px:AX,py:AY-i*RL,pz:AZ});
-  const rpos=rg.attributes.position,rrow=new Float32Array(rpos.count),rside=new Float32Array(rpos.count);for(let i=0;i<rpos.count;i++){rrow[i]=(.525-rpos.getY(i))/1.05*RN;rside[i]=rpos.getX(i)}
+  const rg=new m.PlaneGeometry(.07,.85,1,14),RN=6,RL=.85/RN,AX=xL+.55,AY=-Hh/2+.145,AZ=.02,chain=[];for(let i=0;i<=RN;i++)chain.push({x:AX,y:AY-i*RL,z:AZ,px:AX,py:AY-i*RL,pz:AZ});
+  const rpos=rg.attributes.position,rrow=new Float32Array(rpos.count),rside=new Float32Array(rpos.count);for(let i=0;i<rpos.count;i++){rrow[i]=(.425-rpos.getY(i))/.85*RN;rside[i]=rpos.getX(i)}
   const ribbon=new m.Mesh(rg,new m.MeshPhysicalMaterial({color:0xa5262c,roughness:.4,sheen:1,sheenColor:new m.Color(0xff8a80),side:m.DoubleSide}));ribbon.frustumCulled=false;g.add(ribbon);
   const gdown=new m.Vector3(),qInv=new m.Quaternion();let lastYaw=null;
   const stepRibbon=(dt,yawV,t)=>{dt=Math.min(dt,.033);g.updateMatrixWorld(true);g.getWorldQuaternion(qInv).invert();gdown.set(0,-1,0).applyQuaternion(qInv);
@@ -349,7 +349,7 @@
     for(let i=0;i<RN;i++){const a=chain[i],b=chain[i+1];let dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z;const d=Math.hypot(dx,dy,dz)||1e-6,k=(d-RL)/d*(i===0?1:.5);
      if(i===0){b.x-=dx*k;b.y-=dy*k;b.z-=dz*k}else{a.x+=dx*k;a.y+=dy*k;a.z+=dz*k;b.x-=dx*k;b.y-=dy*k;b.z-=dz*k}}
     chain.forEach(n=>{if(n.z<.004&&n.x>xL-.05&&n.x<xL+W-.1&&n.y>-Hh/2)n.z=.004})}
-   for(let i=0;i<rpos.count;i++){const f=Math.min(RN-1e-4,rrow[i]),k=Math.floor(f),u=f-k,a=chain[k],b=chain[k+1];rpos.setXYZ(i,a.x+(b.x-a.x)*u+rside[i],a.y+(b.y-a.y)*u,a.z+(b.z-a.z)*u)}
+   for(let i=0;i<rpos.count;i++){const f=Math.max(0,Math.min(RN-1e-4,rrow[i])),k=Math.floor(f),u=f-k,a=chain[k],b=chain[k+1];rpos.setXYZ(i,a.x+(b.x-a.x)*u+rside[i],a.y+(b.y-a.y)*u,a.z+(b.z-a.z)*u)}
    rpos.needsUpdate=true;rg.computeVertexNormals()};
   for(let i=0;i<30;i++)stepRibbon(.016,0,0);
   /* contact shadow: two soft layers */
@@ -396,8 +396,8 @@
     else if(mode==='read'){yaw+=(-.12-yaw)*k7;pitch+=(.04-pitch)*k7}
     else if(mode==='open'){yaw+=((-.04+it.px*.12*hov)-yaw)*k7;pitch+=((.2+it.py*.06*hov)-pitch)*k7}
     else{yaw+=((BASE+Math.sin(t*.7)*.1)+it.px*.55*hov-yaw)*.12}
-    const calm=mode==='read'?0:1,openT=mode==='read'||mode==='drag'||bookOpen?0:hov*.21;open+=(openT-open)*k7;zoom+=((bookOpen?1.1:mode==="read"?1.06:1)-zoom)*k7;
-    coverK+=((bookOpen?1:0)-coverK)*Math.min(1,dt*(paused()?60:4.2));hinge.rotation.y=-(open*(1-coverK)+coverK*Math.PI);if(endpaper)endpaper.visible=coverK>.02;g.scale.setScalar(zoom);g.position.x=-.05+coverK*1.085*zoom;animateLeaves(dt,paused());shadow.scale.x=1+coverK*.9;
+    const calm=mode==='read'?0:1,openT=mode==='read'||mode==='drag'||bookOpen?0:hov*.21;open+=(openT-open)*k7;zoom+=((bookOpen?.86:mode==="read"?1.06:1)-zoom)*k7;
+    coverK+=((bookOpen?1:0)-coverK)*Math.min(1,dt*(paused()?60:4.2));hinge.rotation.y=-(open*(1-coverK)+coverK*Math.PI);if(endpaper)endpaper.visible=coverK>.02;g.scale.setScalar(zoom);g.position.x=-.05+coverK*1.057;animateLeaves(dt,paused());shadow.scale.x=1+coverK*.9;
     g.rotation.y=yaw;g.rotation.x=pitch+(mode==='auto'?it.py*.2*hov:0)+Math.sin(t*.9)*.015*calm;g.position.y=Math.sin(t*1.1)*.08*calm+hov*.12*calm;g.position.z=hov*.3*calm;
     {const yv=lastYaw==null?0:(yaw-lastYaw)/Math.max(dt,.001);lastYaw=yaw;stepRibbon(dt,Math.max(-3,Math.min(3,yv))*.5,t)}shadow.material.opacity=(real?.4:.95)-it.hoverT*.2;key.intensity=dark()?2.3:2.0;rim.intensity=dark()?1.1:.7}}}
 
