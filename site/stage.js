@@ -14,10 +14,46 @@
  let THREE=null,renderer=null,loading=null,items=[],raf=0,last=0;
  const paused=()=>root.classList.contains('effects-paused')||reduced.matches;
  const load=()=>loading||(loading=import('./vendor/three.module.min.js').then(m=>{THREE=m;renderer=new m.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(1);renderer.shadowMap.enabled=true;renderer.shadowMap.type=m.PCFSoftShadowMap;renderer.setClearColor(0x000000,0);renderer.setScissorTest(true);watchContext();return m}).catch(()=>null));
+ /* Self-check and graceful degradation. Some GPU/driver combinations cannot build (or silently drop) the heavy book materials; the book then paints as a few untextured bits
+    (headband, foil, ribbon) or not at all. Every checked tile therefore inspects what it painted; when that looks broken the whole stage steps down one level and repaints:
+    1 plain standard materials, no shadows / bump / clearcoat / sheen · 2 lambert (no PBR, no environment) · 3 flat basic colours, no textures · 4 give up on 3D, the CSS cover stays.
+    Add ?diag to the address for a one-line status in the corner (level, shader errors, GPU). */
+ let SAFE=0,lastEsc=0;const DIAG={shaderErrors:0,escalations:[],gpu:'',maxTex:0,maxSize:0,webgl2:false};
+ const probe=document.createElement('canvas');probe.width=probe.height=32;const pctx=probe.getContext('2d',{willReadFrequently:true});
+ function looksBroken(it){try{pctx.clearRect(0,0,32,32);pctx.drawImage(it.canvas,0,0,32,32);const d=pctx.getImageData(0,0,32,32).data;let n=0,sum=0;
+   for(let i=0;i<d.length;i+=4)if(d[i+3]>200){n++;sum+=d[i]+d[i+1]+d[i+2]}
+   it.stat={cover:+(n/1024).toFixed(3),lum:n?Math.round(sum/n/3):0};return n/1024<.05||(n&&sum/n/3<35)}catch{return false}}
+ function lighter(mt,level){if(!mt||mt.isShaderMaterial||mt.isShadowMaterial)return mt;const o={side:mt.side,transparent:mt.transparent,opacity:mt.opacity,depthWrite:mt.depthWrite};
+  if(mt.color)o.color=mt.color.clone();if(level<3&&mt.map)o.map=mt.map;
+  if(level>=3&&mt.map&&mt.map.image){try{const c=document.createElement('canvas');c.width=c.height=1;const x=c.getContext('2d');x.drawImage(mt.map.image,0,0,1,1);const d=x.getImageData(0,0,1,1).data;o.color=new THREE.Color().setRGB(d[0]/255,d[1]/255,d[2]/255,THREE.SRGBColorSpace)}catch{}}
+  if(level===1){o.roughness=mt.roughness!=null?mt.roughness:.8;o.metalness=Math.min(mt.metalness||0,1);o.envMapIntensity=mt.envMapIntensity!=null?mt.envMapIntensity:1}
+  if(mt.emissive){o.emissive=mt.emissive.clone();o.emissiveIntensity=mt.emissiveIntensity}
+  const M=level>=3?THREE.MeshBasicMaterial:level===2?THREE.MeshLambertMaterial:THREE.MeshStandardMaterial;if(level>=3)delete o.emissive,delete o.emissiveIntensity;return new M(o)}
+ function simplify(sc,level){if(!sc||!THREE)return;sc.traverse(o=>{
+   if(o.isLight){if(o.castShadow)o.castShadow=false;return}
+   if(!o.isMesh)return;const m0=o.__mat0||(o.__mat0=o.material);
+   if(m0&&(m0.isShadowMaterial||(Array.isArray(m0)&&m0.some(x=>x&&x.isShadowMaterial)))){o.visible=false;return}
+   if(level<1){o.material=m0;return}
+   o.material=Array.isArray(m0)?m0.map(x=>lighter(x,level)):lighter(m0,level)})}
+ function applySafe(){try{renderer.shadowMap.enabled=SAFE<1}catch{}
+  for(const i of items){if(i.scene)simplify(i.scene,SAFE);i.rn=0;i.dirty=true}
+  try{sceneCache.forEach(x=>simplify(x.scene,SAFE))}catch{}
+  if(SAFE>=4)for(const i of items)if(i.opts.check)failItem(i);
+  kick()}
+ function failItem(it){if(it.failed)return;it.failed=true;it.visible=false;it.canvas.classList.remove('on');it.canvas.style.display='none';
+  const h=it.host;if(h){h.classList.remove('has-3d','rec-ready');const t=h.querySelector&&h.querySelector('.rv-3d-toggle');if(t)t.setAttribute('aria-pressed','false')}}
+ function escalate(why){const now=performance.now();if(SAFE>=4||now-lastEsc<2500)return;lastEsc=now;SAFE++;DIAG.escalations.push(why+' -> level '+SAFE);
+  try{console.warn('[stage] rendering looked broken ('+why+'), stepping down to level '+SAFE)}catch{}applySafe()}
+ function selfCheck(it){if(!it.opts.check||it.failed||it.checked)return;it.rn=(it.rn||0)+1;if(it.rn<(paused()?2:70))return;
+  if(looksBroken(it))escalate('cover '+(it.stat&&it.stat.cover)+' lum '+(it.stat&&it.stat.lum));else it.checked=true}
+ if(/[?&]diag\b/.test(location.search)){const el=document.createElement('pre');el.style.cssText='position:fixed;left:8px;bottom:8px;z-index:9999;margin:0;padding:6px 8px;font:11px/1.35 monospace;color:#cfe;background:rgba(0,0,0,.72);border-radius:6px;max-width:92vw;white-space:pre-wrap;pointer-events:none';
+  document.body.appendChild(el);setInterval(()=>{el.textContent='BK stage level '+SAFE+' · shader errors '+DIAG.shaderErrors+' · lost '+glLost+' · '+DIAG.gpu+' · units '+DIAG.maxTex+'\n'+items.filter(i=>i.opts.check).map(i=>i.failed?'failed':i.stat?('cover '+i.stat.cover+' lum '+i.stat.lum):'-').join(' | ')+(DIAG.escalations.length?'\n'+DIAG.escalations.join(' ; '):'')},1000)}
  /* GPU context loss (memory pressure, driver reset, sleep/wake): three re-initialises itself on restore, but the baked PMREM studio map is a render target whose
     pixels are gone, so every lit material goes dark (only foil and ribbon stay visible). Keep the last frame while lost, rebuild the map and repaint on restore. */
  let glLost=false;
  function watchContext(){const rc=renderer.domElement;
+  renderer.debug.onShaderError=(gl,prog,vs,fs)=>{DIAG.shaderErrors++;if(DIAG.shaderErrors===1)try{console.warn('[stage] shader error, falling back to simpler materials')}catch{}if(SAFE===0)escalate('shader error')};   // later levels are judged by the pixel check only: errors of the level just left arrive late and must not skip levels
+  try{const g=renderer.getContext(),dbg=g.getExtension('WEBGL_debug_renderer_info');DIAG.gpu=dbg?g.getParameter(dbg.UNMASKED_RENDERER_WEBGL):g.getParameter(g.RENDERER);DIAG.maxTex=g.getParameter(g.MAX_TEXTURE_IMAGE_UNITS);DIAG.maxSize=g.getParameter(g.MAX_TEXTURE_SIZE);DIAG.webgl2=!!(g instanceof self.WebGL2RenderingContext)}catch{}
   rc.addEventListener('webglcontextlost',e=>{e.preventDefault();glLost=true});
   rc.addEventListener('webglcontextrestored',()=>{glLost=false;try{rebuildEnv()}catch{}for(const i of items)i.dirty=true;kick()})}
  function rebuildEnv(){const old=ENV;if(!old||!THREE)return;ENV=null;const fresh=studioEnv(THREE);if(!fresh){ENV=old;return}
@@ -36,7 +72,7 @@
    addEventListener('pointerup',()=>{if(it.drag){it.drag=null;if(it.dragged){if(it.api&&it.api.release)it.api.release();setTimeout(()=>{it.dragged=false},0)}}});
    if(opts.dbl)h.addEventListener('dblclick',e=>{if(it.api&&it.api.dbl){e.preventDefault();it.api.dbl();it.dirty=true;kick()}});
    h.addEventListener('click',e=>{if(it.dragged){e.preventDefault();e.stopPropagation()}},true)}
-  load().then(m=>{if(!m||!canvas.isConnected)return;const made=factory(m,it);if(!made)return;it.scene=made.scene;it.camera=made.camera;it.api=made;it.ready=true;it.dirty=true;canvas.classList.add('on');if(opts.onReady)opts.onReady();kick()});
+  load().then(m=>{if(!m||!canvas.isConnected)return;if(SAFE>=4&&opts.check){failItem(it);return}const made=factory(m,it);if(!made)return;if(SAFE>0)simplify(made.scene,SAFE);it.scene=made.scene;it.camera=made.camera;it.api=made;it.ready=true;it.dirty=true;canvas.classList.add('on');if(opts.onReady)opts.onReady();kick()});
   return it}
 
  function render(it,dt){
@@ -48,7 +84,7 @@
   it.camera.aspect=w/h;it.camera.updateProjectionMatrix();
   if(it.api.update)it.api.update(it.t,dt,it);
   renderer.setViewport(0,0,w,h);renderer.setScissor(0,0,w,h);renderer.clear();renderer.render(it.scene,it.camera);
-  it.ctx.clearRect(0,0,w,h);it.ctx.drawImage(rc,0,rc.height-h,w,h,0,0,w,h);it.dirty=false}
+  it.ctx.clearRect(0,0,w,h);it.ctx.drawImage(rc,0,rc.height-h,w,h,0,0,w,h);it.dirty=false;selfCheck(it)}
 
  /* A scene whose canvas left the DOM (record closed, preview re-rendered) releases its GPU memory: geometries, materials and every texture except the shared studio environment. Scenes kept in sceneCache survive (they are reused); shared geometries just re-upload on next use. */
  function disposeItem(it){const sc=it.scene;if(!sc||it.disposed)return;it.disposed=true;
@@ -210,7 +246,7 @@
   x.save();x.translate(W/2+10,H/2);x.rotate(Math.PI/2);x.fillStyle='#f6efdc';x.textAlign='center';{const fl=TF.fitLine(x,displayTitle(r),{maxW:H-270,sizes:[34,30,27,24,21],font:z=>'400 '+z+'px Fraunces,Georgia,serif'});x.font='400 '+fl.size+'px Fraunces,Georgia,serif';x.fillText(fl.text,0,0)}x.restore();
   const tx=new m.CanvasTexture(c);tx.colorSpace=m.SRGBColorSpace;return tx}
 
- window.BKStage={paintPage,medalInfo:()=>{const it=items.find(i=>i.api&&i.api.face&&i.api.info);return it?it.api.info():null},medal:k=>{const it=items.find(i=>i.api&&i.api.face);if(!it)return false;it.api.face(k);it.dirty=true;kick();return true},tiles:()=>items.filter(i=>i.canvas.classList.contains('tile-3d')&&i.camera).map(i=>({z:+i.camera.position.z.toFixed(3),op:i.canvas.style.opacity,top:Math.round(i.host.getBoundingClientRect().top+scrollY)})),info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
+ window.BKStage={diag:()=>({level:SAFE,...DIAG,lost:glLost,items:items.filter(i=>i.opts.check).map(i=>i.failed?'failed':i.stat||null)}),forceLevel:l=>{SAFE=Math.max(0,Math.min(4,l|0));lastEsc=0;applySafe()},paintPage,medalInfo:()=>{const it=items.find(i=>i.api&&i.api.face&&i.api.info);return it?it.api.info():null},medal:k=>{const it=items.find(i=>i.api&&i.api.face);if(!it)return false;it.api.face(k);it.dirty=true;kick();return true},tiles:()=>items.filter(i=>i.canvas.classList.contains('tile-3d')&&i.camera).map(i=>({z:+i.camera.position.z.toFixed(3),op:i.canvas.style.opacity,top:Math.round(i.host.getBoundingClientRect().top+scrollY)})),info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
 
  /* Image-based lighting: a tiny studio (soft boxes) baked once into a PMREM map; makes foil, cloth, clearcoat and gold read as real materials. */
  let ENV=null;
@@ -463,7 +499,7 @@
    const place=()=>{const cr=cover.getBoundingClientRect(),kr=card.getBoundingClientRect();cv.style.left=(cr.left-kr.left-cr.width*.12)+'px';cv.style.top=(cr.top-kr.top-cr.height*.08)+'px';cv.style.width=cr.width*1.24+'px';cv.style.height=cr.height*1.16+'px'};
    place();if(typeof ResizeObserver==='function')new ResizeObserver(place).observe(card);
    (document.fonts&&document.fonts.load?Promise.all([document.fonts.load('400 44px Fraunces'),document.fonts.load('400 24px Inter'),document.fonts.load('600 22px "IBM Plex Mono"')]).catch(()=>{}):Promise.resolve()).then(()=>
-    register(cv,(m)=>{try{return bookScene(m,null,rec)}catch{return null}},{host:card,drag:true,onReady:()=>card.classList.add('has-3d')}))})}
+    register(cv,(m)=>{try{return bookScene(m,null,rec)}catch{return null}},{host:card,drag:true,check:true,onReady:()=>card.classList.add('has-3d')}))})}
  /* Record page: the animated cover can be swapped for a real, draggable 3D book (button on the cover). */
  function mountRecord(){
   const art=document.querySelector('#recordSheet .rv-art');if(!art||art.querySelector('.rv-3d-toggle'))return;
@@ -474,7 +510,7 @@
    if(!on)document.dispatchEvent(new CustomEvent('bk:book-close'));
    if(on&&!cv){cv=document.createElement('canvas');cv.className='rec-3d';cv.setAttribute('aria-hidden','true');art.appendChild(cv);
     (document.fonts&&document.fonts.load?Promise.all([document.fonts.load('400 44px Fraunces'),document.fonts.load('400 24px Inter'),document.fonts.load('600 22px "IBM Plex Mono"')]).catch(()=>{}):Promise.resolve()).then(()=>
-     {rit=register(cv,(m)=>{try{return bookScene(m,null,r,true)}catch{return null}},{host:art,drag:true,dbl:true,onReady:()=>{art.classList.add('rec-ready');mountBookCtl(art,()=>rit,r)}})})}})}
+     {rit=register(cv,(m)=>{try{return bookScene(m,null,r,true)}catch{return null}},{host:art,drag:true,dbl:true,check:true,onReady:()=>{art.classList.add('rec-ready');mountBookCtl(art,()=>rit,r)}})})}})}
  /* G4: list view — hovering a row shows a small real 3D cover beside it. One canvas, one registered item; the scene is swapped per record (cached). */
  function mountListPeek(){
   const host=document.getElementById('cards');if(!host||mountListPeek.done||typeof records==='undefined')return;mountListPeek.done=true;

@@ -162,6 +162,8 @@
    /* camera / interaction state */
    let anchorLocal=null;let yaw=0,pitch=0,vYaw=0,zoom=1,zoomT=1,pan=new THREE.Vector3(),panT=new THREE.Vector3(),sel=0,drag=null,hover=-1,mouse={x:0,y:0,in:false},visible=true,raf=0,t0=performance.now(),time=0;
    const v=new THREE.Vector3(),wake=()=>{if(!raf)raf=requestAnimationFrame(frame)};document.addEventListener('bk:quality',()=>{size();wake()});
+   /* GPU context loss: three re-initialises itself on restore but nothing repaints a static frame, so ask for one. */
+   canvas.addEventListener('webglcontextrestored',()=>{size();wake()});
    function size(){const w=canvas.clientWidth||600,h=canvas.clientHeight||400,dpr=Math.max(.6,Math.min(devicePixelRatio||1,1.6)*([1,1,.85,.7,.55][window.BKMotion?BKMotion.quality.level:0]||1));renderer.setPixelRatio(dpr);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();U.uScale.value=renderer.domElement.height/(2*Math.tan(20*Math.PI/180));U.uInv.value.set(1/renderer.domElement.width,1/renderer.domElement.height)}
    function select(){const y=typeof nobelYear!=='undefined'?Number(nobelYear):0;if(y===sel)return;sel=y;U.uSel.value=y;if(y){const a=anchor(y);ring.position.copy(a);ring.visible=true;ring2.position.copy(a);ring2.visible=true;beam.visible=true;fan.forEach(f=>f.visible=true);caps.classList.remove('in');setTimeout(buildCaps,40);beamG.setFromPoints([new THREE.Vector3(0,0,0),a.clone()]);panT.copy(a).multiplyScalar(.45);zoomT=Math.max(zoomT,1.25)}else{ring.visible=false;ring2.visible=false;beam.visible=false;fan.forEach(f=>f.visible=false);buildCaps()}}
    function pick(){if(!mouse.in||drag){set(-1);return}const rect=canvas.getBoundingClientRect();let best=-1,bd=13*13;grp.updateMatrixWorld(true);

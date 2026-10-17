@@ -425,7 +425,13 @@
   if(typeof IntersectionObserver==='function')new IntersectionObserver(es=>{visible=es[0].isIntersecting}).observe(sceneEl);
   if(typeof MutationObserver==='function')new MutationObserver(()=>{applyTheme();if(reduced.matches||paused())still()}).observe(root,{attributes:true,attributeFilter:['class','data-theme']});
   if(reduced.addEventListener)reduced.addEventListener('change',()=>{if(reduced.matches)still()});
+  /* GPU context loss: three re-initialises itself on restore but nothing repaints a static frame, so ask for one. */
+
   document.addEventListener('library:ready',buildRecords);document.addEventListener('library:language',buildLabels);
-  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();running=false;sceneEl.classList.remove('hero-gl');canvas.remove();labelBox.remove();tip.remove();zoomBox.remove();hint.remove()});
+  /* While the GPU context is gone the 3D hero steps aside for the 2D fallback; when the context comes back it returns (nothing is torn down, so it can). */
+  const heroUi=[labelBox,tip,zoomBox,hint,canvas];
+  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();running=false;sceneEl.classList.remove('hero-gl');canvas.classList.remove('on');heroUi.forEach(n=>{n.style.display='none'})});
+  canvas.addEventListener('webglcontextrestored',()=>{heroUi.forEach(n=>{n.style.display=''});sceneEl.classList.add('hero-gl');canvas.classList.add('on');running=true;layout();
+   if(reduced.matches||paused())still();requestAnimationFrame(t=>{tPrev=t;requestAnimationFrame(frame)})});
  }
 })();

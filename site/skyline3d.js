@@ -23,9 +23,9 @@ window.NobelSkyline=(()=>{
   const keys=[];for(let i=0;i<N;i++)for(let c=0;c<CAT;c++)if(counts[i][c]>0)keys.push({i,c});
   const K=keys.length,cur=new Float32Array(K),catOn=(window.NobelFilter&&window.NobelFilter.on)||new Array(CAT).fill(true);document.addEventListener('nobel:filter',()=>wake());
   /* studio environment (soft boxes → PMREM) so the glass towers reflect something */
-  const env=(()=>{try{const es=new THREE.Scene();es.background=new THREE.Color(0x06080d);const bx=(w,h,x,y,z,c,k)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color:new THREE.Color(c).multiplyScalar(k),side:THREE.DoubleSide}));m.position.set(x,y,z);m.lookAt(0,0,0);es.add(m)};
-   bx(10,5,-5,6,6,0xfff0d6,5);bx(4,9,8,1,3,0xd6e4ff,3);bx(14,2,0,-6,2,0xffdca8,1.2);bx(7,4,0,7,-6,0xffffff,2.4);bx(8,5,0,2,9,0xfff4dc,2.4);const pm=new THREE.PMREMGenerator(renderer),t=pm.fromScene(es,.03).texture;pm.dispose();return t}catch{return null}})();
-  if(env)scene.environment=env;
+  const bakeEnv=()=>{try{const es=new THREE.Scene();es.background=new THREE.Color(0x06080d);const bx=(w,h,x,y,z,c,k)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color:new THREE.Color(c).multiplyScalar(k),side:THREE.DoubleSide}));m.position.set(x,y,z);m.lookAt(0,0,0);es.add(m)};
+   bx(10,5,-5,6,6,0xfff0d6,5);bx(4,9,8,1,3,0xd6e4ff,3);bx(14,2,0,-6,2,0xffdca8,1.2);bx(7,4,0,7,-6,0xffffff,2.4);bx(8,5,0,2,9,0xfff4dc,2.4);const pm=new THREE.PMREMGenerator(renderer),t=pm.fromScene(es,.03).texture;pm.dispose();return t}catch{return null}};
+  let env=bakeEnv();if(env)scene.environment=env;
   /* towers + mirrored reflections */
   const geo=new THREE.BoxGeometry(1,1,1);
   const mat=new THREE.MeshStandardMaterial({metalness:.28,roughness:.22,envMapIntensity:1.25});
@@ -107,6 +107,8 @@ window.NobelSkyline=(()=>{
   const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),v3=new THREE.Vector3();
   function size(){const w=canvas.clientWidth||800,h=canvas.clientHeight||460,dpr=Math.max(.6,Math.min(devicePixelRatio||1,1.5)*([1,1,.85,.7,.55][window.BKMotion?BKMotion.quality.level:0]||1));renderer.setPixelRatio(dpr);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
   const wake=()=>{if(!raf&&visible)raf=requestAnimationFrame(frame)};document.addEventListener('bk:quality',()=>{size();wake()});
+  /* GPU context loss: the baked studio map is a render target whose pixels are gone; bake it again and repaint. */
+  canvas.addEventListener('webglcontextrestored',()=>{try{env=bakeEnv();if(env)scene.environment=env}catch{}size();wake()});
   function syncSel(){const y=typeof nobelYear!=='undefined'&&nobelYear?Number(nobelYear):-1,i=y>0?y-Y0:-1;if(i!==selYear){selYear=i;colorsDirty.v=true;if(i>=0){txT=X0+i*DX}beam.visible=i>=0;updateCompare();if(i>=0){slider.value=Y0+i;paintSlider();const e=idx.get(String(Y0+i));if(e)srTab.innerHTML=`<caption>${Y0+i}</caption>`+e.cats.map((n,k)=>n?`<tr><th>${esc(catName(k))}</th><td>${n}</td></tr>`:'').join('')}}}
   /* tooltip */
   function showTip(i,c){if(i<0){tip.hidden=true;return}const e=idx.get(String(Y0+i));if(!e){tip.hidden=true;return}
