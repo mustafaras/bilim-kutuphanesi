@@ -17,6 +17,7 @@ with sync_playwright() as p:
     b = p.chromium.launch(executable_path=exe, args=ARGS)
     for theme in a.themes.split(","):
         pg = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block").new_page()
+        pg.add_init_script("try{localStorage.setItem('bk-test','1')}catch(e){}")
         errs = []; pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("console", lambda m: errs.append(m.text) if m.type == "error" else None)
         pg.goto(a.url + "?m=" + str(time.time()), wait_until="load")
         pg.evaluate(f"document.documentElement.dataset.theme='{theme}'")

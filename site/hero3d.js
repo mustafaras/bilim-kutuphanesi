@@ -361,7 +361,8 @@
     const an=g.animate([{transform:`translate(calc(-50% + ${cx-fb.sx}px),calc(-50% + ${cy-fb.sy}px)) scale(${k})`,opacity:1},{transform:'translate(-50%,-50%) scale(.22)',opacity:.9,offset:.82},{transform:'translate(-50%,-50%) scale(.1)',opacity:0}],{duration:560,easing:'cubic-bezier(.45,0,.2,1)',fill:'forwards'});
     an.onfinish=()=>g.remove();setTimeout(()=>g.remove(),900);
     setTimeout(()=>{caSpike=Math.max(caSpike,1.4)},470)}catch{}});
-  window.BKHero={fly:i=>fly(i),count:()=>rec.n,gov:{level:()=>degrade,feed:(avg,now)=>govern(avg,now),lock:()=>recLock,reset:()=>{good=0;recLock=0;lastRec=-1e9;if(degrade!==0)setLevel(0,0);lastChange=-1e9;return degrade}}};/* test hook (tools/motion_audit.py) */
+  /* test hook: only exposed when localStorage bk-test=1 (the audit tools set it) */
+  if((()=>{try{return localStorage.getItem('bk-test')==='1'}catch{return false}})())window.BKHero={fly:i=>fly(i),count:()=>rec.n,gov:{level:()=>degrade,feed:(avg,now)=>govern(avg,now),lock:()=>recLock,reset:()=>{good=0;recLock=0;lastRec=-1e9;if(degrade!==0)setLevel(0,0);lastChange=-1e9;return degrade}}};/* test hook (tools/motion_audit.py) */
   const rvEl=document.getElementById('recordView');if(rvEl&&typeof MutationObserver==='function')new MutationObserver(()=>{if(rvEl.hidden)zoomReset()}).observe(rvEl,{attributes:true,attributeFilter:['hidden']});
   hero.addEventListener('pointerleave',()=>{mouse.in=false;uniforms.uMouseOn.value=0;setHover(-1)});
 

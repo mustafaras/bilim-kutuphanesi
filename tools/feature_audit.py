@@ -23,6 +23,7 @@ with sync_playwright() as p:
     exe = os.environ.get("BK_CHROMIUM")      # CI uses Playwright's own browser; locally set BK_CHROMIUM when it has none
     b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
     pg = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block").new_page()
+    pg.add_init_script("try{localStorage.setItem('bk-test','1')}catch(e){}")
     errs = []; pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("console", lambda m: errs.append(m.text[:200]) if m.type == "error" else None)
     pg.goto(a.url + "?fa=" + str(time.time()), wait_until="load")
     pg.wait_for_function('window.BKHero&&window.BKStage&&typeof records!=="undefined"&&records.length', timeout=120000)
@@ -97,7 +98,15 @@ with sync_playwright() as p:
     pg.wait_for_function("BKStage.book.state().coverK>0.95", timeout=120000)
     st1 = pg.evaluate("BKStage.book.state()"); stage_ok = pg.evaluate("(()=>{const r=document.querySelector('.rec-3d').getBoundingClientRect();return r.width>800&&Math.abs(r.left+r.width/2-innerWidth/2)<6})()")
     prev_dis = pg.evaluate("document.querySelector('.rv-book-ctl [data-a=prev]').disabled")
-    for _ in range(2): pg.evaluate("document.querySelector('.rv-book-ctl [data-a=next]').click()"); pg.wait_for_timeout(300)
+    # the book must never touch the canvas border (a cut-off cover/page was visible mid-turn): sample the outer 3px frame of the stage
+    EDGE = "(()=>{const c=document.querySelector('.rec-3d'),x=c.getContext('2d'),w=c.width,h=c.height;let n=0;for(const [a,b,cw,ch] of [[0,0,w,3],[0,h-3,w,3],[0,0,3,h],[w-3,0,3,h]]){const d=x.getImageData(a,b,cw,ch).data;for(let i=3;i<d.length;i+=4)if(d[i]>200)n++}return n})()"
+    edge = [pg.evaluate(EDGE)]
+    for _ in range(2):
+        pg.evaluate("document.querySelector('.rv-book-ctl [data-a=next]').click()")
+        for _ in range(4): pg.wait_for_timeout(120); edge.append(pg.evaluate(EDGE))
+    pg.wait_for_timeout(300)
+    note(f"B5 pixels touching the stage border (open + mid-turn samples): {edge}")
+    if any(edge): problems.append(f"B5 the open book is cut off at the stage edge: {edge}")
     st2 = pg.evaluate("BKStage.book.state()")
     pg.evaluate("document.querySelector('.rv-book-ctl [data-a=prev]').click()"); st3 = pg.evaluate("BKStage.book.state()")
     for _ in range(3): pg.evaluate("document.querySelector('.rv-book-ctl [data-a=next]').click()")

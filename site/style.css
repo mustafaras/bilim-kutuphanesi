@@ -1482,9 +1482,15 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 .rv-book-scrim{display:none}
 .rv-art.book-open .rv-book-scrim{display:block;position:fixed;inset:0;z-index:85;background:radial-gradient(70% 60% at 50% 45%,rgba(8,14,24,.55),rgba(4,7,14,.9));-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);animation:pk-fade .25s ease both}
 .rv-art.book-open .rec-3d{position:fixed;left:50%;top:50%;transform:translate(-50%,-52%);width:min(1100px,96vw);height:min(720px,78vh);z-index:90}
-.rv-art.book-open .rv-book-ctl{position:fixed;left:50%;top:auto;bottom:max(22px,calc((100vh - min(720px,78vh))/2 - 8px));transform:translateX(-50%);z-index:95}
+.rv-art.book-open .rv-book-ctl{position:fixed;left:50%;top:auto;bottom:18px;transform:translateX(-50%);z-index:95}
 
 @media(prefers-reduced-motion:reduce){.rv-art.book-open .rv-book-scrim{animation:none}}
 /* an identity transform / entrance animation on the art column would become the containing block of the fixed reading stage */
 .rv-art-col:has(.rv-art.book-open){transform:none!important;animation:none!important;filter:none!important;will-change:auto!important}
 .rv-art.book-open .rv-3d-toggle{display:none}
+
+/* Package 42: screen-reader mirror of the open book's canvas pages */
+.rv-book-live{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+
+/* Package 43: the open book gets a stage with margin all round (cover swing + page lift used to be cut off at the canvas edge) */
+.rv-art.book-open .rec-3d{width:min(1440px,98vw);height:min(880px,92vh);transform:translate(-50%,-50%)}
