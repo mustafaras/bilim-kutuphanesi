@@ -365,7 +365,7 @@
   /* B5: pages. Built on first open (6 canvases are not free). Three leaves hinge on the spine axis; leaf k carries page 2k on its front and 2k+1 on its back.
      The cover swings a full 180°, an endpaper lines its inside, a turning leaf curls (its outer edge lags) and lifts over the stack. */
   const LN=3,LW=W-.34,LH=Hh-.22,LPX=xL+.07,leaves=[],leafP=[0,0,0],leafT=[0,0,0];let endpaper=null;
-  const zr=k=>.2225+.0035*(LN-k),zl=k=>.2735+.0035*k;
+  const zr=k=>.2225+.0035*(LN-k),zl=k=>.2985+.0035*k;/* left stack must clear the endpaper (hinge z .245 + .045 = .29 once the cover lies flat) */
   function buildLeaves(){
    if(leaves.length||!real)return;
    endpaper=new m.Mesh(new m.PlaneGeometry(W-.13,Hh-.16),new m.MeshStandardMaterial({map:canvasTex(m,512,720,(x,w2,h2)=>{x.fillStyle=COVER[idx%8];x.fillRect(0,0,w2,h2);const gr=x.createLinearGradient(0,0,w2,0);gr.addColorStop(0,'rgba(0,0,0,.28)');gr.addColorStop(.18,'rgba(0,0,0,0)');x.fillStyle=gr;x.fillRect(0,0,w2,h2);x.strokeStyle='rgba(246,239,220,.22)';x.lineWidth=2;x.strokeRect(34,34,w2-68,h2-68);x.strokeStyle='rgba(246,239,220,.12)';for(let i=0;i<22;i++){x.beginPath();x.arc(w2*.6,h2*.5,20+i*18,0,7);x.stroke()}noise(x,w2,h2,.1,321)},true),roughness:.85,side:m.FrontSide}));
