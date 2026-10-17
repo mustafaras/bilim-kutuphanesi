@@ -13,7 +13,16 @@
  if(!hasGL())return;
  let THREE=null,renderer=null,loading=null,items=[],raf=0,last=0;
  const paused=()=>root.classList.contains('effects-paused')||reduced.matches;
- const load=()=>loading||(loading=import('./vendor/three.module.min.js').then(m=>{THREE=m;renderer=new m.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(1);renderer.shadowMap.enabled=true;renderer.shadowMap.type=m.PCFSoftShadowMap;renderer.setClearColor(0x000000,0);renderer.setScissorTest(true);return m}).catch(()=>null));
+ const load=()=>loading||(loading=import('./vendor/three.module.min.js').then(m=>{THREE=m;renderer=new m.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(1);renderer.shadowMap.enabled=true;renderer.shadowMap.type=m.PCFSoftShadowMap;renderer.setClearColor(0x000000,0);renderer.setScissorTest(true);watchContext();return m}).catch(()=>null));
+ /* GPU context loss (memory pressure, driver reset, sleep/wake): three re-initialises itself on restore, but the baked PMREM studio map is a render target whose
+    pixels are gone, so every lit material goes dark (only foil and ribbon stay visible). Keep the last frame while lost, rebuild the map and repaint on restore. */
+ let glLost=false;
+ function watchContext(){const rc=renderer.domElement;
+  rc.addEventListener('webglcontextlost',e=>{e.preventDefault();glLost=true});
+  rc.addEventListener('webglcontextrestored',()=>{glLost=false;try{rebuildEnv()}catch{}for(const i of items)i.dirty=true;kick()})}
+ function rebuildEnv(){const old=ENV;if(!old||!THREE)return;ENV=null;const fresh=studioEnv(THREE);if(!fresh){ENV=old;return}
+  const swap=sc=>{if(!sc)return;if(sc.environment===old)sc.environment=fresh;sc.traverse(o=>{const ms=Array.isArray(o.material)?o.material:o.material?[o.material]:[];ms.forEach(mt=>{if(mt.envMap===old){mt.envMap=fresh;mt.needsUpdate=true}})})};
+  for(const i of items)swap(i.scene);try{sceneCache.forEach(x=>swap(x.scene))}catch{}}
  const io=typeof IntersectionObserver==='function'?new IntersectionObserver(es=>{for(const e of es){const it=e.target.__stage;if(it){it.visible=e.isIntersecting;it.dirty=true}}kick()},{rootMargin:'160px'}):null;
 
  function register(canvas,factory,opts={}){
@@ -31,6 +40,7 @@
   return it}
 
  function render(it,dt){
+  if(glLost||(renderer.getContext&&renderer.getContext().isContextLost()))return;   // keep the last frame on screen while the GPU context is gone
   const c=it.canvas,dpr=Math.min(devicePixelRatio||1,1.5),w=Math.max(2,Math.round(c.clientWidth*dpr)),h=Math.max(2,Math.round(c.clientHeight*dpr));
   if(c.width!==w||c.height!==h){c.width=w;c.height=h}
   const rc=renderer.domElement;if(rc.width<w||rc.height<h)renderer.setSize(Math.max(rc.width,w),Math.max(rc.height,h),false);
