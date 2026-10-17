@@ -1488,3 +1488,6 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 /* an identity transform / entrance animation on the art column would become the containing block of the fixed reading stage */
 .rv-art-col:has(.rv-art.book-open){transform:none!important;animation:none!important;filter:none!important;will-change:auto!important}
 .rv-art.book-open .rv-3d-toggle{display:none}
+
+/* Package 42: screen-reader mirror of the open book's canvas pages */
+.rv-book-live{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}

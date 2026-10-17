@@ -2,20 +2,17 @@ name: Publish library
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
   pages: write
   id-token: write
-concurrency:
-  group: github-pages
-  cancel-in-progress: false
 jobs:
-  deploy:
+  # Every gate runs on pull requests too, so a broken change is caught before it reaches main.
+  verify:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url || steps.deploy2.outputs.page_url || steps.deploy3.outputs.page_url }}
     steps:
       - uses: actions/checkout@v6
       - name: Validate catalog
@@ -66,6 +63,18 @@ jobs:
       - name: Leak check (open/close records, 3D book)
         timeout-minutes: 10
         run: python tools/leak_audit.py --rounds 8
+  deploy:
+    needs: verify
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url || steps.deploy2.outputs.page_url || steps.deploy3.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
