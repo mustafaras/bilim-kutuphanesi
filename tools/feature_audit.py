@@ -24,6 +24,8 @@ with sync_playwright() as p:
     b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
     pg = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block").new_page()
     pg.add_init_script("try{localStorage.setItem('bk-test','1')}catch(e){}")
+    # record every WebGL context so B8 can simulate a GPU context loss
+    pg.add_init_script("window.__gls=[];const g=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(t,o){const c=g.call(this,t,o);if(c&&(t==='webgl'||t==='webgl2')&&!window.__gls.includes(c))window.__gls.push(c);return c}")
     errs = []; pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("console", lambda m: errs.append(m.text[:200]) if m.type == "error" else None)
     pg.goto(a.url + "?fa=" + str(time.time()), wait_until="load")
     pg.wait_for_function('window.BKHero&&window.BKStage&&typeof records!=="undefined"&&records.length', timeout=120000)
@@ -130,6 +132,20 @@ with sync_playwright() as p:
     if st0["open"] or not st1["open"] or not stage_ok or not prev_dis: problems.append(f"B5 open/close state wrong: {st0} {st1} stage {stage_ok} prev-disabled {prev_dis}")
     if st2["leaf"] != 2 or st3["leaf"] != 1 or st4["leaf"] != 3 or not next_dis: problems.append(f"B5 page turning wrong: {st2['leaf']},{st3['leaf']},{st4['leaf']} next-disabled {next_dis}")
     if not closed: problems.append("B5 Escape did not close the open book")
+    # ---- B8 GPU context loss: the shelf books must come back with their lighting (the baked studio map is a render target and is lost with the context)
+    for _ in range(3): pg.keyboard.press("Escape"); pg.wait_for_timeout(500)
+    pg.evaluate("document.querySelector('#spotlightGrid').scrollIntoView({block:'center'})")
+    LUM = "(()=>{const cs=[...document.querySelectorAll('.shelf-3d')];let n=0,s=0;for(const c of cs){const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;for(let i=0;i<d.length;i+=4)if(d[i+3]>200){n++;s+=d[i]+d[i+1]+d[i+2]}}return n?s/n/3:0})()"
+    pg.wait_for_function(LUM.replace("})()", "})()>10"), timeout=120000); pg.wait_for_timeout(4000)
+    base = pg.evaluate(LUM)
+    pg.evaluate("for(const c of window.__gls){const e=c.getExtension('WEBGL_lose_context');if(!e)continue;c.canvas.addEventListener('webglcontextlost',()=>setTimeout(()=>e.restoreContext(),400));e.loseContext()}")
+    pg.wait_for_timeout(2500)
+    after = 0
+    for _ in range(30):
+        pg.wait_for_timeout(1000); after = pg.evaluate(LUM)
+        if base and after >= base * .9: break
+    note(f"B8 shelf brightness before context loss {base:.0f}, after restore {after:.0f}")
+    if not base or after < base * .9: problems.append(f"B8 shelf books did not recover from a GPU context loss (brightness {base:.0f} -> {after:.0f})")
     if errs: problems.append(f"console errors: {errs[:3]}")
     b.close()
 if srv: srv.terminate()
