@@ -397,7 +397,7 @@
     else if(mode==='open'){yaw+=((-.04+it.px*.12*hov)-yaw)*k7;pitch+=((.2+it.py*.06*hov)-pitch)*k7}
     else{yaw+=((BASE+Math.sin(t*.7)*.1)+it.px*.55*hov-yaw)*.12}
     const calm=mode==='read'?0:1,openT=mode==='read'||mode==='drag'||bookOpen?0:hov*.21;open+=(openT-open)*k7;zoom+=((bookOpen?.86:mode==="read"?1.06:1)-zoom)*k7;
-    coverK+=((bookOpen?1:0)-coverK)*Math.min(1,dt*(paused()?60:4.2));hinge.rotation.y=-(open*(1-coverK)+coverK*Math.PI);if(endpaper)endpaper.visible=coverK>.02;g.scale.setScalar(zoom);g.position.x=-.05+coverK*1.057;animateLeaves(dt,paused());shadow.scale.x=1+coverK*.9;
+    coverK+=((bookOpen?1:0)-coverK)*Math.min(1,dt*(paused()?60:4.2));hinge.rotation.y=-(open*(1-coverK)+coverK*Math.PI);if(endpaper)endpaper.visible=coverK>.02;g.scale.setScalar(zoom);g.position.x=-.05+coverK*1.057;animateLeaves(dt,paused());shadow.scale.x=1+coverK*.9;shadow.position.y=-1.78+coverK*.18;shadow.position.x=coverK*.95;
     g.rotation.y=yaw;g.rotation.x=pitch+(mode==='auto'?it.py*.2*hov:0)+Math.sin(t*.9)*.015*calm;g.position.y=Math.sin(t*1.1)*.08*calm+hov*.12*calm+coverK*.18;g.position.z=hov*.3*calm;
     {const yv=lastYaw==null?0:(yaw-lastYaw)/Math.max(dt,.001);lastYaw=yaw;stepRibbon(dt,Math.max(-3,Math.min(3,yv))*.5,t)}shadow.material.opacity=(real?.4:.95)-it.hoverT*.2;key.intensity=dark()?2.3:2.0;rim.intensity=dark()?1.1:.7}}}
 

@@ -21,6 +21,7 @@ try:
         kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"])
         b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
         ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block", reduced_motion="reduce"); pg = ctx.new_page()
+        pg.add_init_script("try{localStorage.setItem('bk-test','1')}catch(e){}")
         errs = []; pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("console", lambda m: errs.append(m.text[:200]) if m.type == "error" else None)
         pg.goto(url + "?rm=" + str(time.time()), wait_until="load")
         pg.wait_for_function('typeof records!=="undefined"&&records.length', timeout=90000)

@@ -23,6 +23,7 @@ with sync_playwright() as p:
     exe = os.environ.get("BK_CHROMIUM")      # CI uses Playwright's own browser; locally set BK_CHROMIUM when it has none
     b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
     pg = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block").new_page()
+    pg.add_init_script("try{localStorage.setItem('bk-test','1')}catch(e){}")
     errs = []; pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("console", lambda m: errs.append(m.text[:200]) if m.type == "error" else None)
     pg.goto(a.url + "?fa=" + str(time.time()), wait_until="load")
     pg.wait_for_function('window.BKHero&&window.BKStage&&typeof records!=="undefined"&&records.length', timeout=120000)

@@ -4,7 +4,7 @@
    • damp(cur,target,lambda,dt): frame-rate independent exponential smoothing (replaces ad-hoc `*.12` per frame)
    • spring(k,c): critically damped spring {v,x,to,step(dt)} for overshoot-free camera and label motion
    • quality: one tier (0 full … 4 minimal) published by the hero's frame-time governor; other scenes listen to 'bk:quality'
-   • perf: window.__bkPerf (development only) exposes live fps / frame ms / tier, also on software GL */
+   • perf: window.__bkPerf (only when localStorage bk-test=1) exposes live fps / frame ms / tier, also on software GL */
 (()=>{
  const clamp01=x=>x<0?0:x>1?1:x;
  const ease={
@@ -42,5 +42,5 @@
  /* A1: how far an element has "arrived" while scrolling (0 = still below the fold, 1 = settled around the middle of the viewport); scenes use it to dolly in as their section approaches, continuing the hero's camera path */
  const arrival=(el,from=1.05,to=.46)=>{if(!el||rm.matches||document.documentElement.classList.contains('effects-paused'))return 1;const r=el.getBoundingClientRect(),c=(r.top+r.height/2)/Math.max(1,innerHeight||800);return ease.smooth((from-c)/(from-to))};
  window.BKMotion={ease,damp,spring,quality,tick,clamp01,arrival};
- window.__bkPerf=perf;
+ try{if(localStorage.getItem('bk-test')==='1')window.__bkPerf=perf}catch{}
 })();
