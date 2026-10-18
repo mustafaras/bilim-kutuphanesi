@@ -73,11 +73,31 @@
   load().then(m=>{if(!m||!canvas.isConnected)return;if(SAFE>=4&&opts.check){failItem(it);return}const made=factory(m,it);if(!made)return;if(SAFE>0)simplify(made.scene,SAFE);it.scene=made.scene;it.camera=made.camera;it.api=made;it.ready=true;it.dirty=true;canvas.classList.add('on');if(opts.onReady)opts.onReady();kick()});
   return it}
 
- /* Atlas scenes are additive light on a dark card; on the light theme's pale card additive lines vanish, so the line/point materials switch to normal blending in the card's ink colour (and back). */
- function atlasTheme(it){const light=root.dataset.theme==='light';it.thm=light;const ink=new THREE.Color((getComputedStyle(it.host).getPropertyValue('--atlas-ink')||'#183745').trim());
+ /* Atlas scenes are additive light on a dark card. On the light theme's pale card that would vanish, so the scene is re-drawn as an ink engraving: line/point materials switch to normal blending in the card's ink colour,
+    every line is drawn three times 1.2 px apart (WebGL lines are one pixel), pale solid parts get an ink outline, points grow. Everything added here lives in it.lightObjs and is hidden again on the dark theme. */
+ function atlasTheme(it){const light=root.dataset.theme==='light';it.thm=light;const ink=new THREE.Color((getComputedStyle(it.host).getPropertyValue('--atlas-ink')||'#183745').trim()).multiplyScalar(.85);
+  if(!it.lightObjs){const add=[],lines=[];
+   it.scene.traverse(o=>{if(o.isLine&&!o.userData.fat)lines.push(o);
+    if(o.isMesh&&!o.userData.fat&&o.material&&!Array.isArray(o.material)&&!o.material.transparent&&(o.material.metalness||0)<.5&&o.material.color&&o.geometry&&o.geometry.attributes&&o.geometry.attributes.position.count<4000){const c=o.material.color,lum=.3*c.r+.59*c.g+.11*c.b;if(lum>.62)add.push(o)}});
+   it.lightObjs=[];
+   if(!it.host.classList.contains('atlas-7'))it.scene.traverse(o=>{const mt=o.isMesh&&o.material&&!Array.isArray(o.material)?o.material:null;if(!mt||!mt.color||(mt.metalness||0)<.5||mt.transparent)return;   // pale gold parts (armillary rings, planet moon) read as deep bronze on the pale card
+    mt.__c1=mt.color.clone();it.lightObjs.push({set visible(v){mt.color.copy(v?mt.__c1.clone().multiplyScalar(.55):mt.__c1)}})});
+   for(const o of add){const ol=new THREE.LineSegments(new THREE.EdgesGeometry(o.geometry,38),new THREE.LineBasicMaterial({color:ink,transparent:true,opacity:.9}));ol.userData.fat=1;o.add(ol);it.lightObjs.push(ol);lines.push(ol);
+    const mt=o.material;mt.__c0=mt.color.clone();it.lightObjs.push({set visible(v){mt.color.copy(v?mt.__c0.clone().multiplyScalar(.8):mt.__c0)}})}
+   for(const o of lines)for(const d of [[.012,.012,0],[-.012,-.012,0]]){const c=new o.constructor(o.geometry,o.material);c.userData.fat=1;c.position.set(...d);c.frustumCulled=false;o.add(c);it.lightObjs.push(c)}}
+  for(const o of it.lightObjs)o.visible=light;
   it.scene.traverse(o=>{const ms=Array.isArray(o.material)?o.material:o.material?[o.material]:[];for(const mt of ms){if(!(mt.isLineBasicMaterial||mt.isPointsMaterial))continue;
-   if(mt.__add===undefined){mt.__add=mt.blending===THREE.AdditiveBlending;mt.__c0=mt.color.clone();mt.__o0=mt.opacity}if(!mt.__add)continue;
-   mt.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;mt.color.copy(light?ink:mt.__c0);mt.opacity=light?Math.min(1,mt.__o0*1.8+.3):mt.__o0;mt.needsUpdate=true}})}
+   if(mt.__add===undefined){mt.__add=mt.blending===THREE.AdditiveBlending;mt.__c0=mt.__c0||mt.color.clone();mt.__o0=mt.opacity;mt.__s0=mt.size}if(!mt.__add&&!mt.isPointsMaterial)continue;
+   if(mt.__add){mt.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;mt.color.copy(light?ink:mt.__c0);mt.opacity=light?Math.min(1,mt.__o0*1.8+.3):mt.__o0}
+   if(mt.isPointsMaterial&&mt.__s0)mt.size=light?mt.__s0*1.6:mt.__s0;mt.needsUpdate=true}})}
+ /* Every atlas object gets the same studio motion (both themes): a floating bob, a slow sway, breathing scale, a lift + zoom under the pointer, and a soft contact shadow that tightens as the object rises. */
+ let _sh=null;const shadowTex=m=>_sh||(_sh=(()=>{const c=document.createElement('canvas');c.width=128;c.height=32;const x=c.getContext('2d'),g=x.createRadialGradient(64,16,0,64,16,64);g.addColorStop(0,'rgba(12,26,36,1)');g.addColorStop(.55,'rgba(12,26,36,.35)');g.addColorStop(1,'rgba(12,26,36,0)');x.save();x.scale(1,.25);x.translate(0,48);x.fillStyle=g;x.fillRect(0,-64,128,128);x.restore();return new m.CanvasTexture(c)})());
+ function enhance(m,made,i){const sc=made.scene,g=sc.children.find(o=>o.type==='Group');if(!g)return;
+  const sh=new m.Mesh(new m.PlaneGeometry(3,.6),new m.MeshBasicMaterial({map:shadowTex(m),transparent:true,depthWrite:false,opacity:0}));sh.position.set(0,-1.95,-.3);sh.renderOrder=-1;sc.add(sh);
+  const up=made.update;let po=0,pz=0;
+  made.update=function(t,dt,it){g.position.y-=po;g.rotation.z-=pz;if(up)up.call(this,t,dt,it);
+   const h=it.hoverT||0;po=Math.sin(t*1.15+i)*.07+h*.1;pz=Math.sin(t*.62+i*1.7)*.035*(1-h);g.position.y+=po;g.rotation.z+=pz;g.scale.setScalar(1+h*.07+Math.sin(t*1.3+i)*.012);
+   const light=root.dataset.theme==='light';sh.material.opacity=(light?.34:.28)*(1-po*1.4);sh.scale.x=1-po*.6+h*.1}}
  function render(it,dt){
   if(window.BKGL&&BKGL.still&&!it.opts.focus)dt=0;   // ?still: frozen animation clock (the open record's book still runs so it can be opened)
   if(glLost||(renderer.getContext&&renderer.getContext().isContextLost()))return;   // keep the last frame on screen while the GPU context is gone
@@ -494,6 +514,7 @@
   return made}});
 
  /* ---------- mounting ---------- */
+ ATLAS.forEach((f,i)=>{ATLAS[i]=(m,it,col)=>{const made=f(m,it,col);if(made&&made.scene)try{enhance(m,made,i)}catch{}return made}});
  function mountAtlas(){
   document.querySelectorAll('.atlas-tile').forEach(tile=>{
    if(tile.querySelector('.tile-3d'))return;const art=tile.querySelector('.subject-art'),i=Number((tile.className.match(/atlas-(\d)/)||[])[1]);if(!art||!ATLAS[i])return;

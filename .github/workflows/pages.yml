@@ -57,6 +57,10 @@ jobs:
             cmd: python tools/feature_audit.py --only b10
           - name: GPU timing, ?perf, warm-up (B11)
             cmd: python tools/feature_audit.py --only b11
+          - name: Visual regression gate (R3)
+            cmd: |
+              python -m pip install --quiet pillow numpy
+              python tools/visual_audit.py
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v6
@@ -77,6 +81,15 @@ jobs:
           python -m playwright install-deps chromium
       - name: ${{ matrix.name }}
         run: ${{ matrix.cmd }}
+      - name: Visual candidates (commit these as tools/golden/*.png to arm the golden comparison)
+        if: always() && startsWith(matrix.name, 'Visual')
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-candidates
+          path: |
+            tools/golden/_out/candidates
+            tools/golden/_diff
+          if-no-files-found: ignore
   deploy:
     needs: [static, browser]
     if: github.event_name != 'pull_request'
