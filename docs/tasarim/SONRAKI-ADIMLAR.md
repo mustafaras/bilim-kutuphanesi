@@ -1,4 +1,6 @@
-# Sonraki adımlar ve yeni oturum devri (v108 sonrası)
+# Sonraki adımlar ve yeni oturum devri (v110 kodu main'de, canlıda v109)
+
+> **Önce `DEVIR-FAZ-4.md` §56'yı oku:** v110 deploy edilemedi, B9 kapısı CI'da kırmızı ve kök nedeni bilinmiyor.
 
 Bu belge, bir sonraki oturumun sıfırdan başlayıp doğru yerden devam etmesi içindir. Önce **§1 Durum**, sonra **§2 Yapılacaklar**, işe başlarken **§6 Başlangıç istemi**. Büyük geliştirmeler için `YOL-HARITASI-3D.md`.
 
