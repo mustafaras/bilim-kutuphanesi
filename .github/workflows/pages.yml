@@ -55,6 +55,8 @@ jobs:
             cmd: python tools/feature_audit.py --only b9
           - name: Quality tiers (B10)
             cmd: python tools/feature_audit.py --only b10
+          - name: GPU timing, ?perf, warm-up (B11)
+            cmd: python tools/feature_audit.py --only b11
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v6

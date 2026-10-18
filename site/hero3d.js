@@ -27,6 +27,7 @@
   sceneEl.insertBefore(canvas,sceneEl.firstChild);
   let renderer;
   try{renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:false,powerPreference:"high-performance"})}catch(e){console.error("hero renderer",e);canvas.remove();return}
+  const PT=window.BKGL?BKGL.perf.track('hero',renderer):null;   // GPU timer for the governor + the ?perf recorder
   const small=innerWidth<760,FOV=42,CAMZ=14,scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(FOV,2,.1,200);
   camera.position.set(0,0,CAMZ);
 
@@ -187,7 +188,12 @@
   let bloomOff=false,composer=null,bloom=null,useBloom=false,grade=null,caSpike=0,well=0,wellT=0,lensS=0;
   /* gravity lens / singularity is opt-in (default off): the toggle lives in the zoom dock and is remembered */
   let lensOn=false;try{lensOn=localStorage.getItem('bk-hero-lens')==='on'}catch{}
-  if(post){try{composer=new post.EffectComposer(renderer);composer.addPass(new post.RenderPass(scene,camera));bloom=new post.UnrealBloomPass(new THREE.Vector2(256,256),.56,.6,.24);composer.addPass(bloom);
+  if(post){try{composer=new post.EffectComposer(renderer);composer.addPass(new post.RenderPass(scene,camera));
+   /* Guard against Inf/NaN before bloom: seen on edge-on / zoomed views, thousands of additive points pile into a few pixels, the half-float target overflows to Inf and the bloom blur turns it into NaN,
+      which blanks the whole galaxy (dark theme only; the dome drawn afterwards survives). Clamp every pixel to a large finite value and zero NaN. */
+   if(post.ShaderPass)composer.addPass(new post.ShaderPass({uniforms:{tDiffuse:{value:null}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader:'uniform sampler2D tDiffuse;varying vec2 vUv;void main(){vec4 c=texture2D(tDiffuse,vUv);if(any(isnan(c)))c=vec4(0.);gl_FragColor=min(c,vec4(48.));}'}));
+   bloom=new post.UnrealBloomPass(new THREE.Vector2(256,256),.56,.6,.24);composer.addPass(bloom);
    if(post.ShaderPass){grade=new post.ShaderPass({uniforms:{tDiffuse:{value:null},uTime:{value:0},uCA:{value:.3},uMouse:{value:new THREE.Vector2(.5,.5)},uLens:{value:0},uAspect:{value:1.6},uBlur:{value:0},uBlurC:{value:new THREE.Vector2(.5,.5)}},
     vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
     fragmentShader:`uniform sampler2D tDiffuse;uniform float uTime,uCA,uLens,uAspect,uBlur;uniform vec2 uMouse,uBlurC;varying vec2 vUv;
@@ -362,7 +368,7 @@
     an.onfinish=()=>g.remove();setTimeout(()=>g.remove(),900);
     setTimeout(()=>{caSpike=Math.max(caSpike,1.4)},470)}catch{}});
   /* test hook: only exposed when localStorage bk-test=1 (the audit tools set it) */
-  if((()=>{try{return localStorage.getItem('bk-test')==='1'}catch{return false}})())window.BKHero={fly:i=>fly(i),count:()=>rec.n,gov:{level:()=>degrade,feed:(avg,now)=>govern(avg,now),lock:()=>recLock,reset:()=>{good=0;recLock=0;lastRec=-1e9;if(degrade!==0)setLevel(0,0);lastChange=-1e9;return degrade}}};/* test hook (tools/motion_audit.py) */
+  if((()=>{try{return localStorage.getItem('bk-test')==='1'}catch{return false}})())window.BKHero={fly:i=>fly(i),count:()=>rec.n,gov:{level:()=>degrade,feed:(avg,now,gpu)=>govern(avg,now,gpu),lock:()=>recLock,reset:()=>{good=0;recLock=0;lastRec=-1e9;if(degrade!==0)setLevel(0,0);lastChange=-1e9;return degrade}}};/* test hook (tools/motion_audit.py) */
   const rvEl=document.getElementById('recordView');if(rvEl&&typeof MutationObserver==='function')new MutationObserver(()=>{if(rvEl.hidden)zoomReset()}).observe(rvEl,{attributes:true,attributeFilter:['hidden']});
   hero.addEventListener('pointerleave',()=>{mouse.in=false;uniforms.uMouseOn.value=0;setHover(-1)});
 
@@ -402,17 +408,19 @@
    if(!running)return;requestAnimationFrame(frame);
    const dt=Math.min(.05,(now-tPrev)/1000||0);tPrev=now;
    if(!visible||document.hidden||paused()||reduced.matches)return;
-   update(dt);draw();if(MO)MO.tick(dt*1000);
+   if(PT)PT.begin();update(dt);draw();if(MO)MO.tick(dt*1000);if(PT)PT.end();
    /* quality governor (see govern): one measurement window = 90 frames or 1.4 s */
-   if(++frames>=90||(frames>=4&&performance.now()-gStart>1400)){const avg=acc/frames,now=performance.now();gStart=now;frames=0;acc=0;govern(avg,now)}else acc+=dt}
+   if(++frames>=90||(frames>=4&&performance.now()-gStart>1400)){const avg=acc/frames,now=performance.now(),gp=PT&&PT.timer?PT.timer.take():null;gStart=now;frames=0;acc=0;govern(avg,now,gp&&gp.n>=8?gp.ms/1000:undefined)}else acc+=dt}
   /* Quality governor with hysteresis. Slow windows step DOWN at once (bloom -> resolution -> fewer stars -> fewer still).
      Fast windows step back UP one level at a time, only after 4 consecutive fast windows and 20 s since the last change;
      a recovery that is undone within 15 s locks recovery for 2 minutes, so a borderline GPU never flip-flops. */
   const QPX=[1.6,1.6,1,.7,.55],QKEEP=[1,1,1,.55,.3];let lastChange=-1e9,lastRec=-1e9,recLock=0,good=0;
   function setLevel(l,now){degrade=l;bloomOff=l>=1;quality=QPX[l];dust.geometry.setDrawRange(0,Math.floor(GN*QKEEP[l]));lanes.geometry.setDrawRange(0,Math.floor(LN*QKEEP[l]));lastChange=now;if(MO)MO.quality.set(l);syncBloom();layout()}
-  function govern(avg,now){
-   if(degrade<4&&avg>(degrade<2?.026:.04)){good=0;if(now-lastRec<15000)recLock=now+120000;setLevel(degrade+1,now);return degrade}
-   if(degrade>0&&avg<.0115&&now>recLock&&now-lastChange>20000){if(++good>=4){good=0;lastRec=now;setLevel(degrade-1,now)}}else good=0;
+  /* GPU ms first (EXT_disjoint_timer_query_webgl2: the real cost of the frame, vsync and CPU noise excluded), rAF time only where the GPU has no timer.
+     GPU thresholds: slow above 13 ms (20 ms from level 2), fast below 5 ms; rAF thresholds as before. */
+  function govern(avg,now,gpu){const G=gpu!=null,v=G?gpu:avg;
+   if(degrade<4&&v>(G?(degrade<2?.013:.02):(degrade<2?.026:.04))){good=0;if(now-lastRec<15000)recLock=now+120000;setLevel(degrade+1,now);return degrade}
+   if(degrade>0&&v<(G?.005:.0115)&&now>recLock&&now-lastChange>20000){if(++good>=4){good=0;lastRec=now;setLevel(degrade-1,now)}}else good=0;
    return degrade}
   function still(){introDone=true;time=3.6;scrollS=scrollP;update(0.001);draw()}
 
@@ -434,6 +442,7 @@
    onLost(){running=false;sceneEl.classList.remove('hero-gl');canvas.classList.remove('on');heroUi.forEach(n=>{n.style.display='none'})},
    onRestore(){heroUi.forEach(n=>{n.style.display=''});sceneEl.classList.add('hero-gl');canvas.classList.add('on');running=true;layout();
     if(reduced.matches||paused())still();requestAnimationFrame(t=>{tPrev=t;requestAnimationFrame(frame)})}});
-  if(window.BKGL){BKGL.probe(renderer);BKGL.report('hero',()=>({degrade,running,pr:+pr.toFixed(2)}))}
+  if(window.BKGL){BKGL.probe(renderer);BKGL.report('hero',()=>({degrade,running,pr:+pr.toFixed(2),gov:PT&&PT.timer&&PT.timer.n>=8?'gpu':'raf'}));
+   BKGL.warm('hero',renderer,()=>[[scene,camera],()=>dome?[dome.sc,dome.cam]:null],{now:true})}   // start the shader compile before the first frame needs it
  }
 })();

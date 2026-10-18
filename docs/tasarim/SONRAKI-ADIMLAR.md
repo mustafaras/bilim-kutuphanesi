@@ -16,7 +16,7 @@ Bu belge, bir sonraki oturumun sıfırdan başlayıp doğru yerden devam etmesi 
 - Seviye ≥ 1 ise: `?diag` satırının ekran görüntüsü + F12 konsolundaki kırmızı hatalar + `chrome://gpu` istenir. Bununla kesin sebep bulunup sadeleşmeye gerek bırakmayacak şekilde düzeltilir (ör. belirli bir malzeme özelliği, doku birimi sayısı, ANGLE/D3D derleme sınırı).
 
 ### 2.1b Premium three.js geliştirmeleri → `YOL-HARITASI-3D.md`
-Büyük geliştirmeler **aşama aşama** (R1–R13) ayrı belgede: her aşama ayrı oturum + ayrı PR, sayısal kabul ölçütü, kapanabilir (flag), kalite katmanlı. İlk üç aşama altyapıdır (ortak GL katmanı, gerçek GPU zamanlaması + `?perf`, deterministik görsel regresyon kapısı) ve görsel işlerden önce yapılmalıdır. Durum tablosu o belgenin §0'ındadır; R1 (BKGL) v108'de tamamlandı ve deploy edildi; bir sonraki oturum **R2** (GPU zamanlaması, `?perf`) ile başlar.
+Büyük geliştirmeler **aşama aşama** (R1–R13) ayrı belgede: her aşama ayrı oturum + ayrı PR, sayısal kabul ölçütü, kapanabilir (flag), kalite katmanlı. İlk üç aşama altyapıdır (ortak GL katmanı, gerçek GPU zamanlaması + `?perf`, deterministik görsel regresyon kapısı) ve görsel işlerden önce yapılmalıdır. Durum tablosu o belgenin §0'ındadır; R1 (BKGL) v108'de tamamlandı ve deploy edildi; R2 (GPU zamanlaması, `?perf`, ısıtma) v109'da kodlandı; gerçek GPU çıktısı bekleniyor (DEVIR §54). Bir sonraki oturum **R3** (görsel regresyon kapısı).
 
 ### 2.2 Düşük öncelikli açıklar
 - **Orta sırt dikişi:** sayfa tam yatıkken temiz, yalnız ince açık bir dikiş çizgisi var. Yazılımsal GL'de sayfa yerleşirken (p≈0.99) görülen kesik çizgiler gerçek GPU'da beklenmez. Gerçek GPU görüntüsü gelmeden dokunma.
