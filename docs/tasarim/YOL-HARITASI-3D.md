@@ -1,4 +1,4 @@
-# Premium three.js yol haritası (v107 sonrası) — aşama aşama
+# Premium three.js yol haritası (v107 sonrası; R1 v108'de) — aşama aşama
 
 **Kural:** her aşama **ayrı bir oturum** ve ayrı bir PR'dır; bir aşama bitmeden sonrakine geçilmez. Her aşamanın sonunda bu belgedeki **§0 durum tablosu** ve `DEVIR-FAZ-4.md` güncellenir. Aşamalar sıralıdır: ilk üçü (R1–R3) altyapıdır ve görsel işlerden önce yapılmalıdır, çünkü sonraki her görsel değişiklik onların ölçüm ve güvenlik ağına dayanır.
 
@@ -11,7 +11,7 @@ Ortak sınırlar (her aşama için geçerli):
 ## 0. Durum tablosu
 | Aşama | Ad | Durum | PR / sürüm |
 |---|---|---|---|
-| R1 | Ortak GL katmanı (`BKGL`) | bekliyor | — |
+| R1 | Ortak GL katmanı (`BKGL`) | **kodlandı, CI/deploy bekliyor; gerçek GPU doğrulaması kullanıcıda** | v108 (PR numarası merge sonrası) |
 | R2 | Gerçek GPU zamanlaması + `?perf` + derleme ısıtma | bekliyor | — |
 | R3 | Deterministik görsel regresyon kapısı | bekliyor | — |
 | R4 | Ortak malzeme ve ışık kitaplığı (`BKMaterials`, tek PMREM) | bekliyor | — |

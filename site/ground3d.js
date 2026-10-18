@@ -77,7 +77,7 @@
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)kick()});
   new MutationObserver(()=>{frame.done=false;kick()}).observe(root,{attributes:true,attributeFilter:['data-theme','class']});
   /* GPU context loss: three re-initialises itself on restore but nothing repaints a static frame, so ask for one. */
-  canvas.addEventListener('webglcontextrestored',()=>{resize();frame.done=false;kick()});
+  window.BKGL&&BKGL.watch(canvas,{name:'ground',onRestore(){resize();frame.done=false;kick()}});
   canvas.classList.add('on');kick();
  }
  const idle=f=>window.requestIdleCallback?requestIdleCallback(f,{timeout:1200}):setTimeout(f,200);

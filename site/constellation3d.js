@@ -261,7 +261,7 @@
    const io=typeof IntersectionObserver==='function'?new IntersectionObserver(es=>{visible=es[0].isIntersecting;if(visible)kick()},{threshold:0}):null;if(io)io.observe(box);
    const onVis=()=>{if(!document.hidden)kick()};document.addEventListener('visibilitychange',onVis);
    /* GPU context loss: three re-initialises itself on restore but nothing repaints a static frame, so ask for one. */
-   canvas.addEventListener('webglcontextrestored',kick);
+   window.BKGL&&BKGL.watch(canvas,{name:'constellation',onRestore:kick});
 
    /* interaction */
    const down=e=>{if(e.target.closest&&e.target.closest('.rv-node'))return;drag={x:e.clientX,y:e.clientY};idle=false;vyaw=vpitch=0;try{box.setPointerCapture(e.pointerId)}catch{}box.classList.add('dragging')};

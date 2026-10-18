@@ -1,4 +1,4 @@
-# Sonraki adımlar ve yeni oturum devri (v107 sonrası)
+# Sonraki adımlar ve yeni oturum devri (v108 sonrası)
 
 Bu belge, bir sonraki oturumun sıfırdan başlayıp doğru yerden devam etmesi içindir. Önce **§1 Durum**, sonra **§2 Yapılacaklar**, işe başlarken **§6 Başlangıç istemi**. Büyük geliştirmeler için `YOL-HARITASI-3D.md`.
 
@@ -16,7 +16,7 @@ Bu belge, bir sonraki oturumun sıfırdan başlayıp doğru yerden devam etmesi 
 - Seviye ≥ 1 ise: `?diag` satırının ekran görüntüsü + F12 konsolundaki kırmızı hatalar + `chrome://gpu` istenir. Bununla kesin sebep bulunup sadeleşmeye gerek bırakmayacak şekilde düzeltilir (ör. belirli bir malzeme özelliği, doku birimi sayısı, ANGLE/D3D derleme sınırı).
 
 ### 2.1b Premium three.js geliştirmeleri → `YOL-HARITASI-3D.md`
-Büyük geliştirmeler **aşama aşama** (R1–R13) ayrı belgede: her aşama ayrı oturum + ayrı PR, sayısal kabul ölçütü, kapanabilir (flag), kalite katmanlı. İlk üç aşama altyapıdır (ortak GL katmanı, gerçek GPU zamanlaması + `?perf`, deterministik görsel regresyon kapısı) ve görsel işlerden önce yapılmalıdır. Durum tablosu o belgenin §0'ındadır; bir sonraki oturum **R1** ile başlar.
+Büyük geliştirmeler **aşama aşama** (R1–R13) ayrı belgede: her aşama ayrı oturum + ayrı PR, sayısal kabul ölçütü, kapanabilir (flag), kalite katmanlı. İlk üç aşama altyapıdır (ortak GL katmanı, gerçek GPU zamanlaması + `?perf`, deterministik görsel regresyon kapısı) ve görsel işlerden önce yapılmalıdır. Durum tablosu o belgenin §0'ındadır; R1 (BKGL) v108'de kodlandı; bir sonraki oturum **R2** (GPU zamanlaması, `?perf`) ile başlar.
 
 ### 2.2 Düşük öncelikli açıklar
 - **Orta sırt dikişi:** sayfa tam yatıkken temiz, yalnız ince açık bir dikiş çizgisi var. Yazılımsal GL'de sayfa yerleşirken (p≈0.99) görülen kesik çizgiler gerçek GPU'da beklenmez. Gerçek GPU görüntüsü gelmeden dokunma.
@@ -62,7 +62,7 @@ Test kancaları için audit araçları `localStorage bk-test=1` ekler.
 
 ## 6. Yeni oturum için başlangıç istemi (kopyala-yapıştır)
 ```
-Bilim Kütüphanem (mustafaras/bilim-kutuphanesi, GitHub Pages, vanilla JS/CSS + three.js r160) üzerinde çalışıyoruz; canlı sürüm v107.
+Bilim Kütüphanem (mustafaras/bilim-kutuphanesi, GitHub Pages, vanilla JS/CSS + three.js r160) üzerinde çalışıyoruz; canlı sürüm v107 (R1 merge+deploy sonrası v108).
 Önce docs/tasarim/SONRAKI-ADIMLAR.md, docs/tasarim/YOL-HARITASI-3D.md ve docs/tasarim/DEVIR-FAZ-4.md (§46–§51) dosyalarını oku.
 Dal: claude/magical-hawking-kufhmz. Her adım: değişiklik → yerel kapılar → commit → push → PR → PR koşusu yeşilse squash merge → main deploy adımı yeşil → dürüst rapor. Canlı siteyi bu ortamdan göremeyeceğini, yazılımsal GL'in hareketi/gerçek GPU'yu göstermediğini unutma.
 Şimdi: <buraya yapılacak işi yaz — örn. "?diag çıktısı şu: ... buna göre raf kitaplarının kesin sebebini bul ve düzelt">.

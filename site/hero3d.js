@@ -430,8 +430,10 @@
   document.addEventListener('library:ready',buildRecords);document.addEventListener('library:language',buildLabels);
   /* While the GPU context is gone the 3D hero steps aside for the 2D fallback; when the context comes back it returns (nothing is torn down, so it can). */
   const heroUi=[labelBox,tip,zoomBox,hint,canvas];
-  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();running=false;sceneEl.classList.remove('hero-gl');canvas.classList.remove('on');heroUi.forEach(n=>{n.style.display='none'})});
-  canvas.addEventListener('webglcontextrestored',()=>{heroUi.forEach(n=>{n.style.display=''});sceneEl.classList.add('hero-gl');canvas.classList.add('on');running=true;layout();
-   if(reduced.matches||paused())still();requestAnimationFrame(t=>{tPrev=t;requestAnimationFrame(frame)})});
+  window.BKGL&&BKGL.watch(canvas,{name:'hero',
+   onLost(){running=false;sceneEl.classList.remove('hero-gl');canvas.classList.remove('on');heroUi.forEach(n=>{n.style.display='none'})},
+   onRestore(){heroUi.forEach(n=>{n.style.display=''});sceneEl.classList.add('hero-gl');canvas.classList.add('on');running=true;layout();
+    if(reduced.matches||paused())still();requestAnimationFrame(t=>{tPrev=t;requestAnimationFrame(frame)})}});
+  if(window.BKGL){BKGL.probe(renderer);BKGL.report('hero',()=>({degrade,running,pr:+pr.toFixed(2)}))}
  }
 })();

@@ -108,7 +108,7 @@ window.NobelSkyline=(()=>{
   function size(){const w=canvas.clientWidth||800,h=canvas.clientHeight||460,dpr=Math.max(.6,Math.min(devicePixelRatio||1,1.5)*([1,1,.85,.7,.55][window.BKMotion?BKMotion.quality.level:0]||1));renderer.setPixelRatio(dpr);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
   const wake=()=>{if(!raf&&visible)raf=requestAnimationFrame(frame)};document.addEventListener('bk:quality',()=>{size();wake()});
   /* GPU context loss: the baked studio map is a render target whose pixels are gone; bake it again and repaint. */
-  canvas.addEventListener('webglcontextrestored',()=>{try{env=bakeEnv();if(env)scene.environment=env}catch{}size();wake()});
+  window.BKGL&&BKGL.watch(canvas,{name:'skyline',onRestore(){try{env=bakeEnv();if(env)scene.environment=env}catch{}size();wake()}});
   function syncSel(){const y=typeof nobelYear!=='undefined'&&nobelYear?Number(nobelYear):-1,i=y>0?y-Y0:-1;if(i!==selYear){selYear=i;colorsDirty.v=true;if(i>=0){txT=X0+i*DX}beam.visible=i>=0;updateCompare();if(i>=0){slider.value=Y0+i;paintSlider();const e=idx.get(String(Y0+i));if(e)srTab.innerHTML=`<caption>${Y0+i}</caption>`+e.cats.map((n,k)=>n?`<tr><th>${esc(catName(k))}</th><td>${n}</td></tr>`:'').join('')}}}
   /* tooltip */
   function showTip(i,c){if(i<0){tip.hidden=true;return}const e=idx.get(String(Y0+i));if(!e){tip.hidden=true;return}
