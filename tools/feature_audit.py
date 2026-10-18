@@ -5,19 +5,73 @@
 A1 atlas objects dolly in as their tile arrives (camera z shrinks, opacity rises while scrolling down to the tiles);
 A2 a record opened from a hero star spawns a return ghost when it closes (and none when opened elsewhere);
 A3 the quality governor degrades at once, recovers one level at a time only after sustained fast windows, and locks recovery after a flip-flop;
-B5 the 3D book opens into a centred reading stage, pages turn and Escape closes it; B6 the medal uses a normal-map relief with a reeded rim; B7 the dome/telescope follows the pointer.
+B8 context loss, B9 broken GPU, B10 quality tiers reach the stage (DPR cap, idle frame rate) and one ?diag panel; B5 the 3D book opens into a centred reading stage, pages turn and Escape closes it; B6 the medal uses a normal-map relief with a reeded rim; B7 the dome/telescope follows the pointer.
 A4 clicking an atlas tile shows the dive (class .diving), delays the filter ~420 ms, then applies it exactly once."""
 import json, argparse, os, socket, subprocess, sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
-ap = argparse.ArgumentParser(); ap.add_argument("--url"); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["b10"], help="run a single section"); a = ap.parse_args()
 srv = None
 if not a.url:
     s_ = socket.socket(); s_.bind(("127.0.0.1", 0)); port = s_.getsockname()[1]; s_.close()
     srv = subprocess.Popen([sys.executable, "-m", "http.server", str(port), "--directory", str(ROOT / "site")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     a.url = f"http://127.0.0.1:{port}/"; time.sleep(1)
 problems = []; note = lambda m: print(m, flush=True)
+
+def b10(b):
+    """B10 quality tiers reach the 3D stage: DPR cap 1.5 -> 1.0 from level 2, idle tiles 30 -> 15 fps at level 3, only the hovered tile alive at level 4,
+    switchable through BKGL.flags, and ?diag shows a single panel for every scene. Rates are render/frame ratios (software GL is slow but the ratio is not)."""
+    ctx = b.new_context(viewport={"width": 1440, "height": 900}, device_scale_factor=2, service_workers="block"); q = ctx.new_page()
+    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
+    q.goto(a.url + "?diag&b10=" + str(time.time()), wait_until="load")
+    q.wait_for_function('window.BKStage&&window.BKMotion&&typeof records!=="undefined"&&records.length', timeout=120000)
+    q.wait_for_function("document.querySelectorAll('.tile-3d.on').length>=6", timeout=120000)
+    q.evaluate("document.getElementById('collectionGrid').scrollIntoView({block:'start'})"); q.wait_for_timeout(2500)
+    try: q.wait_for_function("(()=>{const p=document.querySelector('pre[data-bkgl-diag]');return !!p&&['hero','stage','ground','skyline'].every(n=>p.textContent.includes('\\n'+n+' '))})()", timeout=30000)
+    except Exception: pass
+    panels = q.evaluate("[...document.querySelectorAll('pre')].filter(e=>getComputedStyle(e).position==='fixed'&&e.style.zIndex==='9999').map(e=>e.textContent)")
+    scenes = q.evaluate("window.BKGL?Object.keys(BKGL.diag().scenes):[]")
+    note(f"B10 ?diag panels {len(panels)}, scenes {scenes}")
+    if len(panels) != 1: problems.append(f"B10 ?diag must show exactly one panel (found {len(panels)})")
+    elif not all(f"\n{n} " in panels[0] for n in ("hero", "stage", "ground", "skyline")): problems.append(f"B10 ?diag panel lacks hero/stage/ground/skyline lines: {panels[0][:600]!r}")
+    q.evaluate("window.__setQ=BKMotion.quality.set;BKMotion.quality.set=()=>{}")   # pin the tier: the hero's frame-time governor would otherwise move it while we measure
+    def measure(level, ms=4000, hover=False):
+        q.evaluate(f"__setQ({level})"); q.wait_for_timeout(2500)
+        if hover:
+            r = q.evaluate("(()=>{const c=[...document.querySelectorAll('.tile-3d.on')].find(c=>{const r=c.getBoundingClientRect();return r.top>0&&r.bottom<innerHeight});const r=c.getBoundingClientRect();return[r.left+r.width/2,r.top+r.height/2]})()")
+            q.mouse.move(r[0], r[1]); q.wait_for_timeout(800)
+        else: q.mouse.move(2, 2); q.wait_for_timeout(1200)
+        d0 = q.evaluate("BKStage.diag()"); q.wait_for_timeout(ms); d1 = q.evaluate("BKStage.diag()")
+        s0, s1 = d0["stats"], d1["stats"]
+        ratio = q.evaluate("(()=>{const cs=[...document.querySelectorAll('.tile-3d.on')].filter(c=>{const r=c.getBoundingClientRect();return r.bottom>0&&r.top<innerHeight});return cs.length?cs.reduce((a,c)=>a+c.width/c.clientWidth,0)/cs.length:0})()")
+        idle_f = s1["idleFrames"] - s0["idleFrames"]; idle_r = s1["idleRenders"] - s0["idleRenders"]
+        return dict(level=q.evaluate("BKMotion.quality.level"), ql=d1["ql"], dpr=round(ratio, 2), idleFrames=idle_f, idleRate=round(idle_r / idle_f, 2) if idle_f else 0.0, idleRenders=idle_r, hoverRenders=s1["hoverRenders"] - s0["hoverRenders"])
+    try:
+        m0 = measure(0); m2 = measure(2); m3 = measure(3); m4 = measure(4); m4h = measure(4, ms=3000, hover=True)
+        BKGL_off = q.evaluate("BKGL.flags.set('stagequality',false)")
+        mf = measure(3); q.evaluate("BKGL.flags.set('stagequality',true)")
+    except Exception as e:
+        problems.append(f"B10 measurement failed: {str(e)[:200]}"); ctx.close(); return
+    for k, m in (("L0", m0), ("L2", m2), ("L3", m3), ("L4", m4), ("L4+hover", m4h), ("L3 flag off", mf)): note(f"B10 {k}: {m}")
+    if m0["level"] != 0 or m3["level"] != 3: problems.append("B10 quality level did not hold (the hero governor changed it during the measurement)")
+    if not (m0["dpr"] >= 1.4): problems.append(f"B10 level 0 should render tiles at DPR 1.5 (got {m0['dpr']})")
+    if not (m2["dpr"] <= 1.05 and m3["dpr"] <= 1.05): problems.append(f"B10 level >= 2 must cap tile DPR at 1.0 (L2 {m2['dpr']}, L3 {m3['dpr']})")
+    if m0["idleFrames"] < 8 or not (.4 <= m0["idleRate"] <= .6): problems.append(f"B10 level 0 idle tiles should render every 2nd frame (rate {m0['idleRate']} over {m0['idleFrames']} frames)")
+    if m3["idleFrames"] < 8 or not (m3["idleRate"] <= .3 and m3["idleRate"] < m0["idleRate"] * .65): problems.append(f"B10 level 3 idle tiles should render every 4th frame (rate {m3['idleRate']} vs L0 {m0['idleRate']})")
+    if m4["idleRenders"] > 0: problems.append(f"B10 level 4 must freeze idle tiles ({m4['idleRenders']} idle renders)")
+    if m4h["hoverRenders"] < 2 or m4h["idleRenders"] > 0: problems.append(f"B10 level 4 must keep only the hovered tile live (hover renders {m4h['hoverRenders']}, idle renders {m4h['idleRenders']})")
+    if not (mf["dpr"] >= 1.4 and .4 <= mf["idleRate"] <= .6): problems.append(f"B10 BKGL.flags stagequality=off must restore the full-quality stage (dpr {mf['dpr']}, rate {mf['idleRate']})")
+    q.evaluate("__setQ(0)"); ctx.close()
+
+if a.only == "b10":
+    with sync_playwright() as p:
+        kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]); exe = os.environ.get("BK_CHROMIUM")
+        b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
+        b10(b); b.close()
+    if srv: srv.terminate()
+    print("FAIL" if problems else "OK: B10", *problems, sep="\n - " if problems else "")
+    sys.exit(1 if problems else 0)
 with sync_playwright() as p:
     kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"])
     exe = os.environ.get("BK_CHROMIUM")      # CI uses Playwright's own browser; locally set BK_CHROMIUM when it has none
@@ -153,6 +207,13 @@ with sync_playwright() as p:
     if not hero_back: problems.append("B8 the 3D hero did not return after a GPU context loss")
     note(f"B8 shelf brightness before context loss {base:.0f}, after restore {after:.0f}")
     if not base or after < base * .9: problems.append(f"B8 shelf books did not recover from a GPU context loss (brightness {base:.0f} -> {after:.0f})")
+    gls = pg.evaluate("window.BKGL?BKGL.diag().scenes:null"); note(f"B8 BKGL scenes after restore: {gls}")
+    if not gls: problems.append("B8 BKGL.diag() is missing")
+    else:
+        for n in ("hero", "stage"):
+            sc = gls.get(n)
+            if not sc or sc["losses"] < 1 or sc["restores"] < 1 or sc["lost"]: problems.append(f"B8 BKGL did not track the context loss of '{n}': {sc}")
+        if any(v["lost"] for v in gls.values()): problems.append(f"B8 a scene is still marked lost after restore: {[k for k, v in gls.items() if v['lost']]}")
     # ---- B9 broken GPU: the shelf must never show a broken book. Inject a shader fault (fragment shaders containing the given text get a syntax error appended)
     # and require that the stage steps down until the books paint again (level 2 with no PBR) or, when nothing compiles, falls back to the CSS covers.
     def faulty(pats, done):
@@ -173,6 +234,7 @@ with sync_playwright() as p:
     f_all = faulty(["gl_FragColor", "pc_fragColor"], lambda o: o["lvl"] == 4 and o["cards"] == 0); note(f"B9 nothing compiles -> {f_all}")
     if f_all["lvl"] != 4 or f_all["cards"] != 0: problems.append(f"B9 stage did not fall back to the CSS covers when nothing compiles: {f_all}")
     if errs: problems.append(f"console errors: {errs[:3]}")
+    b10(b)
     b.close()
 if srv: srv.terminate()
 print("FAIL" if problems else "OK: Package A features behave as specified", *problems, sep="\n - " if problems else "")

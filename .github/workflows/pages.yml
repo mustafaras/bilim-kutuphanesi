@@ -33,6 +33,7 @@ jobs:
           node --check site/palette.js
           node --check site/discovery.js
           node --check site/nobel3d.js
+          node --check site/gl.js
           node --check site/motion.js
           node --check site/empty3d.js
           node --check site/textfit.js
@@ -45,6 +46,8 @@ jobs:
           node --check site/skyline3d.js
           node tools/check_app.cjs
           node tools/check_app.cjs --missing-art
+      - name: Shared GL layer (no direct context listeners, one watch per renderer)
+        run: python tools/gl_audit.py
       - name: UI audit (overflow, console errors, contrast)
         timeout-minutes: 12
         run: |

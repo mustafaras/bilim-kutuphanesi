@@ -46,16 +46,14 @@
   try{console.warn('[stage] rendering looked broken ('+why+'), stepping down to level '+SAFE)}catch{}applySafe()}
  function selfCheck(it){if(!it.opts.check||it.failed||it.checked)return;it.rn=(it.rn||0)+1;if(it.rn<(paused()?2:70))return;
   if(looksBroken(it))escalate('cover '+(it.stat&&it.stat.cover)+' lum '+(it.stat&&it.stat.lum));else it.checked=true}
- if(/[?&]diag\b/.test(location.search)){const el=document.createElement('pre');el.style.cssText='position:fixed;left:8px;bottom:8px;z-index:9999;margin:0;padding:6px 8px;font:11px/1.35 monospace;color:#cfe;background:rgba(0,0,0,.72);border-radius:6px;max-width:92vw;white-space:pre-wrap;pointer-events:none';
-  document.body.appendChild(el);setInterval(()=>{el.textContent='BK stage level '+SAFE+' · shader errors '+DIAG.shaderErrors+' · lost '+glLost+' · '+DIAG.gpu+' · units '+DIAG.maxTex+'\n'+items.filter(i=>i.opts.check).map(i=>i.failed?'failed':i.stat?('cover '+i.stat.cover+' lum '+i.stat.lum):'-').join(' | ')+(DIAG.escalations.length?'\n'+DIAG.escalations.join(' ; '):'')},1000)}
+ if(window.BKGL)BKGL.report('stage',()=>'level '+SAFE+' · shader errors '+DIAG.shaderErrors+' · tiers dpr<='+dprCap()+' idle 1/'+idleDiv()+(qLive()?'':' (flag off)')+'\n  books '+items.filter(i=>i.opts.check).map(i=>i.failed?'failed':i.stat?('cover '+i.stat.cover+' lum '+i.stat.lum):'-').join(' | ')+(DIAG.escalations.length?'\n  '+DIAG.escalations.join(' ; '):''));
  /* GPU context loss (memory pressure, driver reset, sleep/wake): three re-initialises itself on restore, but the baked PMREM studio map is a render target whose
     pixels are gone, so every lit material goes dark (only foil and ribbon stay visible). Keep the last frame while lost, rebuild the map and repaint on restore. */
  let glLost=false;
  function watchContext(){const rc=renderer.domElement;
   renderer.debug.onShaderError=(gl,prog,vs,fs)=>{DIAG.shaderErrors++;if(DIAG.shaderErrors===1)try{console.warn('[stage] shader error, falling back to simpler materials')}catch{}if(SAFE===0)escalate('shader error')};   // later levels are judged by the pixel check only: errors of the level just left arrive late and must not skip levels
   try{const g=renderer.getContext(),dbg=g.getExtension('WEBGL_debug_renderer_info');DIAG.gpu=dbg?g.getParameter(dbg.UNMASKED_RENDERER_WEBGL):g.getParameter(g.RENDERER);DIAG.maxTex=g.getParameter(g.MAX_TEXTURE_IMAGE_UNITS);DIAG.maxSize=g.getParameter(g.MAX_TEXTURE_SIZE);DIAG.webgl2=!!(g instanceof self.WebGL2RenderingContext)}catch{}
-  rc.addEventListener('webglcontextlost',e=>{e.preventDefault();glLost=true});
-  rc.addEventListener('webglcontextrestored',()=>{glLost=false;try{rebuildEnv()}catch{}for(const i of items)i.dirty=true;kick()})}
+  if(window.BKGL){BKGL.probe(renderer);BKGL.watch(rc,{name:'stage',onLost(){glLost=true},onRestore(){glLost=false;try{rebuildEnv()}catch{}for(const i of items)i.dirty=true;kick()}})}}
  function rebuildEnv(){const old=ENV;if(!old||!THREE)return;ENV=null;const fresh=studioEnv(THREE);if(!fresh){ENV=old;return}
   const swap=sc=>{if(!sc)return;if(sc.environment===old)sc.environment=fresh;sc.traverse(o=>{const ms=Array.isArray(o.material)?o.material:o.material?[o.material]:[];ms.forEach(mt=>{if(mt.envMap===old){mt.envMap=fresh;mt.needsUpdate=true}})})};
   for(const i of items)swap(i.scene);try{sceneCache.forEach(x=>swap(x.scene))}catch{}}
@@ -77,7 +75,7 @@
 
  function render(it,dt){
   if(glLost||(renderer.getContext&&renderer.getContext().isContextLost()))return;   // keep the last frame on screen while the GPU context is gone
-  const c=it.canvas,dpr=Math.min(devicePixelRatio||1,1.5),w=Math.max(2,Math.round(c.clientWidth*dpr)),h=Math.max(2,Math.round(c.clientHeight*dpr));
+  const c=it.canvas,dpr=Math.min(devicePixelRatio||1,dprCap()),w=Math.max(2,Math.round(c.clientWidth*dpr)),h=Math.max(2,Math.round(c.clientHeight*dpr));
   if(c.width!==w||c.height!==h){c.width=w;c.height=h}
   const rc=renderer.domElement;if(rc.width<w||rc.height<h)renderer.setSize(Math.max(rc.width,w),Math.max(rc.height,h),false);
   it.hoverT+=(it.hover-it.hoverT)*Math.min(1,dt*7);it.t+=dt*(1+it.hoverT*1.6);
@@ -93,14 +91,21 @@
   sc.traverse(o=>{if(o.geometry)o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:o.material?[o.material]:[];
    ms.forEach(mt=>{for(const k in mt){const v=mt[k];if(v&&v.isTexture&&v!==env)v.dispose()}mt.dispose()})});
   it.scene=null;it.api=null;it.ready=false}
+ /* Quality tiers (BKMotion.quality, published by the hero governor; switch off with BKGL.flags stagequality=0): level >= 2 caps the tile DPR at 1.0 (was 1.5),
+    >= 3 idle tiles draw every 4th frame (15 fps, was 30), 4 only the hovered / dragged tile (and the open record's book, opts.focus) stays live and the rest repaint when something changes. */
+ const qLive=()=>!window.BKGL||BKGL.flags.get('stagequality'),ql=()=>qLive()&&window.BKMotion?BKMotion.quality.level:0;
+ const dprCap=()=>ql()>=2?1:1.5,idleDiv=()=>ql()>=3?4:2,STATS={idleFrames:0,idleRenders:0,hoverRenders:0};
+ document.addEventListener('bk:quality',()=>{for(const i of items)i.dirty=true;kick()});document.addEventListener('bk:flag',()=>{for(const i of items)i.dirty=true;kick()});
  function tick(now){
   raf=0;const dt=Math.min(.05,(now-last)/1000||0);last=now;
   {const gone=items.filter(i=>!i.canvas.isConnected);if(gone.length){gone.forEach(disposeItem);items=items.filter(i=>i.canvas.isConnected)}}let again=false;
   if(!document.hidden&&renderer){const still=paused();
    for(const it of items){if(!it.ready||!it.visible)continue;
     if(still){if(it.dirty){render(it,dt);}continue}
-    again=true;it.frame++;if(it.hoverT<.05&&!it.drag&&it.frame%2)continue;   // idle tiles at 30fps, hovered at full rate
-    render(it,dt*(it.hoverT<.05?2:1))}}
+    const live=it.hoverT>=.05||it.hover||it.drag||it.opts.focus;
+    if(ql()>=4&&!live){if(it.dirty){STATS.idleRenders++;render(it,dt)}continue}      // frozen tier: repaint only when something changed
+    again=true;it.frame++;const D=idleDiv();if(!live){STATS.idleFrames++;if(it.frame%D)continue;STATS.idleRenders++}else STATS.hoverRenders++;   // idle tiles at 30 / 15 fps, hovered at full rate
+    render(it,dt*(live?1:D))}}
   if(again||items.some(i=>i.ready&&i.visible&&i.dirty))raf=requestAnimationFrame(tick)}
  function kick(){if(!raf)raf=requestAnimationFrame(tick)}
  if(typeof MutationObserver==='function')new MutationObserver(()=>{for(const i of items)i.dirty=true;kick()}).observe(root,{attributes:true,attributeFilter:['class','data-theme']});
@@ -246,7 +251,7 @@
   x.save();x.translate(W/2+10,H/2);x.rotate(Math.PI/2);x.fillStyle='#f6efdc';x.textAlign='center';{const fl=TF.fitLine(x,displayTitle(r),{maxW:H-270,sizes:[34,30,27,24,21],font:z=>'400 '+z+'px Fraunces,Georgia,serif'});x.font='400 '+fl.size+'px Fraunces,Georgia,serif';x.fillText(fl.text,0,0)}x.restore();
   const tx=new m.CanvasTexture(c);tx.colorSpace=m.SRGBColorSpace;return tx}
 
- window.BKStage={diag:()=>({level:SAFE,...DIAG,lost:glLost,items:items.filter(i=>i.opts.check).map(i=>i.failed?'failed':i.stat||null)}),forceLevel:l=>{SAFE=Math.max(0,Math.min(4,l|0));lastEsc=0;applySafe()},paintPage,medalInfo:()=>{const it=items.find(i=>i.api&&i.api.face&&i.api.info);return it?it.api.info():null},medal:k=>{const it=items.find(i=>i.api&&i.api.face);if(!it)return false;it.api.face(k);it.dirty=true;kick();return true},tiles:()=>items.filter(i=>i.canvas.classList.contains('tile-3d')&&i.camera).map(i=>({z:+i.camera.position.z.toFixed(3),op:i.canvas.style.opacity,top:Math.round(i.host.getBoundingClientRect().top+scrollY)})),info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
+ window.BKStage={diag:()=>({level:SAFE,...DIAG,ql:ql(),dprCap:dprCap(),stats:{...STATS},lost:glLost,items:items.filter(i=>i.opts.check).map(i=>i.failed?'failed':i.stat||null)}),forceLevel:l=>{SAFE=Math.max(0,Math.min(4,l|0));lastEsc=0;applySafe()},paintPage,medalInfo:()=>{const it=items.find(i=>i.api&&i.api.face&&i.api.info);return it?it.api.info():null},medal:k=>{const it=items.find(i=>i.api&&i.api.face);if(!it)return false;it.api.face(k);it.dirty=true;kick();return true},tiles:()=>items.filter(i=>i.canvas.classList.contains('tile-3d')&&i.camera).map(i=>({z:+i.camera.position.z.toFixed(3),op:i.canvas.style.opacity,top:Math.round(i.host.getBoundingClientRect().top+scrollY)})),info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
 
  /* Image-based lighting: a tiny studio (soft boxes) baked once into a PMREM map; makes foil, cloth, clearcoat and gold read as real materials. */
  let ENV=null;
@@ -510,7 +515,7 @@
    if(!on)document.dispatchEvent(new CustomEvent('bk:book-close'));
    if(on&&!cv){cv=document.createElement('canvas');cv.className='rec-3d';cv.setAttribute('aria-hidden','true');art.appendChild(cv);
     (document.fonts&&document.fonts.load?Promise.all([document.fonts.load('400 44px Fraunces'),document.fonts.load('400 24px Inter'),document.fonts.load('600 22px "IBM Plex Mono"')]).catch(()=>{}):Promise.resolve()).then(()=>
-     {rit=register(cv,(m)=>{try{return bookScene(m,null,r,true)}catch{return null}},{host:art,drag:true,dbl:true,check:true,onReady:()=>{art.classList.add('rec-ready');mountBookCtl(art,()=>rit,r)}})})}})}
+     {rit=register(cv,(m)=>{try{return bookScene(m,null,r,true)}catch{return null}},{host:art,drag:true,dbl:true,check:true,focus:true,onReady:()=>{art.classList.add('rec-ready');mountBookCtl(art,()=>rit,r)}})})}})}
  /* G4: list view — hovering a row shows a small real 3D cover beside it. One canvas, one registered item; the scene is swapped per record (cached). */
  function mountListPeek(){
   const host=document.getElementById('cards');if(!host||mountListPeek.done||typeof records==='undefined')return;mountListPeek.done=true;
