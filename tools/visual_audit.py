@@ -56,9 +56,13 @@ def capture(b, w, h, theme, tag, keep=False):
     q.evaluate("document.querySelector('.atlas-tile').parentElement.setAttribute('data-vr','atlas')"); shot("atlas", "[data-vr=atlas]")
     shot("shelf", "#spotlightGrid")
     if q.evaluate("!!document.querySelector('.timeline-section')"): shot("timeline", ".timeline-section")
+    if q.evaluate("!!document.querySelector('.nc-view [data-v=galaxy],[data-v=galaxy]')"):
+        q.evaluate("document.querySelector('[data-v=galaxy]').click()"); q.wait_for_timeout(3000); shot("nobel-galaxy", ".nc-3d:not(.nc-sky)")
     # record page: the 3D book closed and its three open spreads (same steps as feature_audit B5). Effects stay paused: in ?still the book lands exactly on every target
     q.evaluate("openRecord(records[5].id)"); q.wait_for_timeout(2500)
+    if q.evaluate("!!document.querySelector('.rv-constellation')"): q.wait_for_timeout(2500); shot("constellation", ".rv-constellation")
     q.evaluate("document.querySelector('.rv-3d-toggle').click()"); q.wait_for_function("document.querySelector('.rv-book-ctl')", timeout=120000); q.wait_for_timeout(3000)
+    q.wait_for_timeout(1500); shot("book-closed", ".rec-3d")
     q.evaluate("document.querySelector('.rv-book-ctl [data-a=open]').click()"); q.wait_for_function("BKStage.book.state().coverK>=0.999", timeout=120000); q.wait_for_timeout(1500)
     for i in range(3):
         q.evaluate("document.querySelector('.rv-book-ctl [data-a=next]').click()"); q.wait_for_function(f"BKStage.book.state().leaf=={i + 1}&&BKStage.book.state().p.every((v,k)=>Math.abs(v-(k<{i + 1}?1:0))<0.001)", timeout=60000); q.wait_for_timeout(1500); shot(f"book-open-{i + 1}", ".rec-3d")

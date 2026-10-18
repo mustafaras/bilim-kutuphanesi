@@ -205,7 +205,7 @@
     fm.blending=add;fm.needsUpdate=true;dm.blending=add;dm.color.setHex(lt?0x13283a:0xffffff);dm.opacity=lt?.35:.5;dm.needsUpdate=true;
     coreLight.intensity=lt?25000:60000;keyL.intensity=lt?2.4:2.0;rimL.intensity=lt?.4:.9}
    function paint(now){
-    const time=(now-t0)/1000,lt=light(),dt=Math.min(.05,(now-(paint.l||now))/1000);paint.l=now;
+    const time=(window.BKGL&&BKGL.still)?3.6:(now-t0)/1000,lt=light(),dt=Math.min(.05,(now-(paint.l||now))/1000);paint.l=now;
     if(lastTheme!==(lt?'l':'d'))applyTheme();
     const intro=ease(time/2.1);
     sU.uTime.value=time;coreU.uTime.value=time;

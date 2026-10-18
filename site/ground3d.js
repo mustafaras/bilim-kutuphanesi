@@ -71,7 +71,7 @@
   hero.addEventListener('pointerup',e=>{const b=canvas.getBoundingClientRect();if(e.clientY<b.top){uniforms.uR.value[ri%R].set((e.clientX/innerWidth-.5)*16,5,(performance.now()-t0)/1000,.7);ri++;energy=Math.min(1,energy+.3)}},{passive:true});
   function frame(now){raf=0;if(!visible||document.hidden)return;
    const paused=root.classList.contains('effects-paused');
-   if(!paused&&!reduced.matches||!frame.done){uniforms.uTime.value=(now-t0)/1000;energy*=.965;uniforms.uEnergy.value=energy;uniforms.uLight.value=root.dataset.theme==='light'?1:0;const hz=window.BKHorizon;if(hz&&hz.w){uniforms.uDomeX.value=hz.ox/hz.w;uniforms.uLamp.value+=((hz.live?(.35+.65*(hz.lamp==null?.7:hz.lamp)):.25)-uniforms.uLamp.value)*.08}renderer.render(scene,camera);frame.done=true}
+   if(!paused&&!reduced.matches||!frame.done){uniforms.uTime.value=(window.BKGL&&BKGL.still)?3.6:(now-t0)/1000;energy*=.965;uniforms.uEnergy.value=energy;uniforms.uLight.value=root.dataset.theme==='light'?1:0;const hz=window.BKHorizon;if(hz&&hz.w){uniforms.uDomeX.value=hz.ox/hz.w;uniforms.uLamp.value+=((hz.live?(.35+.65*(hz.lamp==null?.7:hz.lamp)):.25)-uniforms.uLamp.value)*.08}renderer.render(scene,camera);frame.done=true}
    if(!reduced.matches&&!paused)raf=requestAnimationFrame(frame)}
   function kick(){if(!raf)raf=requestAnimationFrame(frame)}
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)kick()});
