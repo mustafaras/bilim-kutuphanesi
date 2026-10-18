@@ -11,7 +11,7 @@ import json, argparse, os, socket, subprocess, sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
-ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["b10"], help="run a single section"); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10"], help="run one slice (CI runs the three slices as parallel jobs); default runs everything"); a = ap.parse_args()
 srv = None
 if not a.url:
     s_ = socket.socket(); s_.bind(("127.0.0.1", 0)); port = s_.getsockname()[1]; s_.close()
@@ -68,13 +68,35 @@ def b10(b):
     if not (mf["dpr"] >= 1.4 and .4 <= mf["idleRate"] <= .6): problems.append(f"B10 BKGL.flags stagequality=off must restore the full-quality stage (dpr {mf['dpr']}, rate {mf['idleRate']})")
     q.evaluate("__setQ(0)"); ctx.close()
 
-if a.only == "b10":
+def b9(b):
+    """B9 broken GPU (own contexts, independent of the main page)."""
+    # ---- B9 broken GPU: the shelf must never show a broken book. Inject a shader fault (fragment shaders containing the given text get a syntax error appended)
+    # and require that the stage steps down until the books paint again (level 2 with no PBR) or, when nothing compiles, falls back to the CSS covers.
+    def faulty(pats, done):
+        ctx = b.new_context(viewport={"width": 1590, "height": 615}, service_workers="block"); fp = ctx.new_page()
+        fp.add_init_script("try{localStorage.setItem('bk-theme','dark')}catch(e){}")
+        fp.add_init_script("window.__pats=%s;for(const K of [WebGLRenderingContext,WebGL2RenderingContext]){const P=K.prototype,ss=P.shaderSource;P.shaderSource=function(s,src){if((src.includes('gl_FragColor')||src.includes('pc_fragColor'))&&window.__pats.some(p=>src.includes(p)))src=src+'\\n@@@broken@@@';return ss.call(this,s,src)}}" % json.dumps(pats))
+        fp.goto(a.url + "?fault=" + str(time.time()), wait_until="load")
+        fp.wait_for_function('typeof records!=="undefined"&&records.length&&window.BKStage', timeout=120000); fp.wait_for_timeout(4000)
+        fp.evaluate("document.querySelector('#spotlightGrid').scrollIntoView({block:'start'})")
+        Q = "({lvl:BKStage.diag().level,cards:document.querySelectorAll('.spotlight-card.has-3d').length,cover:BKStage.diag().items})"
+        out = fp.evaluate(Q)
+        for _ in range(150):   # software GL is slow: poll for the settled state instead of a fixed wait
+            fp.wait_for_timeout(1000); out = fp.evaluate(Q)
+            if done(out): break
+        ctx.close(); return out
+    f_std = faulty(["#define STANDARD"], lambda o: o["lvl"] >= 1 and o["cards"] == 4 and all(c and c != "failed" and c["cover"] >= .1 for c in o["cover"])); note(f"B9 standard/physical shaders broken -> {f_std}")
+    if f_std["lvl"] < 1 or f_std["cards"] != 4 or any((not c) or c == "failed" or c["cover"] < .1 for c in f_std["cover"]): problems.append(f"B9 books did not recover when the PBR shaders fail: {f_std}")
+    f_all = faulty(["gl_FragColor", "pc_fragColor"], lambda o: o["lvl"] == 4 and o["cards"] == 0); note(f"B9 nothing compiles -> {f_all}")
+    if f_all["lvl"] != 4 or f_all["cards"] != 0: problems.append(f"B9 stage did not fall back to the CSS covers when nothing compiles: {f_all}")
+
+if a.only in ("b9", "b10"):
     with sync_playwright() as p:
         kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]); exe = os.environ.get("BK_CHROMIUM")
         b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
-        b10(b); b.close()
+        {"b9": b9, "b10": b10}[a.only](b); b.close()
     if srv: srv.terminate()
-    print("FAIL" if problems else "OK: B10", *problems, sep="\n - " if problems else "")
+    print("FAIL" if problems else f"OK: {a.only.upper()}", *problems, sep="\n - " if problems else "")
     sys.exit(1 if problems else 0)
 with sync_playwright() as p:
     kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"])
@@ -218,27 +240,9 @@ with sync_playwright() as p:
             sc = gls.get(n)
             if not sc or sc["losses"] < 1 or sc["restores"] < 1 or sc["lost"]: problems.append(f"B8 BKGL did not track the context loss of '{n}': {sc}")
         if any(v["lost"] for v in gls.values()): problems.append(f"B8 a scene is still marked lost after restore: {[k for k, v in gls.items() if v['lost']]}")
-    # ---- B9 broken GPU: the shelf must never show a broken book. Inject a shader fault (fragment shaders containing the given text get a syntax error appended)
-    # and require that the stage steps down until the books paint again (level 2 with no PBR) or, when nothing compiles, falls back to the CSS covers.
-    def faulty(pats, done):
-        ctx = b.new_context(viewport={"width": 1590, "height": 615}, service_workers="block"); fp = ctx.new_page()
-        fp.add_init_script("try{localStorage.setItem('bk-theme','dark')}catch(e){}")
-        fp.add_init_script("window.__pats=%s;for(const K of [WebGLRenderingContext,WebGL2RenderingContext]){const P=K.prototype,ss=P.shaderSource;P.shaderSource=function(s,src){if((src.includes('gl_FragColor')||src.includes('pc_fragColor'))&&window.__pats.some(p=>src.includes(p)))src=src+'\\n@@@broken@@@';return ss.call(this,s,src)}}" % json.dumps(pats))
-        fp.goto(a.url + "?fault=" + str(time.time()), wait_until="load")
-        fp.wait_for_function('typeof records!=="undefined"&&records.length&&window.BKStage', timeout=120000); fp.wait_for_timeout(4000)
-        fp.evaluate("document.querySelector('#spotlightGrid').scrollIntoView({block:'start'})")
-        Q = "({lvl:BKStage.diag().level,cards:document.querySelectorAll('.spotlight-card.has-3d').length,cover:BKStage.diag().items})"
-        out = fp.evaluate(Q)
-        for _ in range(150):   # software GL is slow: poll for the settled state instead of a fixed wait
-            fp.wait_for_timeout(1000); out = fp.evaluate(Q)
-            if done(out): break
-        ctx.close(); return out
-    f_std = faulty(["#define STANDARD"], lambda o: o["lvl"] >= 1 and o["cards"] == 4 and all(c and c != "failed" and c["cover"] >= .1 for c in o["cover"])); note(f"B9 standard/physical shaders broken -> {f_std}")
-    if f_std["lvl"] < 1 or f_std["cards"] != 4 or any((not c) or c == "failed" or c["cover"] < .1 for c in f_std["cover"]): problems.append(f"B9 books did not recover when the PBR shaders fail: {f_std}")
-    f_all = faulty(["gl_FragColor", "pc_fragColor"], lambda o: o["lvl"] == 4 and o["cards"] == 0); note(f"B9 nothing compiles -> {f_all}")
-    if f_all["lvl"] != 4 or f_all["cards"] != 0: problems.append(f"B9 stage did not fall back to the CSS covers when nothing compiles: {f_all}")
+    if a.only is None: b9(b)
     if errs: problems.append(f"console errors: {errs[:3]}")
-    b10(b)
+    if a.only is None: b10(b)
     b.close()
 if srv: srv.terminate()
 print("FAIL" if problems else "OK: Package A features behave as specified", *problems, sep="\n - " if problems else "")

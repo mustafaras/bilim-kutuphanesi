@@ -11,7 +11,7 @@ Ortak sınırlar (her aşama için geçerli):
 ## 0. Durum tablosu
 | Aşama | Ad | Durum | PR / sürüm |
 |---|---|---|---|
-| R1 | Ortak GL katmanı (`BKGL`) | **kodlandı, CI/deploy bekliyor; gerçek GPU doğrulaması kullanıcıda** | v108 (PR numarası merge sonrası) |
+| R1 | Ortak GL katmanı (`BKGL`) | **tamam** — deploy yeşil (koşu 133); gerçek GPU doğrulamasını kullanıcı yaptı, sorun yok bildirdi (`?diag` çıktısı iletilmedi) | v108, PR #55 + #56 (test düzeltmesi) |
 | R2 | Gerçek GPU zamanlaması + `?perf` + derleme ısıtma | bekliyor | — |
 | R3 | Deterministik görsel regresyon kapısı | bekliyor | — |
 | R4 | Ortak malzeme ve ışık kitaplığı (`BKMaterials`, tek PMREM) | bekliyor | — |

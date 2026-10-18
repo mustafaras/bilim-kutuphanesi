@@ -16,7 +16,7 @@ Bu belge, bir sonraki oturumun sıfırdan başlayıp doğru yerden devam etmesi 
 - Seviye ≥ 1 ise: `?diag` satırının ekran görüntüsü + F12 konsolundaki kırmızı hatalar + `chrome://gpu` istenir. Bununla kesin sebep bulunup sadeleşmeye gerek bırakmayacak şekilde düzeltilir (ör. belirli bir malzeme özelliği, doku birimi sayısı, ANGLE/D3D derleme sınırı).
 
 ### 2.1b Premium three.js geliştirmeleri → `YOL-HARITASI-3D.md`
-Büyük geliştirmeler **aşama aşama** (R1–R13) ayrı belgede: her aşama ayrı oturum + ayrı PR, sayısal kabul ölçütü, kapanabilir (flag), kalite katmanlı. İlk üç aşama altyapıdır (ortak GL katmanı, gerçek GPU zamanlaması + `?perf`, deterministik görsel regresyon kapısı) ve görsel işlerden önce yapılmalıdır. Durum tablosu o belgenin §0'ındadır; R1 (BKGL) v108'de kodlandı; bir sonraki oturum **R2** (GPU zamanlaması, `?perf`) ile başlar.
+Büyük geliştirmeler **aşama aşama** (R1–R13) ayrı belgede: her aşama ayrı oturum + ayrı PR, sayısal kabul ölçütü, kapanabilir (flag), kalite katmanlı. İlk üç aşama altyapıdır (ortak GL katmanı, gerçek GPU zamanlaması + `?perf`, deterministik görsel regresyon kapısı) ve görsel işlerden önce yapılmalıdır. Durum tablosu o belgenin §0'ındadır; R1 (BKGL) v108'de tamamlandı ve deploy edildi; bir sonraki oturum **R2** (GPU zamanlaması, `?perf`) ile başlar.
 
 ### 2.2 Düşük öncelikli açıklar
 - **Orta sırt dikişi:** sayfa tam yatıkken temiz, yalnız ince açık bir dikiş çizgisi var. Yazılımsal GL'de sayfa yerleşirken (p≈0.99) görülen kesik çizgiler gerçek GPU'da beklenmez. Gerçek GPU görüntüsü gelmeden dokunma.
@@ -32,7 +32,7 @@ Büyük geliştirmeler **aşama aşama** (R1–R13) ayrı belgede: her aşama ay
 
 ## 3. Çalışma düzeni (yeni oturum bunu izler)
 - **Her adım:** değişiklik → yerel kapılar → commit → push (`claude/magical-hawking-kufhmz`) → PR → **PR koşusu yeşil** → squash merge → main push koşusunda `deploy` işi ve `Deploy` adımı yeşil → raporla. "Canlıda" yalnızca deploy adımı yeşilken söylenir; canlı site bu ortamdan görülemez, bunu açıkça belirt.
-- **CI:** `.github/workflows/pages.yml` → `verify` (tüm kapılar; `pull_request` + `push`) ve `deploy` (`needs: verify`, PR'da atlanır). Çakışmalı PR'da GitHub koşu başlatmaz.
+- **CI:** `.github/workflows/pages.yml` → `static` (hızlı kapılar) + paralel `browser` matrisi (5 iş) ve `deploy` (`needs: [static, browser]`, PR'da atlanır). Yalnız `docs/**` ve `*.md` değişen PR/push'ta koşu başlamaz (§53). Çakışmalı PR'da GitHub koşu başlatmaz.
 - **Squash sonrası dal:** squash'ın ardından dal, main'in squash'ını içermez. Yeni işe başlarken `git fetch origin main && git merge origin/main`; sürüm dizesi çakışmalarında `git checkout --ours site/index.html site/sw.js`. Force push ve `merge -s ours` sınıflandırıcıda reddedilir.
 - **Zamanlı kontrol:** PR/deploy beklerken `send_later` ile 10–12 dk sonrası; beklerken uyuma/yoklama yok. `actions_list` çıktısı çok büyüktür, `perPage 1` ve `list_workflow_jobs` kullan.
 - **Dürüst raporlama:** yerelde geçen ≠ canlıda doğrulandı. Yazılımsal GL'de görülmeyen bir şeyi "düzeldi" deme.
@@ -62,7 +62,7 @@ Test kancaları için audit araçları `localStorage bk-test=1` ekler.
 
 ## 6. Yeni oturum için başlangıç istemi (kopyala-yapıştır)
 ```
-Bilim Kütüphanem (mustafaras/bilim-kutuphanesi, GitHub Pages, vanilla JS/CSS + three.js r160) üzerinde çalışıyoruz; canlı sürüm v107 (R1 merge+deploy sonrası v108).
+Bilim Kütüphanem (mustafaras/bilim-kutuphanesi, GitHub Pages, vanilla JS/CSS + three.js r160) üzerinde çalışıyoruz; canlı sürüm v108.
 Önce docs/tasarim/SONRAKI-ADIMLAR.md, docs/tasarim/YOL-HARITASI-3D.md ve docs/tasarim/DEVIR-FAZ-4.md (§46–§51) dosyalarını oku.
 Dal: claude/magical-hawking-kufhmz. Her adım: değişiklik → yerel kapılar → commit → push → PR → PR koşusu yeşilse squash merge → main deploy adımı yeşil → dürüst rapor. Canlı siteyi bu ortamdan göremeyeceğini, yazılımsal GL'in hareketi/gerçek GPU'yu göstermediğini unutma.
 Şimdi: <buraya yapılacak işi yaz — örn. "?diag çıktısı şu: ... buna göre raf kitaplarının kesin sebebini bul ve düzelt">.
