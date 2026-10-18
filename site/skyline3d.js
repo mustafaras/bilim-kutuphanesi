@@ -133,16 +133,17 @@ window.NobelSkyline=(()=>{
    if(e.shiftKey&&cmpOn&&(e.key==='ArrowRight'||e.key==='ArrowLeft')){e.preventDefault();const base0=cmpYear>=0?cmpYear:(selYear>=0?selYear:N-1);cmpYear=Math.max(0,Math.min(N-1,base0+(e.key==='ArrowRight'?1:-1)*step));updateCompare();wake();return}
    if(e.key==='ArrowRight')ny=Math.min(Y1,y+step);else if(e.key==='ArrowLeft')ny=Math.max(Y0,y-step);else if(e.key==='Home')ny=Y0;else if(e.key==='End')ny=Y1;else if(e.key==='PageUp')ny=Math.min(Y1,y+10);else if(e.key==='PageDown')ny=Math.max(Y0,y-10);else if(e.key==='c'||e.key==='C'){e.preventDefault();setCmp(!cmpOn);return}else return;e.preventDefault();if(typeof selectNobelYear==='function'&&idx.has(String(ny)))selectNobelYear(String(ny),true);syncSel();wake()});
   /* frame */
+  const STLM=!!(window.BKGL&&BKGL.still);   // ?still (visual gate): towers stand at their final height, camera at rest, clock frozen
   function layout(dt){const light=root.dataset.theme==='light',since=(performance.now()-t0)/1000;let moving=false;
    const per=new Array(N).fill(0);
-   for(let k=0;k<K;k++){const {i,c}=keys[k],tgt=catOn[c]?counts[i][c]*HS:0,delay=reduced.matches?0:i*.007,g=since>delay?1:0,goal=g?tgt:0;const d=goal-cur[k];if(Math.abs(d)>.0008){cur[k]+=d*Math.min(1,dt*7.5);moving=true}else cur[k]=goal}
+   for(let k=0;k<K;k++){const {i,c}=keys[k],tgt=catOn[c]?counts[i][c]*HS:0,delay=reduced.matches?0:i*.007,g=since>delay?1:0,goal=g?tgt:0;const d=goal-cur[k];if(!STLM&&Math.abs(d)>.0008){cur[k]+=d*Math.min(1,dt*7.5);moving=true}else cur[k]=goal}
    /* stacking order: bottom → top = category order */
    const acc=new Float32Array(N);
    for(let k=0;k<K;k++){const {i}=keys[k],h=Math.max(cur[k],.0001),x=X0+i*DX,y0=acc[i];acc[i]+=cur[k];
     P.set(x,y0+h/2,0);S.set(BW,h,BD);M.compose(P,Q,S);towers.setMatrixAt(k,M);P.set(x,-(y0+h/2)-.004,0);S.set(BW,h,BD);M.compose(P,Q,S);refl.setMatrixAt(k,M)}
    towers.instanceMatrix.needsUpdate=true;refl.instanceMatrix.needsUpdate=true;return moving}
   function theme(){const light=root.dataset.theme==='light';floorMat.color.setHex(light?0x2a3a46:0xffe6b0);floorMat.opacity=light?.10:.5;lineMat.color.setHex(light?0x13283a:0x9fb8c8);lineMat.opacity=light?.28:.22;refl.material.opacity=light?.1:.22;mat.envMapIntensity=light?1.0:1.3;mat.metalness=light?.15:.3;mat.roughness=light?.3:.2;key.intensity=light?2.4:2.0;rim.intensity=light?.5:.95;winU.uWin.value=light?.5:1.5;winU.uRim.value=light?.18:.55;rainMat.blending=dustMat.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;rainMat.color.setHex(light?0x8a5a22:0xffe6b0);dustMat.color.setHex(light?0x2a3a46:0xffe9c0);dustMat.opacity=light?.3:.5;rainMat.needsUpdate=dustMat.needsUpdate=true;beam.material.opacity=light?.55:1;beam2.material.opacity=beam.material.opacity;beam2.material.color.setHex(light?0x3a62a8:0x9ec6ff);bleed.material.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;bleed.material.opacity=light?.22:.55;bleed.material.needsUpdate=true;beam.material.color.setHex(light?0xb07a38:0xffffff);colorsDirty.v=true;theme.l=light}
-  function frame(now){raf=0;if(!visible||document.hidden)return;const dt=Math.min(.05,(now-(frame.l||now))/1000||0);frame.l=now;time+=dt;
+  function frame(now){raf=0;if(!visible||document.hidden)return;const dt=Math.min(.05,(now-(frame.l||now))/1000||0);frame.l=now;time+=STLM?0:dt;
    if((root.dataset.theme==='light')!==theme.l)theme();syncSel();
    const moving=layout(dt);if(colorsDirty.v)recolor();
    winU.uTime.value=time;
@@ -151,7 +152,7 @@ window.NobelSkyline=(()=>{
     for(let d=0;d<DN;d++){const a=dustS[d*4],b=dustS[d*4+1],c2=dustS[d*4+2],sp=.05+dustS[d*4+3]*.12,ph=time*(calm?0:sp);dustP[d*3]=X0*1.15+(-X0*2.3)*a+Math.sin(ph+b*20)*.25;dustP[d*3+1]=.15+b*4.3+Math.sin(ph*1.3+a*30)*.12;dustP[d*3+2]=-1.7+c2*3.4+Math.cos(ph+c2*20)*.2}dustGeo.attributes.position.needsUpdate=true}
    if(!drag){yaw+=vy;vy*=.92}
    const sway=(reduced.matches||root.classList.contains('effects-paused'))?0:Math.sin(time*.35)*.045;
-   tx+=(txT-tx)*Math.min(1,dt*3.2);dist+=(distT-dist)*Math.min(1,dt*5);
+   if(STLM){tx=txT;dist=distT}else{tx+=(txT-tx)*Math.min(1,dt*3.2);dist+=(distT-dist)*Math.min(1,dt*5)}
    const tgtX=0,ang=yaw+sway,arrK=window.BKMotion?BKMotion.arrival(panel):1,dd=dist*(1+.42*(1-arrK));/* A1: dollies in as the section arrives */camera.position.set(tgtX+Math.sin(ang)*dd*Math.cos(pitch),Math.sin(pitch)*dd+1.4,Math.cos(ang)*dd*Math.cos(pitch));camera.lookAt(tgtX,1.15,0);
    if(cmpYear>=0&&beam2.visible){beam2.position.set(X0+cmpYear*DX,3,0);beam2.lookAt(camera.position.x,3,camera.position.z);let st=0;for(let k=0;k<K;k++)if(keys[k].i===cmpYear)st+=cur[k];const e2=idx.get(String(Y0+cmpYear));chip2.textContent=(Y0+cmpYear)+' · '+(e2?e2.total:0);v3.set(X0+cmpYear*DX,st+.5,0);v3.project(camera);const w2=canvas.clientWidth,h2=canvas.clientHeight,cw2=(chip2.offsetWidth||90)/2+8;chip2.style.transform=`translate(${Math.max(cw2,Math.min(w2-cw2,(v3.x*.5+.5)*w2)).toFixed(1)}px,${((-v3.y*.5+.5)*h2).toFixed(1)}px)`}
    if(selYear>=0){const e=idx.get(String(Y0+selYear));beam.position.set(X0+selYear*DX,3,0);beam.lookAt(camera.position.x,3,camera.position.z);if(chip&&e){chip.hidden=false;chip.textContent=(Y0+selYear)+' · '+e.total}}else if(chip)chip.hidden=true;

@@ -15,7 +15,7 @@ import numpy as np
 from PIL import Image
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent; GOLD = ROOT / "tools" / "golden"; OUT = GOLD / "_out"; DIFF = GOLD / "_diff"
-ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--quick", action="store_true"); ap.add_argument("--update", action="store_true"); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--quick", action="store_true", help="1440x900 dark only"); ap.add_argument("--config", help="one configuration, e.g. 1440x900:dark (CI runs the four as parallel jobs)"); ap.add_argument("--update", action="store_true"); a = ap.parse_args()
 srv = None
 if not a.url:
     s_ = socket.socket(); s_.bind(("127.0.0.1", 0)); port = s_.getsockname()[1]; s_.close()
@@ -56,18 +56,12 @@ def capture(b, w, h, theme, tag, keep=False):
     q.evaluate("document.querySelector('.atlas-tile').parentElement.setAttribute('data-vr','atlas')"); shot("atlas", "[data-vr=atlas]")
     shot("shelf", "#spotlightGrid")
     if q.evaluate("!!document.querySelector('.timeline-section')"): shot("timeline", ".timeline-section")
-    # record page: the 3D book closed and its three open spreads (same steps as feature_audit B5)
-    q.evaluate("document.documentElement.classList.remove('effects-paused')")
+    # record page: the 3D book closed and its three open spreads (same steps as feature_audit B5). Effects stay paused: in ?still the book lands exactly on every target
     q.evaluate("openRecord(records[5].id)"); q.wait_for_timeout(2500)
     q.evaluate("document.querySelector('.rv-3d-toggle').click()"); q.wait_for_function("document.querySelector('.rv-book-ctl')", timeout=120000); q.wait_for_timeout(3000)
-    q.evaluate("document.documentElement.classList.add('effects-paused')"); q.wait_for_timeout(1500); shot("book-closed", ".rec-3d")
-    q.evaluate("document.documentElement.classList.remove('effects-paused')")
-    q.evaluate("document.querySelector('.rv-book-ctl [data-a=open]').click()"); q.wait_for_function("BKStage.book.state().coverK>0.95", timeout=120000)
-    q.evaluate("document.documentElement.classList.add('effects-paused')")
-    try: q.wait_for_function("BKStage.book.state().coverK>=0.999", timeout=60000)
-    except Exception: pass
+    q.evaluate("document.querySelector('.rv-book-ctl [data-a=open]').click()"); q.wait_for_function("BKStage.book.state().coverK>=0.999", timeout=120000); q.wait_for_timeout(1500)
     for i in range(3):
-        q.evaluate("document.querySelector('.rv-book-ctl [data-a=next]').click()"); q.wait_for_timeout(2500); shot(f"book-open-{i + 1}", ".rec-3d")
+        q.evaluate("document.querySelector('.rv-book-ctl [data-a=next]').click()"); q.wait_for_function(f"BKStage.book.state().leaf=={i + 1}&&BKStage.book.state().p.every((v,k)=>Math.abs(v-(k<{i + 1}?1:0))<0.001)", timeout=60000); q.wait_for_timeout(1500); shot(f"book-open-{i + 1}", ".rec-3d")
     if keep: return out, (ctx, q)
     ctx.close(); return out, None
 
@@ -76,7 +70,9 @@ try:
     with sync_playwright() as p:
         kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]); exe = os.environ.get("BK_CHROMIUM")
         b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
-        cfgs = CONFIGS[:1] if a.quick else CONFIGS
+        if a.config:
+            sz, th_ = a.config.split(":"); w_, h_ = sz.split("x"); cfgs = [(int(w_), int(h_), th_)]
+        else: cfgs = CONFIGS[:1] if a.quick else CONFIGS
         runA = {}; keep_page = None
         for (w, h, th) in cfgs:
             out, kp = capture(b, w, h, th, "a", keep=(w, h, th) == (1440, 900, "dark"))
@@ -96,7 +92,7 @@ try:
             if r2 < 0.02: problems.append(f"gate did not see the shelf falling back to CSS covers ({r2:.4f})")
         # 1 stability: capture again, compare
         worst = 0.0
-        for (w, h, th) in cfgs[:1] if a.quick else cfgs[:2]:
+        for (w, h, th) in cfgs:
             out, _ = capture(b, w, h, th, "b")
             for k, f in out.items():
                 r = ratio(runA[f.name], f, DIFF / f"unstable-{f.name}"); worst = max(worst, r)
