@@ -60,7 +60,7 @@
  const io=typeof IntersectionObserver==='function'?new IntersectionObserver(es=>{for(const e of es){const it=e.target.__stage;if(it){it.visible=e.isIntersecting;it.dirty=true}}kick()},{rootMargin:'160px'}):null;
 
  function register(canvas,factory,opts={}){
-  const it={canvas,factory,ctx:canvas.getContext('2d'),host:opts.host||canvas.parentElement,opts,visible:!io,dirty:true,hover:0,hoverT:0,px:0,py:0,t:Math.random()*8,scene:null,camera:null,api:null,drag:null,dragged:false,frame:0};
+  const it={canvas,factory,ctx:canvas.getContext('2d'),host:opts.host||canvas.parentElement,opts,visible:!io,dirty:true,hover:0,hoverT:0,px:0,py:0,t:(window.BKGL&&BKGL.still?items.length*.9:Math.random()*8),scene:null,camera:null,api:null,drag:null,dragged:false,frame:0};
   canvas.__stage=it;items.push(it);if(io)io.observe(canvas);
   const h=it.host;
   h.addEventListener('pointerenter',()=>{it.hover=1;kick()});

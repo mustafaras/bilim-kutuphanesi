@@ -43,6 +43,7 @@ def capture(b, w, h, theme, tag, keep=False):
     q.wait_for_function("document.querySelectorAll('.tile-3d.on').length>=8", timeout=180000)
     try: q.wait_for_function("!!document.querySelector('#heroGL.on')", timeout=60000)
     except Exception: pass
+    q.add_style_tag(content='header,.site-header,.topbar,.skip-link{position:static!important;visibility:hidden!important}')   # a sticky header would overlap element shots at different places
     q.wait_for_timeout(4000)
     out = {}; base = OUT / tag; base.mkdir(parents=True, exist_ok=True)
     def shot(name, target=None):

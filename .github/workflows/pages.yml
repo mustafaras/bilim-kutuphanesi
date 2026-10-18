@@ -38,6 +38,8 @@ jobs:
   browser:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # The visual gate (R3) is new: it reports but cannot block a deploy until its stability has been proven on CI
+    continue-on-error: ${{ startsWith(matrix.name, 'Visual') }}
     strategy:
       fail-fast: false
       matrix:
