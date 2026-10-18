@@ -1,6 +1,6 @@
 # Sonraki adımlar ve yeni oturum devri (v107 sonrası)
 
-Bu belge, bir sonraki oturumun sıfırdan başlayıp doğru yerden devam etmesi içindir. Önce **§1 Durum**, sonra **§2 Yapılacaklar**, işe başlarken **§6 Başlangıç istemi**.
+Bu belge, bir sonraki oturumun sıfırdan başlayıp doğru yerden devam etmesi içindir. Önce **§1 Durum**, sonra **§2 Yapılacaklar**, işe başlarken **§6 Başlangıç istemi**. Büyük geliştirmeler için `YOL-HARITASI-3D.md`.
 
 ## 1. Durum (2026-10-18)
 - Canlı: **v107** (`https://mustafaras.github.io/bilim-kutuphanesi/`). main = `710bbbc`, deploy koşusu #126 yeşil. Sürüm dizesi `site/index.html` (`?v=107`) ve `site/sw.js` (`bilim-kutuphane-v107`) içinde; her kod değişikliğinde ikisi birlikte artırılır.
@@ -15,12 +15,14 @@ Bu belge, bir sonraki oturumun sıfırdan başlayıp doğru yerden devam etmesi 
 - Seviye 0 ve kitaplar düzgünse: sorun kapanmıştır (v106/v107 yaklaşımı yetmiş).
 - Seviye ≥ 1 ise: `?diag` satırının ekran görüntüsü + F12 konsolundaki kırmızı hatalar + `chrome://gpu` istenir. Bununla kesin sebep bulunup sadeleşmeye gerek bırakmayacak şekilde düzeltilir (ör. belirli bir malzeme özelliği, doku birimi sayısı, ANGLE/D3D derleme sınırı).
 
+### 2.1b Premium three.js geliştirmeleri → `YOL-HARITASI-3D.md`
+Büyük geliştirmeler **aşama aşama** (R1–R13) ayrı belgede: her aşama ayrı oturum + ayrı PR, sayısal kabul ölçütü, kapanabilir (flag), kalite katmanlı. İlk üç aşama altyapıdır (ortak GL katmanı, gerçek GPU zamanlaması + `?perf`, deterministik görsel regresyon kapısı) ve görsel işlerden önce yapılmalıdır. Durum tablosu o belgenin §0'ındadır; bir sonraki oturum **R1** ile başlar.
+
 ### 2.2 Düşük öncelikli açıklar
 - **Orta sırt dikişi:** sayfa tam yatıkken temiz, yalnız ince açık bir dikiş çizgisi var. Yazılımsal GL'de sayfa yerleşirken (p≈0.99) görülen kesik çizgiler gerçek GPU'da beklenmez. Gerçek GPU görüntüsü gelmeden dokunma.
 - **Sadeleşme parlaklığı:** seviye 2 (Lambert) kitaplar kayıpsız hâlin yaklaşık yarısı kadar parlak (≈50 / ≈108). İstenirse ortam ışığı artırılabilir.
 - **`style.css` bölünmesi:** tek dosya çok büyük, "son blok kazanır" yönetimi zorlaşıyor. Görsel regresyon kapısı (ekran görüntüsü karşılaştırma) olmadan bölmek riskli; önce kapı.
-- **Görsel regresyon kapısı:** CI'a anahtar yüzeylerin (hero, raf, açık kitap) piksel karşılaştırması. Yazılımsal GL'de tekrarlanabilir olması için reduced-motion + sabit boyut kullan.
-- **GPU zamanlaması:** `EXT_disjoint_timer_query_webgl2` ile gerçek kare maliyeti; yalnızca gerçek GPU'da anlamlı.
+- **Görsel regresyon kapısı ve GPU zamanlaması:** artık yol haritasında (R3 ve R2).
 - **Depo ağırlığı:** `docs/tasarim/ekran` ≈105 MB, `.git` ≈126 MB. Geçmişi küçültmek **force push** ister ve bu ortamda reddedilir; yeni setler artık `.gitignore`'da (`docs/tasarim/ekran/v1NN/`).
 - **Açık test globalleri:** `BKStage`, `BKDome`, `BKHorizon`, `BKMotion`, `BKText`, `BKRecordText` modüller arası işlevsel olarak kullanıldığı için açık. `BKHero` ve `__bkPerf` yalnızca `localStorage bk-test=1` ile.
 
@@ -61,7 +63,7 @@ Test kancaları için audit araçları `localStorage bk-test=1` ekler.
 ## 6. Yeni oturum için başlangıç istemi (kopyala-yapıştır)
 ```
 Bilim Kütüphanem (mustafaras/bilim-kutuphanesi, GitHub Pages, vanilla JS/CSS + three.js r160) üzerinde çalışıyoruz; canlı sürüm v107.
-Önce docs/tasarim/SONRAKI-ADIMLAR.md ve docs/tasarim/DEVIR-FAZ-4.md (§46–§51) dosyalarını oku.
+Önce docs/tasarim/SONRAKI-ADIMLAR.md, docs/tasarim/YOL-HARITASI-3D.md ve docs/tasarim/DEVIR-FAZ-4.md (§46–§51) dosyalarını oku.
 Dal: claude/magical-hawking-kufhmz. Her adım: değişiklik → yerel kapılar → commit → push → PR → PR koşusu yeşilse squash merge → main deploy adımı yeşil → dürüst rapor. Canlı siteyi bu ortamdan göremeyeceğini, yazılımsal GL'in hareketi/gerçek GPU'yu göstermediğini unutma.
 Şimdi: <buraya yapılacak işi yaz — örn. "?diag çıktısı şu: ... buna göre raf kitaplarının kesin sebebini bul ve düzelt">.
 Çıktılar Türkçe, kısa ve dürüst olsun; yapılmayanı yapıldı diye bildirme.
