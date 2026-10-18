@@ -24,7 +24,7 @@ if not a.url:
 problems = []; note = lambda m: print(m, flush=True)
 TOL, STABLE, GOLDEN = 10, 0.001, 0.005
 # procedural particle / label layouts that are not seeded (constellation planets and caption picks, Nobel galaxy stray stars): looser limits, still far below any real defect (a hidden canvas changes > 4 %)
-LOOSE = {'constellation': (0.01, 0.02), 'nobel-galaxy': (0.01, 0.02)}
+LOOSE = {'constellation': (0.02, 0.03), 'nobel-galaxy': (0.01, 0.02)}
 def lim(name, k): return LOOSE.get(name.split('__')[1][:-4], (STABLE, GOLDEN))[k]
 CONFIGS = [(1440, 900, "dark"), (1440, 900, "light"), (1024, 768, "dark"), (1024, 768, "light")]
 

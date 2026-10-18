@@ -111,6 +111,7 @@
    gl_FragColor=vec4(col,a*mix(.95,.8,uLight));}`;
 
  function mount(box){
+  if(window.BKGL&&BKGL.still)BKGL.reseed(11);   // ?still: this scene's random layout no longer depends on what else asked for random numbers before it
   if(cur&&cur.box===box)return;if(cur)cur.destroy();
   if(!hasGL()||reduced.matches)return;
   const nodes=[...box.querySelectorAll('.rv-node')];if(!nodes.length)return;
