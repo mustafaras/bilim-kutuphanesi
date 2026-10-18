@@ -36,7 +36,7 @@ else:
     r = subprocess.run(["node", "--check", str(mat)], capture_output=True, text=True)
     if r.returncode: problems.append("materials.js fails node --check: " + r.stderr[:200])
     mt = read(mat)
-    for api in ("foil", "cloth", "paper", "glass", "brass", "lighter", "env", "tone", "rebake"):
+    for api in ("foil", "cloth", "paper", "glass", "brass", "lighter", "env", "tone", "rebake", "leaf", "fiberHeight"):
         if not re.search(rf"\b{api}\s*[:(]", mt): problems.append(f"materials.js lacks BKMaterials.{api}")
     html = read(SITE / "index.html")
     scripts = re.findall(r'<script src="([^"]+)"', html)
@@ -45,6 +45,8 @@ else:
     else:
         for later in ("stage.js", "skyline3d.js"):
             if later in names and names.index("materials.js") > names.index(later): problems.append(f"materials.js must load before {later}")
+    # R5: page paper goes through BKMaterials.leaf (fibre normal map, back-face bleed); stage.js must not build page materials inline again
+    if re.search(r"pageMat=k=>new \w+\.MeshStandardMaterial", stage): problems.append("stage.js builds the page material inline; use BKMaterials.leaf")
     ver = re.search(r"\?v=(\d+)", html).group(1)
     sw = read(SITE / "sw.js")
     if f"'materials.js?v={ver}'" not in sw: problems.append(f"sw.js FILES lacks 'materials.js?v={ver}'")

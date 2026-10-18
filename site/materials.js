@@ -59,12 +59,28 @@
   glass:{transparent:true,clearcoat:1},                    // tinted translucent glass with a clearcoat shell
   brass:{color:0xe3c17a,metalness:.95,roughness:.24,iridescence:.25,iridescenceIOR:1.3,iridescenceThicknessRange:[150,380],envMapIntensity:2}};   // the medal's rim metal
  const paper=(m,o)=>new m.MeshStandardMaterial(Object.assign({roughness:.92},o));
+ /* paper fibre height field (tileable, seeded so every load is identical): two octaves of short pale / dark strokes; the caller turns it into a normal map */
+ function fiberHeight(S=256){const c=document.createElement('canvas');c.width=c.height=S;const x=c.getContext('2d');x.fillStyle='#808080';x.fillRect(0,0,S,S);x.lineCap='round';
+  let a=0x9e3779b1;const R=()=>((a=Math.imul(a^a>>>15,1|a)+0x6D2B79F5|0,(a^a>>>7)>>>0)/4294967296);
+  for(const[n,len,w,al]of[[S*3,S*.1,1.4,.2],[S*8,S*.04,.9,.14]])for(let i=0;i<n;i++){const px=R()*S,py=R()*S,an=R()*Math.PI,dx=Math.cos(an)*len,dy=Math.sin(an)*len;x.strokeStyle=R()<.5?`rgba(255,255,255,${al})`:`rgba(0,0,0,${al})`;x.lineWidth=w;
+   for(let ox=-1;ox<=1;ox++)for(let oy=-1;oy<=1;oy++){x.beginPath();x.moveTo(px+ox*S,py+oy*S);x.lineTo(px+ox*S+dx,py+oy*S+dy);x.stroke()}}
+  return c}
+ /* a book leaf: paper with the fibre normal map and a faint show-through of the ink on its other side (the other face's map sampled at the mirrored u, darkening the paper by bleed x ink). Flag paperfiber off = plain paper, as before. */
+ function leaf(m,o){o=Object.assign({},o);const fiber=o.fiber,bleedMap=o.bleedMap,bleed=o.bleed==null?.07:o.bleed;delete o.fiber;delete o.bleedMap;delete o.bleed;
+  if(!flag('paperfiber'))return paper(m,o);
+  if(fiber){o.normalMap=fiber;o.normalScale=new m.Vector2(.5,.5)}
+  const mt=paper(m,o);
+  if(bleedMap){mt.userData.bleed=true;mt.customProgramCacheKey=()=>'bk-leaf-bleed';
+   mt.onBeforeCompile=sh=>{sh.uniforms.bleedMap={value:bleedMap};sh.uniforms.bleedK={value:bleed};
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D bleedMap;uniform float bleedK;')
+     .replace('#include <map_fragment>','#include <map_fragment>\n#ifdef USE_MAP\n diffuseColor.rgb*=1.0-bleedK*(1.0-dot(texture2D(bleedMap,vec2(1.0-vMapUv.x,vMapUv.y)).rgb,vec3(.299,.587,.114)));\n#endif')}}
+  return mt}
  const foil=(m,o)=>physical(m,BASE.foil,o),cloth=(m,o)=>physical(m,BASE.cloth,o),glass=(m,o)=>physical(m,BASE.glass,o),brass=(m,o)=>physical(m,BASE.brass,o);
 
  function diag(){const envs=[];
   for(let i=baked.length-1;i>=0;i--){const r=baked[i].deref();if(!r){baked.splice(i,1);continue}for(const p in cache.get(r))envs.push(ids.get(r)+'#'+p)}
-  return{bakes,rebakes,envs:envs.sort(),tone:tracked.map(w=>w.deref()).filter(Boolean).map(r=>({name:r.__bkTone,mapping:r.toneMapping,exposure:r.toneMappingExposure})),flags:{matlib:flag('matlib'),acestone:flag('acestone')}}}
+  return{bakes,rebakes,envs:envs.sort(),tone:tracked.map(w=>w.deref()).filter(Boolean).map(r=>({name:r.__bkTone,mapping:r.toneMapping,exposure:r.toneMappingExposure})),flags:{matlib:flag('matlib'),acestone:flag('acestone'),paperfiber:flag('paperfiber')}}}
 
- window.BKMaterials={LEVELS,PRESETS,foil,cloth,paper,glass,brass,lighter,env,rebake,swapEnv,tone,diag};
+ window.BKMaterials={LEVELS,PRESETS,foil,cloth,paper,leaf,fiberHeight,glass,brass,lighter,env,rebake,swapEnv,tone,diag};
  if(window.BKGL)BKGL.report('materials',()=>{const d=diag();return 'bakes '+d.bakes+' (re-bakes '+d.rebakes+') · envs '+d.envs.join(',')+' · tone '+d.tone.map(t=>t.name+':'+t.mapping+'/'+t.exposure).join(' ')+' · matlib '+d.flags.matlib+' acestone '+d.flags.acestone});
 })();

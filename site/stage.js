@@ -271,7 +271,21 @@
   x.save();x.translate(W/2+10,H/2);x.rotate(Math.PI/2);x.fillStyle='#f6efdc';x.textAlign='center';{const fl=TF.fitLine(x,displayTitle(r),{maxW:H-270,sizes:[34,30,27,24,21],font:z=>'400 '+z+'px Fraunces,Georgia,serif'});x.font='400 '+fl.size+'px Fraunces,Georgia,serif';x.fillText(fl.text,0,0)}x.restore();
   const tx=new m.CanvasTexture(c);tx.colorSpace=m.SRGBColorSpace;return tx}
 
- window.BKStage={diag:()=>({level:SAFE,...DIAG,ql:ql(),dprCap:dprCap(),stats:{...STATS},lost:glLost,items:items.filter(i=>i.opts.check).map(i=>i.failed?'failed':i.stat||null)}),forceLevel:l=>{SAFE=Math.max(0,Math.min(4,l|0));lastEsc=0;applySafe()},paintPage,medalInfo:()=>{const it=items.find(i=>i.api&&i.api.face&&i.api.info);return it?it.api.info():null},medal:k=>{const it=items.find(i=>i.api&&i.api.face);if(!it)return false;it.api.face(k);it.dirty=true;kick();return true},tiles:()=>items.filter(i=>i.canvas.classList.contains('tile-3d')&&i.camera).map(i=>({z:+i.camera.position.z.toFixed(3),op:i.canvas.style.opacity,top:Math.round(i.host.getBoundingClientRect().top+scrollY)})),info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
+ /* R5 page bend. A turning leaf is a sheet of arc length PLW bent around a vertical cylinder (signed curvature leafCurv(p): the free edge lags first, then leads as the leaf settles); the front / back surface sit +-PTHK/2 along the
+    bent normal, so the two faces never coincide (no z-fight, and a leaf's shadow falls past its own front without acne). Flag pagebend off = the previous parabola z=-amp*u^2, faces coincident. */
+ const PLW=2.1-.34,PTHK=.0024,PBEND=1,PSEG=24;
+ const bendOn=()=>!window.BKGL||BKGL.flags.get('pagebend');
+ const leafCurv=p=>PBEND*Math.sin(Math.PI*p)*(1-2*p);
+ /* parent-space [front x, front z, back x, back z] at arc length s from the spine */
+ function leafAt(s,p,bend){
+  if(!bend){const amp=.34*Math.sin(Math.PI*p)*(1-2*p),z=-amp*(s/PLW)*(s/PLW);return[s,z,s,z]}
+  const kk=leafCurv(p),h=PTHK/2;let x=s,z=0,nx=0,nz=1;if(Math.abs(kk)>1e-6){const a=kk*s;x=Math.sin(a)/kk;z=-(1-Math.cos(a))/kk;nx=Math.sin(a);nz=Math.cos(a)}
+  return[x+nx*h,z+nz*h,x-nx*h,z-nz*h]}
+ function pageShape(p,bend=bendOn()){let len=0,tip=0,thick=1e9,px=0,pz=0;
+  for(let i=0;i<=PSEG;i++){const q=leafAt(i/PSEG*PLW,p,bend),mx=(q[0]+q[2])/2,mz=(q[1]+q[3])/2;thick=Math.min(thick,Math.hypot(q[0]-q[2],q[1]-q[3]));if(i){len+=Math.hypot(mx-px,mz-pz);tip=Math.abs(Math.atan2(mz-pz,mx-px))}px=mx;pz=mz}
+  return{arc:len/PLW,tip,thick}}
+ let _fib=null;const fiberTex=m=>_fib||(_fib=(()=>{const t=normalFromHeight(m,BM.fiberHeight(256),2.4);t.repeat.set(3,4);t.anisotropy=4;return t})());
+ window.BKStage={pageShape,diag:()=>({level:SAFE,...DIAG,ql:ql(),dprCap:dprCap(),stats:{...STATS},lost:glLost,items:items.filter(i=>i.opts.check).map(i=>i.failed?'failed':i.stat||null)}),forceLevel:l=>{SAFE=Math.max(0,Math.min(4,l|0));lastEsc=0;applySafe()},paintPage,medalInfo:()=>{const it=items.find(i=>i.api&&i.api.face&&i.api.info);return it?it.api.info():null},medal:k=>{const it=items.find(i=>i.api&&i.api.face);if(!it)return false;it.api.face(k);it.dirty=true;kick();return true},tiles:()=>items.filter(i=>i.canvas.classList.contains('tile-3d')&&i.camera).map(i=>({z:+i.camera.position.z.toFixed(3),op:i.canvas.style.opacity,top:Math.round(i.host.getBoundingClientRect().top+scrollY)})),info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
 
  /* Image-based lighting: the studio (soft boxes → PMREM) is baked once per renderer by BKMaterials.env; makes foil, cloth, clearcoat and gold read as real materials. */
  const studioEnv=m=>BM.env(renderer,m,'book');
@@ -435,22 +449,31 @@
    if(leaves.length||!real)return;
    endpaper=new m.Mesh(new m.PlaneGeometry(W-.13,Hh-.16),new m.MeshStandardMaterial({map:canvasTex(m,512,720,(x,w2,h2)=>{x.fillStyle=COVER[idx%8];x.fillRect(0,0,w2,h2);const gr=x.createLinearGradient(0,0,w2,0);gr.addColorStop(0,'rgba(0,0,0,.28)');gr.addColorStop(.18,'rgba(0,0,0,0)');x.fillStyle=gr;x.fillRect(0,0,w2,h2);x.strokeStyle='rgba(246,239,220,.22)';x.lineWidth=2;x.strokeRect(34,34,w2-68,h2-68);x.strokeStyle='rgba(246,239,220,.12)';for(let i=0;i<22;i++){x.beginPath();x.arc(w2*.6,h2*.5,20+i*18,0,7);x.stroke()}noise(x,w2,h2,.1,321)},true),roughness:.85,side:m.FrontSide}));
    endpaper.rotation.y=Math.PI;endpaper.position.set((W-.04)/2,0,-(T/2+.016)-.004);/* just outside the board's inner bevel (bevelThickness .016), or the cap hides it */hinge.add(endpaper);endpaper.visible=false;
-   const pageMat=k=>new m.MeshStandardMaterial({map:canvasTex(m,768,1080,(x,w2,h2)=>paintPage(x,w2,h2,r,k),true),roughness:.9,side:m.FrontSide});
+   const ptex=Array.from({length:LN*2},(_,k)=>canvasTex(m,768,1080,(x,w2,h2)=>paintPage(x,w2,h2,r,k),true));
+   const pageMat=k=>BM.leaf(m,{map:ptex[k],roughness:.9,side:m.FrontSide,fiber:fiberTex(m),bleedMap:ptex[k^1]});
    const lgeo=()=>{const gg=new m.PlaneGeometry(LW,LH,24,1);gg.translate(LW/2,0,0);return gg};
    for(let k=0;k<LN;k++){const pv=new m.Group();pv.position.set(LPX,0,zr(k));
     const fr=new m.Mesh(lgeo(),pageMat(k*2)),bk=new m.Mesh(lgeo(),pageMat(k*2+1));bk.rotation.y=Math.PI;bk.position.x=LW;
-    fr.castShadow=bk.castShadow=true;pv.add(fr,bk);pv.visible=false;g.add(pv);leaves.push({pv,fr,bk,base:Float32Array.from(fr.geometry.attributes.position.array)})}}
+    fr.receiveShadow=bk.receiveShadow=true;pv.add(fr,bk);pv.visible=false;g.add(pv);leaves.push({pv,fr,bk,base:Float32Array.from(fr.geometry.attributes.position.array)})}}
   function animateLeaves(dt,still){
+   const bend=bendOn();
    leaves.forEach((L,k)=>{leafP[k]+=still?leafT[k]-leafP[k]:(leafT[k]-leafP[k])*(1-Math.exp(-6.2*Math.min(dt,.05)));const p=leafP[k];
     L.pv.visible=coverK>.02;L.pv.rotation.y=-Math.PI*p*.995;L.pv.position.z=zr(k)+(zl(k)-zr(k))*p+Math.sin(Math.PI*p)*.03;
-    const amp=.34*Math.sin(Math.PI*p)*(1-2*p),a1=L.fr.geometry.attributes.position,a2=L.bk.geometry.attributes.position;
-    for(let i=0;i<a1.count;i++){const x0=L.base[i*3],uf=x0/LW,ub=(LW-x0)/LW;a1.setZ(i,-amp*uf*uf);a2.setZ(i,amp*ub*ub)}
+    const lift=p>.02&&p<.98;if(L.fr.castShadow!==lift)L.fr.castShadow=L.bk.castShadow=lift;
+    if(L.lp===p&&L.lb===bend)return;L.lp=p;L.lb=bend;   // the geometry only changes with p
+    const a1=L.fr.geometry.attributes.position,a2=L.bk.geometry.attributes.position;
+    for(let i=0;i<a1.count;i++){const x0=L.base[i*3],f=leafAt(x0,p,bend),b=leafAt(PLW-x0,p,bend);
+     if(bend){a1.setX(i,f[0]);a2.setX(i,PLW-b[2])}
+     a1.setZ(i,f[1]);a2.setZ(i,-b[3])}
     a1.needsUpdate=a2.needsUpdate=true;L.fr.geometry.computeVertexNormals();L.bk.geometry.computeVertexNormals()})}
   return{scene,camera,
    drag(dx,dy){mode='drag';if(bookOpen){yaw=Math.max(-.7,Math.min(.5,yaw+dx*.01));pitch=Math.max(-.1,Math.min(.5,pitch+dy*.006));vy=0;return}yaw+=dx*.012;pitch=Math.max(-.5,Math.min(.5,pitch+dy*.008));vy=dx*.012},
    release(){if(mode!=='drag')return;if(bookOpen){mode='open';vy=0;return}const k=Math.round((yaw+vy*10-BASE)/QP);snapYaw=BASE+k*QP;vy=0;mode='snap';idle=0},
    open(on){on=!!on;if(on&&!real)return false;bookOpen=on;if(on){buildLeaves();mode='open'}else{leafIdx=0;leafT.fill(0);if(mode==='open')mode='auto'}return bookOpen},
    turn(d){if(!bookOpen)return leafIdx;leafIdx=Math.max(0,Math.min(LN,leafIdx+d));for(let k=0;k<LN;k++)leafT[k]=k<leafIdx?1:0;return leafIdx},
+   bounds(){g.updateMatrixWorld(true);camera.updateMatrixWorld();const v=new m.Vector3(),o={x0:1e9,x1:-1e9,y0:1e9,y1:-1e9};
+    leaves.forEach(L=>{if(!L.pv.visible)return;for(const me of [L.fr,L.bk]){const pa=me.geometry.attributes.position;for(let i=0;i<pa.count;i++){v.fromBufferAttribute(pa,i).applyMatrix4(me.matrixWorld).project(camera);o.x0=Math.min(o.x0,v.x);o.x1=Math.max(o.x1,v.x);o.y0=Math.min(o.y0,v.y);o.y1=Math.max(o.y1,v.y)}}});return o},
+   leaves(){return leaves.map(L=>{const mt=Array.isArray(L.fr.material)?L.fr.material[0]:L.fr.material;return{fiber:!!mt.normalMap,bleed:mt.userData.bleed===true,recv:L.fr.receiveShadow&&renderer.shadowMap.enabled}})},
    state(){return{open:bookOpen,leaf:leafIdx,leaves:LN,coverK:+coverK.toFixed(3),p:leafP.map(v=>+v.toFixed(3))}},
    dbl(){if(bookOpen)return;if(mode==='read'){mode='auto';yaw=wrap(yaw,BASE)}else{mode='read';yaw=wrap(yaw,-.12)}},
    update(t,dt,it){const hov=it.hoverT,k7=Math.min(1,dt*7);
@@ -564,7 +587,7 @@
   art.addEventListener('click',e=>{if(!art.classList.contains('book-open')||e.target.closest('.rv-book-ctl,.rv-3d-toggle,.rv-book-scrim'))return;const c=art.querySelector('.rec-3d');if(!c)return;const r=c.getBoundingClientRect();turn(e.clientX>r.left+r.width/2?1:-1)});
   document.addEventListener('keydown',e=>{if(!art.classList.contains('book-open')||!art.isConnected)return;if(e.key==='Escape'){e.preventDefault();setOpen(false);return}if(e.key==='ArrowRight'){e.preventDefault();turn(1)}else if(e.key==='ArrowLeft'){e.preventDefault();turn(-1)}});
   document.addEventListener('bk:book-close',()=>{if(art.classList.contains('book-open'))setOpen(false)});
-  window.BKStage.book={state:()=>{const a=api();return a?a.state():null}}}
+  window.BKStage.book={state:()=>{const a=api();return a?a.state():null},bounds:()=>{const a=api();return a&&a.bounds?a.bounds():null},leaves:()=>{const a=api();return a&&a.leaves?a.leaves():null}}}
  function mountAll(){mountAtlas();mountShelf()}
  /* Idle shader warm-up (BKGL.warm, after the first 5 s): the record page's 3D book (shadow variant, the heaviest materials) and the Nobel medal compile in parallel now, so the first open does not stall. */
  const warmUp=()=>{if(!window.BKGL||!renderer||!THREE||warmUp.done||SAFE>=3)return;warmUp.done=1;const m=THREE,hold=warmHold=[];

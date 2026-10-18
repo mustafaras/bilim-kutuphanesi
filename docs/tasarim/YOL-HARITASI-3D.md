@@ -15,7 +15,7 @@ Ortak sınırlar (her aşama için geçerli):
 | R2 | Gerçek GPU zamanlaması + `?perf` + derleme ısıtma | **canlıda (v109+), gerçek GPU doğrulaması bekliyor** — `?perf` “kopyala” çıktısı gelmeden “gerçek GPU'da doğrulandı” sayılmaz (kullanıcı açık tema kartları ve koyu mod galaksi için “sorun yok” bildirdi, `?perf` çıktısı iletmedi) | v109, PR #58 |
 | R3 | Deterministik görsel regresyon kapısı | **tamam, engelleyici** — `?still=1`, `tools/visual_audit.py` (10 yüzey × 4 yapılandırma, kararlılık + hata enjeksiyonu + altın karşılaştırma), altın görüntüler CI'da üretilip commit edildi (`tools/golden/`, 40 PNG); `deploy` görsel işe bağlı | v110–v115, PR #59, #63, #66, #68 |
 | R4 | Ortak malzeme ve ışık kitaplığı (`BKMaterials`, tek PMREM) | **tamam (kod + CI kapıları)** — `site/materials.js`; stage.js `new m.MeshPhysicalMaterial(` 12 → 0, `PMREMGenerator` 2 → 1 (grep), R3 altınları değişmedi (görsel kapı CI'da); ACES yalnız `acestone` bayrağıyla (varsayılan kapalı, bilinçli); gerçek GPU'da bakılmadı | v116, bu PR |
-| R5 | Kitap gerçekçiliği (sayfa bükülmesi, kâğıt, yaldız) | bekliyor | — |
+| R5 | Kitap gerçekçiliği (sayfa bükülmesi, kâğıt, yaldız) | **alt adım 1–2 kodlandı (v117)**: silindir bükme + kalınlık (`pagebend`), lif normal haritası + arka yüz sızması + yaprak gölgeleri (`paperfiber`); alt adım 3–5 bekliyor; gerçek GPU `?perf` (açık kitap ≤ 6 ms) bekliyor | v117, bu PR |
 | R6 | Madalya ve Nobel arşivi nesneleri | bekliyor | — |
 | R7 | Hero galaksi ve kubbe | bekliyor | — |
 | R8 | Zemin ve atmosfer | bekliyor | — |

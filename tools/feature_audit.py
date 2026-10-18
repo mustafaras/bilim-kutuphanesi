@@ -182,7 +182,9 @@ def b12(b):
       F.set('matlib',false);out.off=Object.fromEntries(['foil','cloth','glass','brass'].map(n=>[n,kind(M[n](T,{}))]));F.set('matlib',true);
       F.set('acestone',true);await new Promise(r=>setTimeout(r,50));out.ace=M.diag().tone.map(t=>[t.mapping,t.exposure]);
       document.documentElement.dataset.theme='light';await new Promise(r=>setTimeout(r,80));out.aceLight=M.diag().tone.map(t=>[t.mapping,t.exposure]);
-      document.documentElement.dataset.theme='dark';F.set('acestone',false);await new Promise(r=>setTimeout(r,80));out.back=M.diag().tone.map(t=>[t.mapping,t.exposure]);return out}""" % T)
+      document.documentElement.dataset.theme='dark';F.set('acestone',false);await new Promise(r=>setTimeout(r,80));out.back=M.diag().tone.map(t=>[t.mapping,t.exposure]);
+      const dm=document.createElement('canvas');dm.width=dm.height=8;const tx=new T.CanvasTexture(dm),lf=o=>{const m=M.leaf(T,Object.assign({map:tx,bleedMap:tx,fiber:tx},o||{}));return[kind(m),!!m.normalMap,m.userData.bleed===true,typeof m.onBeforeCompile==='function'&&m.onBeforeCompile!==T.Material.prototype.onBeforeCompile]};
+      out.leafOn=lf();F.set('paperfiber',false);out.leafOff=lf();F.set('paperfiber',true);out.fiberH=!!(M.fiberHeight&&M.fiberHeight(64).getContext);return out}""" % T)
     note(f"B12 {r}")
     if r["factories"] != {"foil": "physical", "cloth": "physical", "glass": "physical", "brass": "physical"} or r["paper"] != "standard": problems.append(f"B12 factory material types wrong: {r['factories']} paper {r['paper']}")
     if r["levels"] != ["physical", "standard", "lambert", "basic"] or r["names"] != ["full", "standard", "lambert", "basic"]: problems.append(f"B12 material levels wrong: {r['levels']} {r['names']}")
@@ -190,6 +192,8 @@ def b12(b):
     if not r["ace"] or any(m != 4 for m, _ in r["ace"]): problems.append(f"B12 flag acestone must switch every renderer to ACES (4): {r['ace']}")
     elif r["ace"][0][1] == r["aceLight"][0][1]: problems.append(f"B12 exposure must differ per theme: dark {r['ace']} light {r['aceLight']}")
     if any(m != 0 or e != 1 for m, e in r["back"]): problems.append(f"B12 acestone off must restore NoToneMapping / exposure 1: {r['back']}")
+    if r["leafOn"] != ["standard", True, True, True]: problems.append(f"B12 BKMaterials.leaf must give a standard paper with fibre normal map and back-face bleed shader: {r['leafOn']}")
+    if r["leafOff"] != ["standard", False, False, False] or not r["fiberH"]: problems.append(f"B12 flag paperfiber=off must give the plain paper (and fiberHeight must exist): {r['leafOff']} {r['fiberH']}")
     if errs12: problems.append(f"B12 page errors: {errs12[:3]}")
     ctx.close()
 
@@ -323,17 +327,41 @@ with sync_playwright() as p:
     pg.wait_for_timeout(800)
     # the book must never touch the canvas border (a cut-off cover/page was visible mid-turn): sample the outer 3px frame of the stage
     EDGE = "(()=>{const c=document.querySelector('.rec-3d'),x=c.getContext('2d'),w=c.width,h=c.height;let n=0;for(const [a,b,cw,ch] of [[0,0,w,3],[0,h-3,w,3],[0,0,3,h],[w-3,0,3,h]]){const d=x.getImageData(a,b,cw,ch).data;for(let i=3;i<d.length;i+=4)if(d[i]>200)n++}return n})()"
-    edge = [pg.evaluate(EDGE)]
+    edge = [pg.evaluate(EDGE)]; ndc = []
     for _ in range(2):
         pg.evaluate("document.querySelector('.rv-book-ctl [data-a=next]').click()")
-        for _ in range(4): pg.wait_for_timeout(120); edge.append(pg.evaluate(EDGE))
+        for _ in range(4): pg.wait_for_timeout(120); edge.append(pg.evaluate(EDGE)); ndc.append(pg.evaluate("BKStage.book.bounds?BKStage.book.bounds():null"))
     pg.wait_for_timeout(300)
     note(f"B5 pixels touching the stage border (open + mid-turn samples): {edge}")
     if any(edge): problems.append(f"B5 the open book is cut off at the stage edge: {edge}")
+    # R5: the page polygons themselves (every vertex of every visible leaf, projected) stay clear of the stage border in every sampled frame, not just the painted pixels
+    if any(n is None for n in ndc): problems.append("R5 BKStage.book.bounds() is missing (page polygon edge-contact test)")
+    else:
+        worst = max(max(abs(n["x0"]), abs(n["x1"]), abs(n["y0"]), abs(n["y1"])) for n in ndc)
+        note(f"R5 worst projected page vertex over {len(ndc)} mid-turn frames: {worst:.3f} of the half stage (limit 0.985)")
+        if worst >= 0.985: problems.append(f"R5 a page polygon touches the stage edge mid-turn: {worst:.3f}")
     st2 = pg.evaluate("BKStage.book.state()")
     pg.evaluate("document.querySelector('.rv-book-ctl [data-a=prev]').click()"); st3 = pg.evaluate("BKStage.book.state()")
     for _ in range(3): pg.evaluate("document.querySelector('.rv-book-ctl [data-a=next]').click()")
     st4 = pg.evaluate("BKStage.book.state()"); next_dis = pg.evaluate("document.querySelector('.rv-book-ctl [data-a=next]').disabled")
+    # ---- R5 step 1: real cylinder bend (arc length kept, strong tip angle, sheet thickness) and flag pagebend; step 2: paper fibre normal map, back-face bleed, leaf shadows
+    ps = pg.evaluate("window.BKStage&&BKStage.pageShape?{on:[.25,.5,.75].map(p=>BKStage.pageShape(p,true)),off:BKStage.pageShape(.25,false),rest:BKStage.pageShape(0,true)}:null")
+    note(f"R5 page shape {ps}")
+    if not ps: problems.append("R5 BKStage.pageShape() is missing")
+    else:
+        q25 = ps["on"][0]
+        if not (q25["tip"] >= .3): problems.append(f"R5 turning page is not bent like a cylinder (tip angle {q25['tip']:.3f} rad at p=.25, need >= 0.3)")
+        if not all(abs(o["arc"] - 1) < .003 for o in ps["on"]): problems.append(f"R5 bending must keep the arc length of the sheet: {[o['arc'] for o in ps['on']]}")
+        if not all(.0015 <= o["thick"] <= .004 for o in ps["on"] + [ps["rest"]]): problems.append(f"R5 sheet has no thickness while bending: {[o['thick'] for o in ps['on']]}")
+        if ps["off"]["thick"] != 0 or ps["off"]["tip"] > .2: problems.append(f"R5 flag pagebend=0 must give the previous parabola shape without thickness: {ps['off']}")
+        if ps["rest"]["tip"] > 1e-6: problems.append(f"R5 a resting leaf must be flat: {ps['rest']}")
+    lv = pg.evaluate("BKStage.book.leaves?BKStage.book.leaves():null"); note(f"R5 leaf materials {lv}")
+    if not lv: problems.append("R5 BKStage.book.leaves() is missing")
+    else:
+        if not all(l["fiber"] and l["bleed"] and l["recv"] for l in lv): problems.append(f"R5 paper lacks fibre normal map / back-face bleed / shadow receiving at level 0: {lv}")
+        pg.evaluate("BKStage.forceLevel(2)"); pg.wait_for_timeout(600); lv2 = pg.evaluate("BKStage.book.leaves()"); pg.evaluate("BKStage.forceLevel(0)"); pg.wait_for_timeout(600)
+        note(f"R5 leaf materials at level 2 {lv2}")
+        if any(l["fiber"] or l["bleed"] for l in lv2): problems.append(f"R5 heavy paper layers must be off at level 2: {lv2}")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(600)
     closed = pg.evaluate("!document.querySelector('.rv-art.book-open')&&!BKStage.book.state().open")
     note(f"B5 closed {st0['open']}, opened {st1['open']} (coverK {st1['coverK']}), stage centred {stage_ok}, leaf after 2x next {st2['leaf']}, after prev {st3['leaf']}, after 3x more {st4['leaf']} (next disabled {next_dis}), Esc closes {closed}")
