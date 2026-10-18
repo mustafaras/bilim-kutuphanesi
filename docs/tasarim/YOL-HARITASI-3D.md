@@ -12,8 +12,8 @@ Ortak sınırlar (her aşama için geçerli):
 | Aşama | Ad | Durum | PR / sürüm |
 |---|---|---|---|
 | R1 | Ortak GL katmanı (`BKGL`) | **tamam** — deploy yeşil (koşu 133); gerçek GPU doğrulamasını kullanıcı yaptı, sorun yok bildirdi (`?diag` çıktısı iletilmedi) | v108, PR #55 + #56 (test düzeltmesi) |
-| R2 | Gerçek GPU zamanlaması + `?perf` + derleme ısıtma | **canlıda (koşu 137), gerçek GPU doğrulaması bekliyor** — `?perf` “kopyala” çıktısı gelmeden doğrulandı sayılmaz | v109, PR #58 |
-| R3 | Deterministik görsel regresyon kapısı | **kısmen** — `?still=1` + `tools/visual_audit.py` var, CI'da bilgi amaçlı (engellemez); kararlılık CI'da henüz kanıtlanmadı, altın görüntü yok | v110 |
+| R2 | Gerçek GPU zamanlaması + `?perf` + derleme ısıtma | **canlıda (v109+), gerçek GPU doğrulaması bekliyor** — `?perf` “kopyala” çıktısı gelmeden “gerçek GPU'da doğrulandı” sayılmaz (kullanıcı açık tema kartları ve koyu mod galaksi için “sorun yok” bildirdi, `?perf` çıktısı iletmedi) | v109, PR #58 |
+| R3 | Deterministik görsel regresyon kapısı | **tamam, engelleyici** — `?still=1`, `tools/visual_audit.py` (10 yüzey × 4 yapılandırma, kararlılık + hata enjeksiyonu + altın karşılaştırma), altın görüntüler CI'da üretilip commit edildi (`tools/golden/`, 40 PNG); `deploy` görsel işe bağlı | v110–v115, PR #59, #63, #66, #68 |
 | R4 | Ortak malzeme ve ışık kitaplığı (`BKMaterials`, tek PMREM) | bekliyor | — |
 | R5 | Kitap gerçekçiliği (sayfa bükülmesi, kâğıt, yaldız) | bekliyor | — |
 | R6 | Madalya ve Nobel arşivi nesneleri | bekliyor | — |

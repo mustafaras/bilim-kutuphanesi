@@ -1,6 +1,6 @@
-# Sonraki adımlar ve yeni oturum devri (v110 kodu main'de, canlıda v109)
+# Sonraki adımlar ve yeni oturum devri (v115 canlıda, R1–R3 tamam)
 
-> **Önce `DEVIR-FAZ-4.md` §56'yı oku:** v110 deploy edilemedi, B9 kapısı CI'da kırmızı ve kök nedeni bilinmiyor.
+> **Önce `DEVIR-FAZ-4.md` §57'yi oku:** v110–v115 canlıda, B9 kök nedeni çözüldü, görsel regresyon kapısı (R3) engelleyici. Sıradaki aşama R4.
 
 Bu belge, bir sonraki oturumun sıfırdan başlayıp doğru yerden devam etmesi içindir. Önce **§1 Durum**, sonra **§2 Yapılacaklar**, işe başlarken **§6 Başlangıç istemi**. Büyük geliştirmeler için `YOL-HARITASI-3D.md`.
 
