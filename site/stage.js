@@ -60,7 +60,7 @@
  const io=typeof IntersectionObserver==='function'?new IntersectionObserver(es=>{for(const e of es){const it=e.target.__stage;if(it){it.visible=e.isIntersecting;it.dirty=true}}kick()},{rootMargin:'160px'}):null;
 
  function register(canvas,factory,opts={}){
-  const it={canvas,factory,ctx:canvas.getContext('2d'),host:opts.host||canvas.parentElement,opts,visible:!io,dirty:true,hover:0,hoverT:0,px:0,py:0,t:(window.BKGL&&BKGL.still?items.length*.9:Math.random()*8),scene:null,camera:null,api:null,drag:null,dragged:false,frame:0};
+  const it={canvas,factory,ctx:canvas.getContext('2d'),host:opts.host||canvas.parentElement,opts,visible:!io,dirty:true,hover:0,hoverT:0,px:0,py:0,t:(window.BKGL&&BKGL.still?0:Math.random()*8),scene:null,camera:null,api:null,drag:null,dragged:false,frame:0};
   canvas.__stage=it;items.push(it);if(io)io.observe(canvas);
   const h=it.host;
   h.addEventListener('pointerenter',()=>{it.hover=1;kick()});
@@ -99,7 +99,7 @@
    const h=it.hoverT||0;po=Math.sin(t*1.15+i)*.07+h*.1;pz=Math.sin(t*.62+i*1.7)*.035*(1-h);g.position.y+=po;g.rotation.z+=pz;g.scale.setScalar(1+h*.07+Math.sin(t*1.3+i)*.012);
    const light=root.dataset.theme==='light';sh.material.opacity=(light?.34:.28)*(1-po*1.4);sh.scale.x=1-po*.6+h*.1}}
  function render(it,dt){
-  if(window.BKGL&&BKGL.still&&!it.opts.focus)dt=0;   // ?still: frozen animation clock (the open record's book still runs so it can be opened)
+  const STL=!!(window.BKGL&&BKGL.still);let upd=dt;if(STL){upd=it.opts.focus?1:0;dt=0}   // ?still: the animation clock is frozen; the open record's book gets one large step per render so every eased value (yaw, cover, zoom) lands exactly on its target
   if(glLost||(renderer.getContext&&renderer.getContext().isContextLost()))return;   // keep the last frame on screen while the GPU context is gone
   const c=it.canvas,dpr=Math.min(devicePixelRatio||1,dprCap()),w=Math.max(2,Math.round(c.clientWidth*dpr)),h=Math.max(2,Math.round(c.clientHeight*dpr));
   if(c.width!==w||c.height!==h){c.width=w;c.height=h}
@@ -107,7 +107,7 @@
   if(it.host&&it.host.classList&&it.host.classList.contains('atlas-tile')&&it.thm!==(root.dataset.theme==='light'))atlasTheme(it);
   it.hoverT+=(it.hover-it.hoverT)*Math.min(1,dt*7);it.t+=dt*(1+it.hoverT*1.6);
   it.camera.aspect=w/h;it.camera.updateProjectionMatrix();
-  if(it.api.update)it.api.update(it.t,dt,it);
+  if(it.api.update)it.api.update(it.t,upd,it);
   renderer.setViewport(0,0,w,h);renderer.setScissor(0,0,w,h);renderer.clear();if(PT)PT.begin();renderer.render(it.scene,it.camera);if(PT)PT.end();
   it.ctx.clearRect(0,0,w,h);it.ctx.drawImage(rc,0,rc.height-h,w,h,0,0,w,h);it.dirty=false;selfCheck(it)}
 
@@ -473,11 +473,11 @@
     else if(mode==='snap'){yaw+=(snapYaw+it.px*.12*hov-yaw)*k7;pitch+=(.08-pitch)*k7;if(hov<.02){idle+=dt;if(idle>2.2){mode='auto';yaw=wrap(yaw,BASE)}}else idle=0}
     else if(mode==='read'){yaw+=(-.12-yaw)*k7;pitch+=(.04-pitch)*k7}
     else if(mode==='open'){yaw+=((-.04+it.px*.12*hov)-yaw)*k7;pitch+=((.2+it.py*.06*hov)-pitch)*k7}
-    else{yaw+=((BASE+Math.sin(t*.7)*.1)+it.px*.55*hov-yaw)*.12}
+    else{yaw+=((BASE+Math.sin(t*.7)*.1)+it.px*.55*hov-yaw)*(window.BKGL&&BKGL.still?1:.12)}
     const calm=mode==='read'?0:1,openT=mode==='read'||mode==='drag'||bookOpen?0:hov*.21;open+=(openT-open)*k7;zoom+=((bookOpen?.86:mode==="read"?1.06:1)-zoom)*k7;
     coverK+=((bookOpen?1:0)-coverK)*Math.min(1,dt*(paused()?60:4.2));hinge.rotation.y=-(open*(1-coverK)+coverK*Math.PI);if(endpaper)endpaper.visible=coverK>.02;g.scale.setScalar(zoom);g.position.x=-.05+coverK*1.057;animateLeaves(dt,paused());shadow.scale.x=1+coverK*.9;shadow.position.y=-1.78+coverK*.18;shadow.position.x=coverK*.95;
     g.rotation.y=yaw;g.rotation.x=pitch+(mode==='auto'?it.py*.2*hov:0)+Math.sin(t*.9)*.015*calm;g.position.y=Math.sin(t*1.1)*.08*calm+hov*.12*calm+coverK*.18;g.position.z=hov*.3*calm;
-    {const yv=lastYaw==null?0:(yaw-lastYaw)/Math.max(dt,.001);lastYaw=yaw;stepRibbon(dt,Math.max(-3,Math.min(3,yv))*.5,t)}shadow.material.opacity=(real?.4:.95)-it.hoverT*.2;key.intensity=dark()?2.3:2.0;rim.intensity=dark()?1.1:.7}}}
+    {const yv=lastYaw==null?0:(yaw-lastYaw)/Math.max(dt,.001);lastYaw=yaw;if(!(window.BKGL&&BKGL.still))stepRibbon(dt,Math.max(-3,Math.min(3,yv))*.5,t)}shadow.material.opacity=(real?.4:.95)-it.hoverT*.2;key.intensity=dark()?2.3:2.0;rim.intensity=dark()?1.1:.7}}}
 
 
  /* F1: every atlas tile gets solid, lit objects in its own material (glass atom core, glass DNA with gold rungs, glass globe, gold lattice nodes, lit banded planet, gold armillary rings), all under the same studio IBL (one PMREM, see studioEnv). F2: the camera drifts with the pointer so the layers separate (parallax). */

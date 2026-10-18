@@ -77,11 +77,21 @@ jobs:
           python -m playwright install-deps chromium
       - name: ${{ matrix.name }}
         run: ${{ matrix.cmd }}
-  # R3 visual gate: reports only, deploy does not wait for it (it is slow, ~6 min, and its stability on CI is not proven yet). --quick = 1440x900 dark, two captures.
+  # R3 visual regression gate: four configurations in parallel (viewport x theme), each captured twice (stability < 0.1 %) and compared with tools/golden/ when goldens exist.
+  # Reports only for now: deploy does not wait for it until its stability has been proven on CI and goldens are committed.
   visual:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {config: '1440x900:dark', slug: '1440-dark'}
+          - {config: '1440x900:light', slug: '1440-light'}
+          - {config: '1024x768:dark', slug: '1024-dark'}
+          - {config: '1024x768:light', slug: '1024-light'}
+    name: visual ${{ matrix.slug }}
     steps:
       - uses: actions/checkout@v6
       - name: Install Playwright and image libraries
@@ -99,13 +109,13 @@ jobs:
         run: |
           python -m playwright install chromium
           python -m playwright install-deps chromium
-      - name: Visual regression gate (R3, quick)
-        run: python tools/visual_audit.py --quick
-      - name: Visual candidates (commit these as tools/golden/*.png to arm the golden comparison)
+      - name: Visual regression gate (R3)
+        run: python tools/visual_audit.py --config ${{ matrix.config }}
+      - name: Visual output (candidates and differences)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: visual-candidates
+          name: visual-${{ matrix.slug }}
           path: |
             tools/golden/_out/candidates
             tools/golden/_diff

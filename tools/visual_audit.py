@@ -15,7 +15,7 @@ import numpy as np
 from PIL import Image
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent; GOLD = ROOT / "tools" / "golden"; OUT = GOLD / "_out"; DIFF = GOLD / "_diff"
-ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--quick", action="store_true"); ap.add_argument("--update", action="store_true"); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--quick", action="store_true", help="1440x900 dark only"); ap.add_argument("--config", help="one configuration, e.g. 1440x900:dark (CI runs the four as parallel jobs)"); ap.add_argument("--update", action="store_true"); a = ap.parse_args()
 srv = None
 if not a.url:
     s_ = socket.socket(); s_.bind(("127.0.0.1", 0)); port = s_.getsockname()[1]; s_.close()
@@ -23,6 +23,9 @@ if not a.url:
     a.url = f"http://127.0.0.1:{port}/"; time.sleep(1)
 problems = []; note = lambda m: print(m, flush=True)
 TOL, STABLE, GOLDEN = 10, 0.001, 0.005
+# procedural particle / label layouts that are not seeded (constellation planets and caption picks, Nobel galaxy stray stars): looser limits, still far below any real defect (a hidden canvas changes > 4 %)
+LOOSE = {'constellation': (0.01, 0.02), 'nobel-galaxy': (0.01, 0.02)}
+def lim(name, k): return LOOSE.get(name.split('__')[1][:-4], (STABLE, GOLDEN))[k]
 CONFIGS = [(1440, 900, "dark"), (1440, 900, "light"), (1024, 768, "dark"), (1024, 768, "light")]
 
 def ratio(p1, p2, save=None):
@@ -56,18 +59,16 @@ def capture(b, w, h, theme, tag, keep=False):
     q.evaluate("document.querySelector('.atlas-tile').parentElement.setAttribute('data-vr','atlas')"); shot("atlas", "[data-vr=atlas]")
     shot("shelf", "#spotlightGrid")
     if q.evaluate("!!document.querySelector('.timeline-section')"): shot("timeline", ".timeline-section")
-    # record page: the 3D book closed and its three open spreads (same steps as feature_audit B5)
-    q.evaluate("document.documentElement.classList.remove('effects-paused')")
+    if q.evaluate("!!document.querySelector('.nc-view [data-v=galaxy],[data-v=galaxy]')"):
+        q.evaluate("document.querySelector('[data-v=galaxy]').click()"); q.wait_for_timeout(3000); shot("nobel-galaxy", ".nc-3d:not(.nc-sky)")
+    # record page: the 3D book closed and its three open spreads (same steps as feature_audit B5). Effects stay paused: in ?still the book lands exactly on every target
     q.evaluate("openRecord(records[5].id)"); q.wait_for_timeout(2500)
+    if q.evaluate("!!document.querySelector('.rv-constellation')"): q.wait_for_timeout(2500); shot("constellation", ".rv-constellation")
     q.evaluate("document.querySelector('.rv-3d-toggle').click()"); q.wait_for_function("document.querySelector('.rv-book-ctl')", timeout=120000); q.wait_for_timeout(3000)
-    q.evaluate("document.documentElement.classList.add('effects-paused')"); q.wait_for_timeout(1500); shot("book-closed", ".rec-3d")
-    q.evaluate("document.documentElement.classList.remove('effects-paused')")
-    q.evaluate("document.querySelector('.rv-book-ctl [data-a=open]').click()"); q.wait_for_function("BKStage.book.state().coverK>0.95", timeout=120000)
-    q.evaluate("document.documentElement.classList.add('effects-paused')")
-    try: q.wait_for_function("BKStage.book.state().coverK>=0.999", timeout=60000)
-    except Exception: pass
+    q.wait_for_timeout(1500); shot("book-closed", ".rec-3d")
+    q.evaluate("document.querySelector('.rv-book-ctl [data-a=open]').click()"); q.wait_for_function("BKStage.book.state().coverK>=0.999", timeout=120000); q.wait_for_timeout(1500)
     for i in range(3):
-        q.evaluate("document.querySelector('.rv-book-ctl [data-a=next]').click()"); q.wait_for_timeout(2500); shot(f"book-open-{i + 1}", ".rec-3d")
+        q.evaluate("document.querySelector('.rv-book-ctl [data-a=next]').click()"); q.wait_for_function(f"BKStage.book.state().leaf=={i + 1}&&BKStage.book.state().p.every((v,k)=>Math.abs(v-(k<{i + 1}?1:0))<0.001)", timeout=60000); q.wait_for_timeout(1500); shot(f"book-open-{i + 1}", ".rec-3d")
     if keep: return out, (ctx, q)
     ctx.close(); return out, None
 
@@ -76,7 +77,9 @@ try:
     with sync_playwright() as p:
         kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]); exe = os.environ.get("BK_CHROMIUM")
         b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
-        cfgs = CONFIGS[:1] if a.quick else CONFIGS
+        if a.config:
+            sz, th_ = a.config.split(":"); w_, h_ = sz.split("x"); cfgs = [(int(w_), int(h_), th_)]
+        else: cfgs = CONFIGS[:1] if a.quick else CONFIGS
         runA = {}; keep_page = None
         for (w, h, th) in cfgs:
             out, kp = capture(b, w, h, th, "a", keep=(w, h, th) == (1440, 900, "dark"))
@@ -96,11 +99,11 @@ try:
             if r2 < 0.02: problems.append(f"gate did not see the shelf falling back to CSS covers ({r2:.4f})")
         # 1 stability: capture again, compare
         worst = 0.0
-        for (w, h, th) in cfgs[:1] if a.quick else cfgs[:2]:
+        for (w, h, th) in cfgs:
             out, _ = capture(b, w, h, th, "b")
             for k, f in out.items():
                 r = ratio(runA[f.name], f, DIFF / f"unstable-{f.name}"); worst = max(worst, r)
-                if r > STABLE: problems.append(f"{f.name} unstable between two runs: {r:.4f} of the pixels changed (limit {STABLE})")
+                if r > lim(f.name, 0): problems.append(f"{f.name} unstable between two runs: {r:.4f} of the pixels changed (limit {lim(f.name, 0)})")
         note(f"stability: worst difference between two captures {worst:.5f} (limit {STABLE})")
         b.close()
     # 3 goldens (half size, PNG)
@@ -117,7 +120,7 @@ try:
         for g in sorted(cand.glob("*.png")):
             if g.name not in gold: miss += 1; continue
             r = ratio(gold[g.name], g, DIFF / f"golden-{g.name}")
-            if r > GOLDEN: problems.append(f"{g.name} differs from its golden: {r:.4f} of the pixels (limit {GOLDEN}); see tools/golden/_diff/")
+            if r > lim(g.name, 1): problems.append(f"{g.name} differs from its golden: {r:.4f} of the pixels (limit {lim(g.name, 1)}); see tools/golden/_diff/")
         note(f"goldens compared: {len(list(cand.glob('*.png'))) - miss}, without golden: {miss}")
 finally:
     if srv: srv.terminate()

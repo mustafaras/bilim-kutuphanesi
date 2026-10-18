@@ -183,7 +183,7 @@
     const ix=typeof nobelIndex!=='undefined'?nobelIndex:null;if(!ix)return;const dir=ny>=cur?1:-1;let best=null;for(let y=ny;y>=1901&&y<=2026;y+=dir){if(ix.has(String(y))){best=String(y);break}}if(best&&typeof selectNobelYear==='function')selectNobelYear(best,true)});
    canvas.parentNode.addEventListener('wheel',e=>{if(!(e.ctrlKey||e.metaKey))return;e.preventDefault();zoomT=Math.max(.7,Math.min(5,zoomT*Math.exp(-e.deltaY*.01)));wake()},{passive:false});
    ui.ctl.addEventListener('click',e=>{const b=e.target.closest?e.target.closest('[data-z]'):null;if(!b)return;if(b.dataset.z==='in')zoomT=Math.min(5,zoomT*1.4);else if(b.dataset.z==='out')zoomT=Math.max(.7,zoomT/1.4);else{zoomT=1;panT.set(0,0,0);yaw=0;pitch=0}wake()});
-   function draw(dt){applyTheme();time+=dt;U.uTime.value=time;select();for(let q=0;q<7;q++)U.uOn.value[q]=NF.on[q]?1:0;if(!drag){yaw+=vYaw;vYaw*=.94;if(Math.abs(vYaw)<1e-4)vYaw=0}
+   function draw(dt){applyTheme();time+=(window.BKGL&&BKGL.still)?0:dt;U.uTime.value=time;select();for(let q=0;q<7;q++)U.uOn.value[q]=NF.on[q]?1:0;if(!drag){yaw+=vYaw;vYaw*=.94;if(Math.abs(vYaw)<1e-4)vYaw=0}
     const k=Math.min(1,dt*5);zoom+=(zoomT-zoom)*k;pan.lerp(panT,k);
     /* scroll-linked entrance: the galaxy dollies in and swings round as the section arrives (continuity with the hero galaxy) */
     const pr=panel.getBoundingClientRect(),sp=Math.max(0,Math.min(1,(innerHeight-pr.top)/(innerHeight*.85))),se=sp*sp*(3-2*sp),dolly=.6+.4*se;
