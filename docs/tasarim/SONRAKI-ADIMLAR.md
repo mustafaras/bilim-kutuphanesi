@@ -1,6 +1,6 @@
-# Sonraki adımlar ve yeni oturum devri (v115 canlıda, R1–R3 tamam)
+# Sonraki adımlar ve yeni oturum devri (v116: R1–R4 kodlandı; R4 merge/deploy sonucu DEVIR §58)
 
-> **Önce `DEVIR-FAZ-4.md` §57'yi oku:** v110–v115 canlıda, B9 kök nedeni çözüldü, görsel regresyon kapısı (R3) engelleyici. Sıradaki aşama R4.
+> **Önce `DEVIR-FAZ-4.md` §57 ve §58'i oku:** görsel regresyon kapısı (R3) engelleyici; R4 (`BKMaterials`) v116. Sıradaki aşama R5–R9 (kullanıcı önceliğine göre).
 
 Bu belge, bir sonraki oturumun sıfırdan başlayıp doğru yerden devam etmesi içindir. Önce **§1 Durum**, sonra **§2 Yapılacaklar**, işe başlarken **§6 Başlangıç istemi**. Büyük geliştirmeler için `YOL-HARITASI-3D.md`.
 

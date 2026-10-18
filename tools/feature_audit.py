@@ -5,13 +5,13 @@
 A1 atlas objects dolly in as their tile arrives (camera z shrinks, opacity rises while scrolling down to the tiles);
 A2 a record opened from a hero star spawns a return ghost when it closes (and none when opened elsewhere);
 A3 the quality governor degrades at once, recovers one level at a time only after sustained fast windows, and locks recovery after a flip-flop;
-B8 context loss, B9 broken GPU, B10 quality tiers reach the stage (DPR cap, idle frame rate) and one ?diag panel; B11 GPU timing, ?perf panel and shader warm-up (Long Tasks, zero cost when ?perf is off); B5 the 3D book opens into a centred reading stage, pages turn and Escape closes it; B6 the medal uses a normal-map relief with a reeded rim; B7 the dome/telescope follows the pointer.
+B8 context loss, B9 broken GPU, B10 quality tiers reach the stage (DPR cap, idle frame rate) and one ?diag panel; B11 GPU timing, ?perf panel and shader warm-up (Long Tasks, zero cost when ?perf is off); B12 shared material/light library (one studio bake per renderer and preset, ACES + exposure in one place and off by default, material levels, kill-switch flag); B5 the 3D book opens into a centred reading stage, pages turn and Escape closes it; B6 the medal uses a normal-map relief with a reeded rim; B7 the dome/telescope follows the pointer.
 A4 clicking an atlas tile shows the dive (class .diving), delays the filter ~420 ms, then applies it exactly once."""
 import json, argparse, os, socket, subprocess, sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
-ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11", "b12"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
 srv = None
 if not a.url:
     s_ = socket.socket(); s_.bind(("127.0.0.1", 0)); port = s_.getsockname()[1]; s_.close()
@@ -161,6 +161,38 @@ def b11(b):
     elif not (r["fastGpu"] == 0 and r["slowGpu"] == 1 and r["noGpu"] == 1): problems.append(f"B11 governor must look at GPU ms before rAF time: {r}")
     ctx.close()
 
+def b12(b):
+    """B12 shared material and light library (site/materials.js): every renderer gets ONE studio bake per preset (no duplicate PMREMs), tone mapping lives in BKMaterials.tone
+    (default NoToneMapping so the R3 goldens stay put; flag acestone = ACES + exposure per theme), the material levels full/standard/lambert/basic are defined there, flag matlib=off degrades to plain standard materials."""
+    ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q = ctx.new_page()
+    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
+    errs12 = []; q.on("pageerror", lambda e: errs12.append(str(e)[:160]))
+    q.goto(a.url + "?b12=" + str(time.time()), wait_until="load")
+    q.wait_for_function('window.BKStage&&typeof records!=="undefined"&&records.length', timeout=120000)
+    q.wait_for_function("window.BKMaterials&&document.querySelectorAll('.tile-3d.on').length>=6", timeout=120000)
+    d = q.evaluate("BKMaterials.diag()"); note(f"B12 diag {d}")
+    if not d["envs"] or not any(k.endswith("#book") for k in d["envs"]): problems.append(f"B12 the stage has no 'book' studio bake: {d}")
+    if d["bakes"] != len(d["envs"]): problems.append(f"B12 duplicate studio bakes (bakes {d['bakes']} vs {len(d['envs'])} renderer/preset pairs): {d}")
+    if any(t["mapping"] != 0 or t["exposure"] != 1 for t in d["tone"]): problems.append(f"B12 default tone mapping must stay NoToneMapping / exposure 1 (R3 goldens): {d['tone']}")
+    T = "import('./vendor/three.module.min.js')"
+    r = q.evaluate("""async()=>{const T=await %s,M=window.BKMaterials,F=BKGL.flags,out={};
+      const kind=m=>m.isMeshPhysicalMaterial?'physical':m.isMeshStandardMaterial?'standard':m.isMeshLambertMaterial?'lambert':m.isMeshBasicMaterial?'basic':'?';
+      out.factories=Object.fromEntries(['foil','cloth','glass','brass'].map(n=>[n,kind(M[n](T,{}))]));out.paper=kind(M.paper(T,{}));
+      const ph=M.glass(T,{color:0x88aaff,opacity:.5});out.levels=[0,1,2,3].map(l=>kind(M.lighter(T,ph,l)));out.level3Opacity=M.lighter(T,ph,3).opacity;out.names=M.LEVELS;
+      F.set('matlib',false);out.off=Object.fromEntries(['foil','cloth','glass','brass'].map(n=>[n,kind(M[n](T,{}))]));F.set('matlib',true);
+      F.set('acestone',true);await new Promise(r=>setTimeout(r,50));out.ace=M.diag().tone.map(t=>[t.mapping,t.exposure]);
+      document.documentElement.dataset.theme='light';await new Promise(r=>setTimeout(r,80));out.aceLight=M.diag().tone.map(t=>[t.mapping,t.exposure]);
+      document.documentElement.dataset.theme='dark';F.set('acestone',false);await new Promise(r=>setTimeout(r,80));out.back=M.diag().tone.map(t=>[t.mapping,t.exposure]);return out}""" % T)
+    note(f"B12 {r}")
+    if r["factories"] != {"foil": "physical", "cloth": "physical", "glass": "physical", "brass": "physical"} or r["paper"] != "standard": problems.append(f"B12 factory material types wrong: {r['factories']} paper {r['paper']}")
+    if r["levels"] != ["physical", "standard", "lambert", "basic"] or r["names"] != ["full", "standard", "lambert", "basic"]: problems.append(f"B12 material levels wrong: {r['levels']} {r['names']}")
+    if any(v != "standard" for v in r["off"].values()): problems.append(f"B12 flag matlib=off must degrade every factory to a standard material: {r['off']}")
+    if not r["ace"] or any(m != 4 for m, _ in r["ace"]): problems.append(f"B12 flag acestone must switch every renderer to ACES (4): {r['ace']}")
+    elif r["ace"][0][1] == r["aceLight"][0][1]: problems.append(f"B12 exposure must differ per theme: dark {r['ace']} light {r['aceLight']}")
+    if any(m != 0 or e != 1 for m, e in r["back"]): problems.append(f"B12 acestone off must restore NoToneMapping / exposure 1: {r['back']}")
+    if errs12: problems.append(f"B12 page errors: {errs12[:3]}")
+    ctx.close()
+
 def b9(b):
     """B9 broken GPU (own contexts, independent of the main page)."""
     # ---- B9 broken GPU: the shelf must never show a broken book. Inject a shader fault (fragment shaders containing the given text get a syntax error appended)
@@ -186,11 +218,11 @@ def b9(b):
     f_all = faulty(["gl_FragColor", "pc_fragColor"], lambda o: o["lvl"] == 4 and o["cards"] == 0); note(f"B9 nothing compiles -> {f_all}")
     if f_all["lvl"] != 4 or f_all["cards"] != 0: problems.append(f"B9 stage did not fall back to the CSS covers when nothing compiles: {f_all}")
 
-if a.only in ("b9", "b10", "b11"):
+if a.only in ("b9", "b10", "b11", "b12"):
     with sync_playwright() as p:
         kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]); exe = os.environ.get("BK_CHROMIUM")
         b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
-        {"b9": b9, "b10": b10, "b11": b11}[a.only](b); b.close()
+        {"b9": b9, "b10": b10, "b11": b11, "b12": b12}[a.only](b); b.close()
     if srv: srv.terminate()
     print("FAIL" if problems else f"OK: {a.only.upper()}", *problems, sep="\n - " if problems else "")
     sys.exit(1 if problems else 0)
@@ -336,10 +368,14 @@ with sync_playwright() as p:
             sc = gls.get(n)
             if not sc or sc["losses"] < 1 or sc["restores"] < 1 or sc["lost"]: problems.append(f"B8 BKGL did not track the context loss of '{n}': {sc}")
         if any(v["lost"] for v in gls.values()): problems.append(f"B8 a scene is still marked lost after restore: {[k for k, v in gls.items() if v['lost']]}")
+    mdiag = pg.evaluate("window.BKMaterials?BKMaterials.diag():null"); note(f"B8 BKMaterials after restore: {mdiag}")
+    if not mdiag or mdiag["rebakes"] < 1: problems.append(f"B8 the studio light (PMREM) was not re-baked in BKMaterials after the context loss: {mdiag}")
+    elif mdiag["bakes"] != len(mdiag["envs"]) + mdiag["rebakes"]: problems.append(f"B8 studio bakes do not add up (first bakes + re-bakes): {mdiag}")
     if a.only is None: b9(b)
     if errs: problems.append(f"console errors: {errs[:3]}")
     if a.only is None: b10(b)
     if a.only is None: b11(b)
+    if a.only is None: b12(b)
     b.close()
 if srv: srv.terminate()
 print("FAIL" if problems else "OK: Package A features behave as specified", *problems, sep="\n - " if problems else "")
