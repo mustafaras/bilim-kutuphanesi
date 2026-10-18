@@ -38,8 +38,6 @@ jobs:
   browser:
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    # The visual gate (R3) is new: it reports but cannot block a deploy until its stability has been proven on CI
-    continue-on-error: ${{ startsWith(matrix.name, 'Visual') }}
     strategy:
       fail-fast: false
       matrix:
@@ -59,10 +57,6 @@ jobs:
             cmd: python tools/feature_audit.py --only b10
           - name: GPU timing, ?perf, warm-up (B11)
             cmd: python tools/feature_audit.py --only b11
-          - name: Visual regression gate (R3)
-            cmd: |
-              python -m pip install --quiet pillow numpy
-              python tools/visual_audit.py
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v6
@@ -83,8 +77,32 @@ jobs:
           python -m playwright install-deps chromium
       - name: ${{ matrix.name }}
         run: ${{ matrix.cmd }}
+  # R3 visual gate: reports only, deploy does not wait for it (it is slow, ~6 min, and its stability on CI is not proven yet). --quick = 1440x900 dark, two captures.
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Playwright and image libraries
+        run: python -m pip install --quiet playwright pillow numpy
+      - name: Playwright version
+        id: pw
+        run: |
+          echo "v=$(python -m pip show playwright | sed -n 's/^Version: //p')" >> "$GITHUB_OUTPUT"
+      - name: Cache the browser download
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ steps.pw.outputs.v }}
+      - name: Install browser and system libraries
+        run: |
+          python -m playwright install chromium
+          python -m playwright install-deps chromium
+      - name: Visual regression gate (R3, quick)
+        run: python tools/visual_audit.py --quick
       - name: Visual candidates (commit these as tools/golden/*.png to arm the golden comparison)
-        if: always() && startsWith(matrix.name, 'Visual')
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: visual-candidates
