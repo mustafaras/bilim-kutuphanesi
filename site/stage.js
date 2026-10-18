@@ -7,13 +7,13 @@
    Falls back silently (the SVG engravings / CSS covers stay) without WebGL. Honors reduced-motion and the motion toggle. */
 (()=>{
  if(typeof document==='undefined'||!document.getElementById('collectionGrid'))return;
- const TF=window.BKText;if(!TF)return;
+ const TF=window.BKText,BM=window.BKMaterials;if(!TF||!BM)return;
  const root=document.documentElement,reduced=typeof matchMedia==='function'?matchMedia('(prefers-reduced-motion: reduce)'):{matches:false};
  const hasGL=()=>{try{const c=document.createElement('canvas');return!!(c.getContext('webgl2')||c.getContext('webgl'))}catch{return false}};
  if(!hasGL())return;
  let THREE=null,renderer=null,loading=null,items=[],raf=0,last=0,PT=null,warmHold=null;   // PT: ?perf recorder for tile renders; warmHold keeps the warmed scenes (their programs stay compiled)
  const paused=()=>root.classList.contains('effects-paused')||reduced.matches;
- const load=()=>loading||(loading=import('./vendor/three.module.min.js').then(m=>{THREE=m;renderer=new m.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(1);renderer.shadowMap.enabled=true;renderer.shadowMap.type=m.PCFSoftShadowMap;renderer.setClearColor(0x000000,0);renderer.setScissorTest(true);watchContext();if(window.BKGL)PT=BKGL.perf.track('stage',renderer);return m}).catch(()=>null));
+ const load=()=>loading||(loading=import('./vendor/three.module.min.js').then(m=>{THREE=m;renderer=new m.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(1);renderer.shadowMap.enabled=true;renderer.shadowMap.type=m.PCFSoftShadowMap;renderer.setClearColor(0x000000,0);renderer.setScissorTest(true);BM.tone(renderer,'stage');watchContext();if(window.BKGL)PT=BKGL.perf.track('stage',renderer);return m}).catch(()=>null));
  /* Self-check and graceful degradation. Some GPU/driver combinations cannot build (or silently drop) the heavy book materials; the book then paints as a few untextured bits
     (headband, foil, ribbon) or not at all. Every checked tile therefore inspects what it painted; when that looks broken the whole stage steps down one level and repaints:
     1 plain standard materials, no shadows / bump / clearcoat / sheen · 2 lambert (no PBR, no environment) · 3 flat basic colours, no textures · 4 give up on 3D, the CSS cover stays.
@@ -23,18 +23,12 @@
  function looksBroken(it){try{pctx.clearRect(0,0,32,32);pctx.drawImage(it.canvas,0,0,32,32);const d=pctx.getImageData(0,0,32,32).data;let n=0,sum=0;
    for(let i=0;i<d.length;i+=4)if(d[i+3]>200){n++;sum+=d[i]+d[i+1]+d[i+2]}
    it.stat={cover:+(n/1024).toFixed(3),lum:n?Math.round(sum/n/3):0};return n/1024<.05||(n&&sum/n/3<35)}catch{return false}}
- function lighter(mt,level){if(!mt||mt.isShaderMaterial||mt.isShadowMaterial)return mt;const o={side:mt.side,transparent:mt.transparent,opacity:mt.opacity,depthWrite:mt.depthWrite};
-  if(mt.color)o.color=mt.color.clone();if(level<3&&mt.map)o.map=mt.map;
-  if(level>=3&&mt.map&&mt.map.image){try{const c=document.createElement('canvas');c.width=c.height=1;const x=c.getContext('2d');x.drawImage(mt.map.image,0,0,1,1);const d=x.getImageData(0,0,1,1).data;o.color=new THREE.Color().setRGB(d[0]/255,d[1]/255,d[2]/255,THREE.SRGBColorSpace)}catch{}}
-  if(level===1){o.roughness=mt.roughness!=null?mt.roughness:.8;o.metalness=Math.min(mt.metalness||0,1);o.envMapIntensity=mt.envMapIntensity!=null?mt.envMapIntensity:1}
-  if(mt.emissive){o.emissive=mt.emissive.clone();o.emissiveIntensity=mt.emissiveIntensity}
-  const M=level>=3?THREE.MeshBasicMaterial:level===2?THREE.MeshLambertMaterial:THREE.MeshStandardMaterial;if(level>=3)delete o.emissive,delete o.emissiveIntensity;return new M(o)}
  function simplify(sc,level){if(!sc||!THREE)return;sc.traverse(o=>{
    if(o.isLight){if(o.castShadow)o.castShadow=false;return}
    if(!o.isMesh)return;const m0=o.__mat0||(o.__mat0=o.material);
    if(m0&&(m0.isShadowMaterial||(Array.isArray(m0)&&m0.some(x=>x&&x.isShadowMaterial)))){o.visible=false;return}
    if(level<1){o.material=m0;return}
-   o.material=Array.isArray(m0)?m0.map(x=>lighter(x,level)):lighter(m0,level)})}
+   o.material=Array.isArray(m0)?m0.map(x=>BM.lighter(THREE,x,level)):BM.lighter(THREE,m0,level)})}
  function applySafe(){try{renderer.shadowMap.enabled=SAFE<1}catch{}
   for(const i of items){if(i.scene)simplify(i.scene,SAFE);i.rn=0;i.dirty=true}
   try{sceneCache.forEach(x=>simplify(x.scene,SAFE))}catch{}
@@ -54,9 +48,8 @@
   renderer.debug.onShaderError=(gl,prog,vs,fs)=>{DIAG.shaderErrors++;if(DIAG.shaderErrors===1)try{console.warn('[stage] shader error, falling back to simpler materials')}catch{}if(SAFE===0||performance.now()-lastEsc>6000)escalate('shader error')};   // errors of the level just left arrive late (within seconds) and must not skip levels; a shader error 6 s after the last step means the CURRENT level fails too, so step down without waiting for 70 frames of pixel checks (each frame with a broken program is slow, on a weak GPU that took minutes)
   try{const g=renderer.getContext(),dbg=g.getExtension('WEBGL_debug_renderer_info');DIAG.gpu=dbg?g.getParameter(dbg.UNMASKED_RENDERER_WEBGL):g.getParameter(g.RENDERER);DIAG.maxTex=g.getParameter(g.MAX_TEXTURE_IMAGE_UNITS);DIAG.maxSize=g.getParameter(g.MAX_TEXTURE_SIZE);DIAG.webgl2=!!(g instanceof self.WebGL2RenderingContext)}catch{}
   if(window.BKGL){BKGL.probe(renderer);BKGL.watch(rc,{name:'stage',onLost(){glLost=true},onRestore(){glLost=false;try{rebuildEnv()}catch{}for(const i of items)i.dirty=true;kick()}})}}
- function rebuildEnv(){const old=ENV;if(!old||!THREE)return;ENV=null;const fresh=studioEnv(THREE);if(!fresh){ENV=old;return}
-  const swap=sc=>{if(!sc)return;if(sc.environment===old)sc.environment=fresh;sc.traverse(o=>{const ms=Array.isArray(o.material)?o.material:o.material?[o.material]:[];ms.forEach(mt=>{if(mt.envMap===old){mt.envMap=fresh;mt.needsUpdate=true}})})};
-  for(const i of items)swap(i.scene);try{sceneCache.forEach(x=>swap(x.scene))}catch{}}
+ function rebuildEnv(){if(!THREE)return;const r=BM.rebake(renderer,THREE,'book');if(!r)return;
+  for(const i of items)BM.swapEnv(i.scene,r.old,r.fresh);try{sceneCache.forEach(x=>BM.swapEnv(x.scene,r.old,r.fresh))}catch{}}
  const io=typeof IntersectionObserver==='function'?new IntersectionObserver(es=>{for(const e of es){const it=e.target.__stage;if(it){it.visible=e.isIntersecting;it.dirty=true}}kick()},{rootMargin:'160px'}):null;
 
  function register(canvas,factory,opts={}){
@@ -230,8 +223,8 @@
     return normalFromHeight(m,c,3.4)};
    const faceCol=canvasTex(m,512,512,(x,W,H)=>{const gr=x.createRadialGradient(W*.4,H*.35,20,W/2,H/2,W*.62);gr.addColorStop(0,'#f6e3ad');gr.addColorStop(.55,'#d9b46c');gr.addColorStop(1,'#a67c34');x.fillStyle=gr;x.fillRect(0,0,W,H)},true);
    const faceOf=k=>{const mk=faceMaskOf(k),rf=canvasTex(m,512,512,(x,W,H)=>{x.fillStyle='#8a8a8a';x.fillRect(0,0,W,H);x.drawImage(mk.image,0,0);x.globalCompositeOperation='multiply';x.fillStyle='#cfcfcf';x.fillRect(0,0,W,H)},false);
-    return new m.MeshPhysicalMaterial({map:faceCol,normalMap:reliefOf(k),normalScale:new m.Vector2(1,1),metalness:.9,roughness:.34,roughnessMap:rf,clearcoat:.5,clearcoatRoughness:.12,iridescence:.35,iridescenceIOR:1.35,iridescenceThicknessRange:[180,420],envMapIntensity:2.2})};
-   const edge=new m.MeshPhysicalMaterial({color:0xe3c17a,metalness:.95,roughness:.24,iridescence:.25,iridescenceIOR:1.3,iridescenceThicknessRange:[150,380],envMapIntensity:2.0});
+    return BM.foil(m,{map:faceCol,normalMap:reliefOf(k),normalScale:new m.Vector2(1,1),metalness:.9,roughness:.34,roughnessMap:rf,clearcoat:.5,clearcoatRoughness:.12,iridescence:.35,iridescenceIOR:1.35,iridescenceThicknessRange:[180,420],envMapIntensity:2.2})};
+   const edge=BM.brass(m);
    /* coin reeding: 96 fine ridges around the rim */
    const reed=(()=>{const c=document.createElement('canvas');c.width=128;c.height=8;const x=c.getContext('2d');for(let i=0;i<128;i++){const v=(.5+.5*Math.sin(i/128*Math.PI*2*16))*255|0;x.fillStyle=`rgb(${v},${v},${v})`;x.fillRect(i,0,1,8)}const t=normalFromHeight(m,c,2.6);t.repeat.set(6,1);return t})();
    const edgeSide=edge.clone();edgeSide.normalMap=reed;edgeSide.normalScale=new m.Vector2(1.4,1.4);
@@ -242,7 +235,7 @@
    const rim=new m.Mesh(new m.TorusGeometry(1.42,.06,16,120),edge);g.add(rim);
    const bail=new m.Mesh(new m.TorusGeometry(.16,.04,12,32),edge);bail.position.y=1.62;g.add(bail);
    const rb=new m.PlaneGeometry(.5,1.5,1,16),rpp=rb.attributes.position;for(let i=0;i<rpp.count;i++){const y=rpp.getY(i);rpp.setZ(i,Math.sin(y*3.4)*.05)}rb.computeVertexNormals();
-   const ribMat=new m.MeshPhysicalMaterial({color:0x16406e,roughness:.4,sheen:1,sheenColor:new m.Color(0xb8d4ff),iridescence:1,iridescenceIOR:1.5,iridescenceThicknessRange:[250,600],metalness:.25,side:m.DoubleSide});
+   const ribMat=BM.cloth(m,{color:0x16406e,roughness:.4,sheen:1,sheenColor:0xb8d4ff,iridescence:1,iridescenceIOR:1.5,iridescenceThicknessRange:[250,600],metalness:.25,side:m.DoubleSide});
    [-1,1].forEach(sg=>{const rbm=new m.Mesh(rb,ribMat);rbm.position.set(sg*.28,2.35,-.02);rbm.rotation.z=sg*-.2;g.add(rbm)});
    const N=60,gp=new Float32Array(N*3),gs=[];for(let i=0;i<N;i++)gs.push({a:Math.random()*7,r:1.7+Math.random()*1.1,y:(Math.random()-.5)*2.4,s:.25+Math.random()*.6});
    const gl=new m.Points(new m.BufferGeometry().setAttribute('position',new m.BufferAttribute(gp,3)),new m.PointsMaterial({color:0xffe6a8,size:.05,transparent:true,opacity:.85,depthWrite:false,blending:m.AdditiveBlending}));scene.add(gl);
@@ -280,14 +273,8 @@
 
  window.BKStage={diag:()=>({level:SAFE,...DIAG,ql:ql(),dprCap:dprCap(),stats:{...STATS},lost:glLost,items:items.filter(i=>i.opts.check).map(i=>i.failed?'failed':i.stat||null)}),forceLevel:l=>{SAFE=Math.max(0,Math.min(4,l|0));lastEsc=0;applySafe()},paintPage,medalInfo:()=>{const it=items.find(i=>i.api&&i.api.face&&i.api.info);return it?it.api.info():null},medal:k=>{const it=items.find(i=>i.api&&i.api.face);if(!it)return false;it.api.face(k);it.dirty=true;kick();return true},tiles:()=>items.filter(i=>i.canvas.classList.contains('tile-3d')&&i.camera).map(i=>({z:+i.camera.position.z.toFixed(3),op:i.canvas.style.opacity,top:Math.round(i.host.getBoundingClientRect().top+scrollY)})),info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
 
- /* Image-based lighting: a tiny studio (soft boxes) baked once into a PMREM map; makes foil, cloth, clearcoat and gold read as real materials. */
- let ENV=null;
- function studioEnv(m){if(ENV)return ENV;
-  try{const es=new m.Scene();es.background=new m.Color(0x07090f);
-   const box=(w,h,x,y,z,c,k)=>{const mm=new m.Mesh(new m.PlaneGeometry(w,h),new m.MeshBasicMaterial({color:new m.Color(c).multiplyScalar(k),side:m.DoubleSide}));mm.position.set(x,y,z);mm.lookAt(0,0,0);es.add(mm)};
-   box(9,5,-6,5,6,0xfff0d6,6);box(4,9,8,1,3,0xd6e4ff,3.4);box(12,2,0,-6,1,0xffdca8,1.3);box(7,3,0,7,-6,0xffffff,2.6);box(3,6,-8,-1,-2,0xffe6c4,1.4);box(7,5,0,1,9,0xfff4dc,3.2);
-   const pm=new m.PMREMGenerator(renderer);renderer.setScissorTest(false);ENV=pm.fromScene(es,.035).texture;renderer.setScissorTest(true);pm.dispose()}catch{ENV=null}
-  return ENV}
+ /* Image-based lighting: the studio (soft boxes → PMREM) is baked once per renderer by BKMaterials.env; makes foil, cloth, clearcoat and gold read as real materials. */
+ const studioEnv=m=>BM.env(renderer,m,'book');
  const GOLD='#e8cf94';
  /* Cover material identity per subject index: binding (leather / linen cloth / matte board), foil metal and finish. */
  const FOIL={gold:'#e8cf94',silver:'#d9dee6',copper:'#dc9b72'};
@@ -398,26 +385,26 @@
   const envMap=studioEnv(m);if(envMap)scene.environment=envMap;
   const wseed=(idx+3)*2654435+String(r.id||'').length*977,col=canvasTex(m,512,720,(x,W,H)=>{paintCover(x,W,H,r,idx,false);wearEdges(x,W,H,wseed,'col')},true),mask=canvasTex(m,512,720,(x,W,H)=>paintCover(x,W,H,r,idx,true),false);
   const rough=canvasTex(m,512,720,(x,W,H)=>{paintCover(x,W,H,r,idx,true);const d=x.getImageData(0,0,W,H),q=d.data;for(let i=0;i<q.length;i+=4){const v=q[i];const rr=Math.round(215-v*.78);q[i]=q[i+1]=q[i+2]=rr}x.putImageData(d,0,0);wearEdges(x,W,H,wseed,'rough')},false);
-  const MT=matOf(idx),bump=grainBump(m,mask,MT.bind,(idx+1)*7919+String(r.id||'').length*131),cover=new m.MeshPhysicalMaterial({map:col,roughnessMap:rough,roughness:1,metalnessMap:mask,metalness:1,bumpMap:bump,bumpScale:2.6,clearcoat:MT.coat,clearcoatRoughness:MT.rough*.7,clearcoatNormalMap:smudgeNormal(m,wseed),clearcoatNormalScale:new m.Vector2(.16,.16),anisotropy:.5,anisotropyRotation:Math.PI/2,sheen:.8,sheenRoughness:.6,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:1.1});
+  const MT=matOf(idx),bump=grainBump(m,mask,MT.bind,(idx+1)*7919+String(r.id||'').length*131),cover=BM.foil(m,{map:col,roughnessMap:rough,roughness:1,metalnessMap:mask,metalness:1,bumpMap:bump,bumpScale:2.6,clearcoat:MT.coat,clearcoatRoughness:MT.rough*.7,clearcoatNormalMap:smudgeNormal(m,wseed),clearcoatNormalScale:new m.Vector2(.16,.16),anisotropy:.5,anisotropyRotation:Math.PI/2,sheen:.8,sheenRoughness:.6,sheenColor:0x8fa3b8,envMapIntensity:1.1});
   const backCol=canvasTex(m,512,720,(x,W,H)=>{const gr=x.createLinearGradient(0,0,W,H);gr.addColorStop(0,COVER[idx%8]);gr.addColorStop(1,'#0d1822');x.fillStyle=gr;x.fillRect(0,0,W,H);noise(x,W,H,.14,5200);x.strokeStyle=GOLD;x.lineWidth=3;x.strokeRect(24,24,W-48,H-48);x.lineWidth=1.2;x.strokeRect(34,34,W-68,H-68);x.fillStyle=GOLD;x.font='600 64px Fraunces,Georgia,serif';x.textAlign='center';x.fillText('BK',W/2,H/2);x.font='600 15px "IBM Plex Mono",monospace';x.fillText('BİLİM KÜTÜPHANEM',W/2,H/2+42);x.fillStyle='rgba(246,239,220,.16)';for(let i=0;i<9;i++)x.fillRect(80,120+i*22,W-160-((i*53)%90),5)},true);
-  const backM=new m.MeshPhysicalMaterial({map:backCol,roughness:.75,sheen:.7,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:.8});
-  const clothSide=new m.MeshPhysicalMaterial({color:new m.Color(COVER[idx%8]).multiplyScalar(.7),roughness:.8,sheen:.8,sheenColor:new m.Color(0x8fa3b8)});
+  const backM=BM.cloth(m,{map:backCol,roughness:.75,sheen:.7,envMapIntensity:.8});
+  const clothSide=BM.cloth(m,{color:new m.Color(COVER[idx%8]).multiplyScalar(.7)});
   const W=2.1,Hh=3.1,D=.54,T=.05,xL=-W/2+.04;
   const front=new m.Mesh(board(m,W-.04,Hh,T,false),[cover,clothSide]),hinge=new m.Group();hinge.position.set(xL,0,D/2-T/2);front.position.set((W-.04)/2,0,0);hinge.add(front);g.add(hinge);
   const back=new m.Mesh(board(m,W-.04,Hh,T,true),[backM,clothSide]);back.position.set(xL+(W-.04)/2,0,-(D/2-T/2));g.add(back);
   /* spine: rounded, with raised bands + foil title */
   const spineTex=(()=>{const t=spineTexture(m,r,idx);t.anisotropy=8;return t})();
-  const spine=new m.Mesh(shared('spine',()=>new m.CylinderGeometry(D/2,D/2,Hh-.01,40,1,true,Math.PI,Math.PI)),new m.MeshPhysicalMaterial({map:spineTex,roughness:.5,metalness:.15,sheen:.6,sheenColor:new m.Color(0x8fa3b8),envMapIntensity:1.0,side:m.DoubleSide}));spine.position.set(xL,0,0);g.add(spine);
+  const spine=new m.Mesh(shared('spine',()=>new m.CylinderGeometry(D/2,D/2,Hh-.01,40,1,true,Math.PI,Math.PI)),BM.cloth(m,{map:spineTex,roughness:.5,metalness:.15,sheen:.6,envMapIntensity:1.0,side:m.DoubleSide}));spine.position.set(xL,0,0);g.add(spine);
   [-1.3,-1.2,1.2,1.3].forEach(y=>{const band=new m.Mesh(new m.TorusGeometry(D/2+.002,.008,8,40,Math.PI),new m.MeshStandardMaterial({color:new m.Color(MT.foil),metalness:1,roughness:.28,envMapIntensity:1.3}));band.rotation.set(Math.PI/2,0,Math.PI/2);band.position.set(xL,y,0);g.add(band)});
   /* page block with real page-edge texture + headbands */
-  const edgeV=pageEdge(m,true),edgeH=pageEdge(m,false),paper=new m.MeshStandardMaterial({color:0xefe6cf,roughness:.95}),
-   pagesMat=[new m.MeshStandardMaterial({map:edgeV,roughness:.92,bumpMap:edgeV,bumpScale:.6}),paper,new m.MeshStandardMaterial({map:edgeH,roughness:.92,bumpMap:edgeH,bumpScale:.6}),new m.MeshStandardMaterial({map:edgeH,roughness:.92}),paper,paper];
+  const edgeV=pageEdge(m,true),edgeH=pageEdge(m,false),paper=BM.paper(m,{color:0xefe6cf,roughness:.95}),
+   pagesMat=[BM.paper(m,{map:edgeV,bumpMap:edgeV,bumpScale:.6}),paper,BM.paper(m,{map:edgeH,bumpMap:edgeH,bumpScale:.6}),BM.paper(m,{map:edgeH}),paper,paper];
   const pgGeo=shared('pages',()=>new m.BoxGeometry(W-.2,Hh-.14,D-.1,28,1,8)),pgPos=pgGeo.attributes.position,PX=(W-.2)/2,PY=(Hh-.14)/2;/* fore-edge bulge + gently wavy head/tail edges (±0.004), so the block reads as loose leaves, not a brick */if(!pgGeo.userData.shaped)for(let i=0;i<pgPos.count;i++){const u=pgPos.getZ(i)/((D-.1)/2),px=pgPos.getX(i);if(px>PX-1e-4)pgPos.setX(i,px+.022*(1-u*u));if(Math.abs(Math.abs(pgPos.getY(i))-PY)<1e-4)pgPos.setY(i,pgPos.getY(i)+Math.sign(pgPos.getY(i))*.004*Math.sin(px*13+u*5.3)*Math.cos(px*5.1-u*2))}if(!pgGeo.userData.shaped){pgGeo.computeVertexNormals();pgGeo.userData.shaped=true}const pages=new m.Mesh(pgGeo,pagesMat);pages.position.set(xL+(W-.2)/2+.01,0,0);g.add(pages);
   [1,-1].forEach(s=>{const hb=new m.Mesh(new m.CylinderGeometry(.02,.02,D-.12,12),new m.MeshStandardMaterial({color:0xb8423a,roughness:.5}));hb.rotation.x=Math.PI/2;hb.position.set(xL+.03,s*(Hh/2-.085),0);g.add(hb)});
   /* ribbon bookmark: 6-segment verlet chain hanging from the head of the block (gravity follows the book's pose; a fast yaw flicks the tail); the plane's rows are skinned onto the chain */
   const rg=new m.PlaneGeometry(.07,.65,1,14),RN=6,RL=.65/RN,AX=xL+.55,AY=-Hh/2+.145,AZ=.02,chain=[];for(let i=0;i<=RN;i++)chain.push({x:AX,y:AY-i*RL,z:AZ,px:AX,py:AY-i*RL,pz:AZ});
   const rpos=rg.attributes.position,rrow=new Float32Array(rpos.count),rside=new Float32Array(rpos.count);for(let i=0;i<rpos.count;i++){rrow[i]=(.325-rpos.getY(i))/.65*RN;rside[i]=rpos.getX(i)}
-  const ribbon=new m.Mesh(rg,new m.MeshPhysicalMaterial({color:0xa5262c,roughness:.4,sheen:1,sheenColor:new m.Color(0xff8a80),side:m.DoubleSide}));ribbon.frustumCulled=false;g.add(ribbon);
+  const ribbon=new m.Mesh(rg,BM.cloth(m,{color:0xa5262c,roughness:.4,sheen:1,sheenColor:0xff8a80,side:m.DoubleSide}));ribbon.frustumCulled=false;g.add(ribbon);
   const gdown=new m.Vector3(),qInv=new m.Quaternion();let lastYaw=null;
   const stepRibbon=(dt,yawV,t)=>{dt=Math.min(dt,.033);g.updateMatrixWorld(true);g.getWorldQuaternion(qInv).invert();gdown.set(0,-1,0).applyQuaternion(qInv);
    const G=7.5,wx=Math.sin(t*1.3)*.5+yawV*.9;
@@ -482,15 +469,15 @@
 
  /* F1: every atlas tile gets solid, lit objects in its own material (glass atom core, glass DNA with gold rungs, glass globe, gold lattice nodes, lit banded planet, gold armillary rings), all under the same studio IBL (one PMREM, see studioEnv). F2: the camera drifts with the pointer so the layers separate (parallax). */
  const SOLID={
-  0:(m,sc,g,col)=>{const mat=new m.MeshPhysicalMaterial({color:col.clone().lerp(new m.Color(1,1,1),.35),transparent:true,opacity:.62,roughness:.06,metalness:0,clearcoat:1,clearcoatRoughness:.04,envMapIntensity:1.7});
+  0:(m,sc,g,col)=>{const mat=BM.glass(m,{color:col.clone().lerp(new m.Color(1,1,1),.35),opacity:.62,roughness:.06,metalness:0,clearcoatRoughness:.04,envMapIntensity:1.7});
    [[0,0,0,.3],[.2,.12,.05,.2],[-.16,-.1,.12,.17]].forEach(([x,y,z,r])=>{const n=new m.Mesh(new m.SphereGeometry(r,36,24),mat);n.position.set(x,y,z);g.add(n)});
    const gold=new m.MeshStandardMaterial({color:0xe8ce9e,metalness:1,roughness:.22,envMapIntensity:1.5});[0,1,2].forEach(i=>{const o=new m.Mesh(new m.TorusGeometry(1.6,.012,8,120),gold);o.scale.y=.55;o.rotation.set(i*1.05,i*.6,i*.8);g.add(o)})},
   1:(m,sc,g,col)=>{const N=72,A=[],B=[];for(let i=0;i<=N;i++){const y=(i/N-.5)*3.4,a=i/N*Math.PI*4;A.push(new m.Vector3(Math.cos(a)*.62,y,Math.sin(a)*.62));B.push(new m.Vector3(Math.cos(a+Math.PI)*.62,y,Math.sin(a+Math.PI)*.62))}
-   const glassA=new m.MeshPhysicalMaterial({color:col.clone().lerp(new m.Color(1,1,1),.25),transparent:true,opacity:.7,roughness:.08,clearcoat:1,envMapIntensity:1.6}),glassB=new m.MeshPhysicalMaterial({color:0xcfe0ff,transparent:true,opacity:.6,roughness:.08,clearcoat:1,envMapIntensity:1.6});
+   const glassA=BM.glass(m,{color:col.clone().lerp(new m.Color(1,1,1),.25),opacity:.7,roughness:.08,envMapIntensity:1.6}),glassB=BM.glass(m,{color:0xcfe0ff,opacity:.6,roughness:.08,envMapIntensity:1.6});
    g.add(new m.Mesh(new m.TubeGeometry(new m.CatmullRomCurve3(A),160,.05,10,false),glassA),new m.Mesh(new m.TubeGeometry(new m.CatmullRomCurve3(B),160,.05,10,false),glassB));
    const rungs=[];for(let i=0;i<=N;i+=3)rungs.push(i);const im=new m.InstancedMesh(new m.CylinderGeometry(.018,.018,1,8),new m.MeshStandardMaterial({color:0xe8ce9e,metalness:1,roughness:.25,envMapIntensity:1.4}),rungs.length),M=new m.Matrix4(),q=new m.Quaternion(),up=new m.Vector3(0,1,0),d=new m.Vector3(),c=new m.Vector3();
    rungs.forEach((i,k)=>{d.copy(B[i]).sub(A[i]);const len=d.length();c.copy(A[i]).add(B[i]).multiplyScalar(.5);q.setFromUnitVectors(up,d.normalize());M.compose(c,q,new m.Vector3(1,len,1));im.setMatrixAt(k,M)});g.add(im)},
-  2:(m,sc,g,col)=>{g.add(new m.Mesh(new m.SphereGeometry(1.38,48,32),new m.MeshPhysicalMaterial({color:col.clone().lerp(new m.Color(1,1,1),.5),transparent:true,opacity:.2,roughness:.05,clearcoat:1,envMapIntensity:1.8})));
+  2:(m,sc,g,col)=>{g.add(new m.Mesh(new m.SphereGeometry(1.38,48,32),BM.glass(m,{color:col.clone().lerp(new m.Color(1,1,1),.5),opacity:.2,roughness:.05,envMapIntensity:1.8})));
    const ring=new m.Mesh(new m.TorusGeometry(1.46,.018,10,128),new m.MeshStandardMaterial({color:0xe8ce9e,metalness:1,roughness:.2,envMapIntensity:1.5}));ring.rotation.x=Math.PI/2;g.add(ring)},
   4:(m,sc,g,col)=>{const n=4,s=.62,im=new m.InstancedMesh(new m.SphereGeometry(.075,16,12),new m.MeshStandardMaterial({color:0xe8ce9e,metalness:1,roughness:.2,envMapIntensity:1.5}),n*n*n),M=new m.Matrix4();let k=0;
    for(let z=0;z<n;z++)for(let y=0;y<n;y++)for(let x=0;x<n;x++){M.makeTranslation((x-1.5)*s,(y-1.5)*s,(z-1.5)*s);im.setMatrixAt(k++,M)}g.add(im)},

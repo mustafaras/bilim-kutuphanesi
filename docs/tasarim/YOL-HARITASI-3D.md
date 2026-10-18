@@ -14,7 +14,7 @@ Ortak sınırlar (her aşama için geçerli):
 | R1 | Ortak GL katmanı (`BKGL`) | **tamam** — deploy yeşil (koşu 133); gerçek GPU doğrulamasını kullanıcı yaptı, sorun yok bildirdi (`?diag` çıktısı iletilmedi) | v108, PR #55 + #56 (test düzeltmesi) |
 | R2 | Gerçek GPU zamanlaması + `?perf` + derleme ısıtma | **canlıda (v109+), gerçek GPU doğrulaması bekliyor** — `?perf` “kopyala” çıktısı gelmeden “gerçek GPU'da doğrulandı” sayılmaz (kullanıcı açık tema kartları ve koyu mod galaksi için “sorun yok” bildirdi, `?perf` çıktısı iletmedi) | v109, PR #58 |
 | R3 | Deterministik görsel regresyon kapısı | **tamam, engelleyici** — `?still=1`, `tools/visual_audit.py` (10 yüzey × 4 yapılandırma, kararlılık + hata enjeksiyonu + altın karşılaştırma), altın görüntüler CI'da üretilip commit edildi (`tools/golden/`, 40 PNG); `deploy` görsel işe bağlı | v110–v115, PR #59, #63, #66, #68 |
-| R4 | Ortak malzeme ve ışık kitaplığı (`BKMaterials`, tek PMREM) | bekliyor | — |
+| R4 | Ortak malzeme ve ışık kitaplığı (`BKMaterials`, tek PMREM) | **tamam (kod + CI kapıları)** — `site/materials.js`; stage.js `new m.MeshPhysicalMaterial(` 12 → 0, `PMREMGenerator` 2 → 1 (grep), R3 altınları değişmedi (görsel kapı CI'da); ACES yalnız `acestone` bayrağıyla (varsayılan kapalı, bilinçli); gerçek GPU'da bakılmadı | v116, bu PR |
 | R5 | Kitap gerçekçiliği (sayfa bükülmesi, kâğıt, yaldız) | bekliyor | — |
 | R6 | Madalya ve Nobel arşivi nesneleri | bekliyor | — |
 | R7 | Hero galaksi ve kubbe | bekliyor | — |
@@ -62,6 +62,7 @@ Ortak sınırlar (her aşama için geçerli):
 **Neden:** `stage.js` ve `skyline3d.js` ayrı PMREM üretiyor; foil/kumaş/cam/kâğıt malzemeleri dosya dosya yeniden tanımlı, sürüklenme riski var.
 **Yapılacak:** `site/materials.js` (`BKMaterials`): `foil(renk)`, `cloth(renk)`, `paper()`, `glass()`, `brass()`; tek stüdyo ışık sahnesi → tek PMREM (bağlam kaybında tek yerde yeniden pişirilir); tonemapping/maruz kalma tema başına tek yerde (ACES + tema başına `toneMappingExposure`); malzeme seviyeleri (`full / standard / lambert / basic`) bu kitaplıkta tanımlı — v107'deki `lighter()` buraya taşınır.
 **Kabul:** `new m.MeshPhysicalMaterial(` sayısı `stage.js`'te ≥ %70 azalır; R3 altınları değişmez (görsel birebir) ya da fark bilinçli ve belgeli.
+**Sonuç (v116):** `tools/materials_audit.py` (statik, CI `static`) ve `feature_audit` **B12** + B8 eki; ayrıntı DEVIR §58. Bilinçli sapma: ACES varsayılan açılmadı (altınları değiştirirdi), `acestone` bayrağı arkasında.
 
 ## R5 — Kitap gerçekçiliği
 **Hedef:** kitap, sitenin imza nesnesi olarak "elde tutulan" hissini vermeli.

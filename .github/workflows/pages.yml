@@ -34,6 +34,8 @@ jobs:
           node tools/check_app.cjs --missing-art
       - name: Shared GL layer (no direct context listeners, one watch per renderer)
         run: python tools/gl_audit.py
+      - name: Shared material and light library (one studio bake routine, tone mapping in one place)
+        run: python tools/materials_audit.py
   # Browser gates run in parallel (each on software GL); the slowest slice now sets the time instead of the sum.
   browser:
     runs-on: ubuntu-latest
@@ -57,6 +59,8 @@ jobs:
             cmd: python tools/feature_audit.py --only b10
           - name: GPU timing, ?perf, warm-up (B11)
             cmd: python tools/feature_audit.py --only b11
+          - name: Material and light library (B12)
+            cmd: python tools/feature_audit.py --only b12
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v6
