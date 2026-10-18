@@ -454,3 +454,10 @@ Hipotezler (hiçbiri kanıtlanmadı): (a) v110 `stage.js` değişiklikleri — `
 - **Doğrulanmayan:** gerçek GPU; canlı site. Görsel birebirlik yerelde değil, CI `visual` işlerinde (40 PNG) sınanır.
 - **Sıradaki:** R5–R9 (kullanıcı önceliği). R2'nin gerçek GPU `?perf` çıktısı hâlâ gelmedi.
 
+
+## §59 — v117: aşama R5 alt adım 1–2 (sayfa bükülmesi, kâğıt)
+- **Ne:** (1) `stage.js`: dönen yaprak, yay uzunluğu korunarak dikey silindir etrafında bükülür (`leafAt`/`leafCurv`, işaretli eğrilik; uç açısı p=.25'te ≈0.61 rad, eski parabol ≈0.13); ön/arka yüz bükülmüş normal boyunca ±1,2 mm ayrık (kalınlık 2,4 mm; üst üste yüzler kalktı). Yaprak geometrisi yalnız p değişince güncellenir. Bayrak `pagebend` (kapalı = eski parabol, birebir). (2) `materials.js`: `BKMaterials.leaf` (lif normal haritası + `onBeforeCompile` ile diğer yüzün mürekkebinin soluk sızması) ve `fiberHeight` (tohumlu, 2 oktav, döşenebilir); stage.js `normalFromHeight` ile normal haritaya çevirir (paylaşılan tek doku). Yapraklar `receiveShadow`; gölgeyi yalnız kalkıkken (0,02<p<0,98) atar (dururken yapraklar birbirinden birkaç bin birim, tek gölge pikselinden küçük). Bayrak `paperfiber` (kapalı = düz kâğıt).
+- **Seviyeler:** gölge zaten yalnız seviye 0'da (`shadowMap` seviye ≥1'de kapalı); `lighter()` seviye ≥1'de normal harita ve sızma gölgelendiricisini düşürür. Not: istemdeki "≥ seviye 1'de sayfa gölgeleri" ifadesini bu şekilde yorumladım.
+- **Testler (önce yazıldı, kırıldı):** `feature_audit` B5 eki (`pageShape`: uç açı ≥0,3, yay uzunluğu ±%0,3, kalınlık 1,5–4 mm, `pagebend=0` eski; `book.bounds()`: ara karelerde sayfa köşeleri ≤0,985; `book.leaves()`: lif/sızma/alma, seviye 2'de kapalı), B12 eki (`leaf`, `paperfiber=0`), `materials_audit` (leaf/fiberHeight, satır içi sayfa malzemesi yok).
+- **Bilinçli sapma:** R3 açık kitap altınları güncellenir (yalnız `book-open-*`). Kenar şeritleri (sayfa ucu kalınlığı geometrisi) yapılmadı; kalınlık yüzey ayrımıdır. Alt adım 3–5 sonraki oturum.
+- **Doğrulanmayan:** gerçek GPU (akıcılık, kâğıt hissi, `?perf` açık kitap ≤ 6 ms); R2'nin gerçek GPU çıktısı hâlâ gelmedi ve R4/R5 gerçek GPU'da bakılmadı.
