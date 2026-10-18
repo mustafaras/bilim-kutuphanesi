@@ -44,7 +44,7 @@
   const h=it.host;if(h){h.classList.remove('has-3d','rec-ready');const t=h.querySelector&&h.querySelector('.rv-3d-toggle');if(t)t.setAttribute('aria-pressed','false')}}
  function escalate(why){const now=performance.now();if(SAFE>=4||now-lastEsc<2500)return;lastEsc=now;SAFE++;DIAG.escalations.push(why+' -> level '+SAFE);
   try{console.warn('[stage] rendering looked broken ('+why+'), stepping down to level '+SAFE)}catch{}applySafe()}
- function selfCheck(it){if(!it.opts.check||it.failed||it.checked)return;it.rn=(it.rn||0)+1;if(it.rn<(paused()?2:70))return;
+ function selfCheck(it){if(!it.opts.check||it.failed||it.checked)return;it.rn=(it.rn||0)+1;if(it.rn<(paused()?2:DIAG.shaderErrors>0?6:70))return;   // 70 frames let a healthy book finish painting; once a shader has failed, 6 frames are enough to see whether this level paints (each frame with a broken program is slow, and waiting for 70 made the step-down take minutes on a weak GPU)
   if(looksBroken(it))escalate('cover '+(it.stat&&it.stat.cover)+' lum '+(it.stat&&it.stat.lum));else it.checked=true}
  if(window.BKGL)BKGL.report('stage',()=>'level '+SAFE+' · shader errors '+DIAG.shaderErrors+' · tiers dpr<='+dprCap()+' idle 1/'+idleDiv()+(qLive()?'':' (flag off)')+'\n  books '+items.filter(i=>i.opts.check).map(i=>i.failed?'failed':i.stat?('cover '+i.stat.cover+' lum '+i.stat.lum):'-').join(' | ')+(DIAG.escalations.length?'\n  '+DIAG.escalations.join(' ; '):''));
  /* GPU context loss (memory pressure, driver reset, sleep/wake): three re-initialises itself on restore, but the baked PMREM studio map is a render target whose
