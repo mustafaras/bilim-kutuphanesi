@@ -73,11 +73,18 @@
   load().then(m=>{if(!m||!canvas.isConnected)return;if(SAFE>=4&&opts.check){failItem(it);return}const made=factory(m,it);if(!made)return;if(SAFE>0)simplify(made.scene,SAFE);it.scene=made.scene;it.camera=made.camera;it.api=made;it.ready=true;it.dirty=true;canvas.classList.add('on');if(opts.onReady)opts.onReady();kick()});
   return it}
 
+ /* Atlas scenes are additive light on a dark card; on the light theme's pale card additive lines vanish, so the line/point materials switch to normal blending in the card's ink colour (and back). */
+ function atlasTheme(it){const light=root.dataset.theme==='light';it.thm=light;const ink=new THREE.Color((getComputedStyle(it.host).getPropertyValue('--atlas-ink')||'#183745').trim());
+  it.scene.traverse(o=>{const ms=Array.isArray(o.material)?o.material:o.material?[o.material]:[];for(const mt of ms){if(!(mt.isLineBasicMaterial||mt.isPointsMaterial))continue;
+   if(mt.__add===undefined){mt.__add=mt.blending===THREE.AdditiveBlending;mt.__c0=mt.color.clone();mt.__o0=mt.opacity}if(!mt.__add)continue;
+   mt.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;mt.color.copy(light?ink:mt.__c0);mt.opacity=light?Math.min(1,mt.__o0*1.8+.3):mt.__o0;mt.needsUpdate=true}})}
  function render(it,dt){
+  if(window.BKGL&&BKGL.still&&!it.opts.focus)dt=0;   // ?still: frozen animation clock (the open record's book still runs so it can be opened)
   if(glLost||(renderer.getContext&&renderer.getContext().isContextLost()))return;   // keep the last frame on screen while the GPU context is gone
   const c=it.canvas,dpr=Math.min(devicePixelRatio||1,dprCap()),w=Math.max(2,Math.round(c.clientWidth*dpr)),h=Math.max(2,Math.round(c.clientHeight*dpr));
   if(c.width!==w||c.height!==h){c.width=w;c.height=h}
   const rc=renderer.domElement;if(rc.width<w||rc.height<h)renderer.setSize(Math.max(rc.width,w),Math.max(rc.height,h),false);
+  if(it.host&&it.host.classList&&it.host.classList.contains('atlas-tile')&&it.thm!==(root.dataset.theme==='light'))atlasTheme(it);
   it.hoverT+=(it.hover-it.hoverT)*Math.min(1,dt*7);it.t+=dt*(1+it.hoverT*1.6);
   it.camera.aspect=w/h;it.camera.updateProjectionMatrix();
   if(it.api.update)it.api.update(it.t,dt,it);

@@ -15,6 +15,9 @@
   get(n){if(n in mem)return mem[n];let v=!!DEFAULTS[n];try{const s=localStorage.getItem('bk-flag-'+n);if(s==='0')v=false;else if(s==='1')v=true}catch{}return mem[n]=v},
   set(n,v){v=!!v;mem[n]=v;try{localStorage.setItem('bk-flag-'+n,v?'1':'0')}catch{}try{document.dispatchEvent(new CustomEvent('bk:flag',{detail:{name:n,value:v}}))}catch{}return v},
   all(){const o={};for(const n in DEFAULTS)o[n]=flags.get(n);return o}};
+ /* ?still=1 — deterministic mode for the visual regression gate (tools/visual_audit.py): seeded Math.random, effects paused (static frames, no CSS animation), tiles render with dt 0. Nothing changes without the parameter. */
+ const STILL=/[?&]still\b/.test(location.search);
+ if(STILL){let a=20261018;Math.random=()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};document.documentElement.classList.add('effects-paused','still-mode')}
  let info=null;
  function probe(src){
   if(info&&info.gpu)return info;
@@ -115,7 +118,7 @@
  function panel(){if(document.querySelector('pre[data-bkgl-diag]'))return;
   const el=document.createElement('pre');el.setAttribute('data-bkgl-diag','');el.style.cssText='position:fixed;left:8px;bottom:8px;z-index:9999;margin:0;padding:6px 8px;font:11px/1.35 monospace;color:#cfe;background:rgba(0,0,0,.72);border-radius:6px;max-width:92vw;white-space:pre-wrap;pointer-events:none';
   document.body.appendChild(el);const up=()=>{el.textContent=text()};up();setInterval(up,1000)}
- window.BKGL={probe,watch,flags,report,log,diag,text,gpuTimer,perf:P,warm,get info(){return info}};
+ window.BKGL={still:STILL,probe,watch,flags,report,log,diag,text,gpuTimer,perf:P,warm,get info(){return info}};
  const want=()=>/[?&]diag\b/.test(location.search)||flags.get('diag');
  if(want()){if(document.body)panel();else addEventListener('DOMContentLoaded',panel,{once:true})}
  if(perfOn()){if(document.body)P.mount();else addEventListener('DOMContentLoaded',()=>P.mount(),{once:true})}
