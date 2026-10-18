@@ -92,7 +92,7 @@
    ms.forEach(mt=>{for(const k in mt){const v=mt[k];if(v&&v.isTexture&&v!==env)v.dispose()}mt.dispose()})});
   it.scene=null;it.api=null;it.ready=false}
  /* Quality tiers (BKMotion.quality, published by the hero governor; switch off with BKGL.flags stagequality=0): level >= 2 caps the tile DPR at 1.0 (was 1.5),
-    >= 3 idle tiles draw every 4th frame (15 fps, was 30), 4 only the hovered / dragged tile stays live and the rest repaint when something changes. */
+    >= 3 idle tiles draw every 4th frame (15 fps, was 30), 4 only the hovered / dragged tile (and the open record's book, opts.focus) stays live and the rest repaint when something changes. */
  const qLive=()=>!window.BKGL||BKGL.flags.get('stagequality'),ql=()=>qLive()&&window.BKMotion?BKMotion.quality.level:0;
  const dprCap=()=>ql()>=2?1:1.5,idleDiv=()=>ql()>=3?4:2,STATS={idleFrames:0,idleRenders:0,hoverRenders:0};
  document.addEventListener('bk:quality',()=>{for(const i of items)i.dirty=true;kick()});document.addEventListener('bk:flag',()=>{for(const i of items)i.dirty=true;kick()});
@@ -102,7 +102,7 @@
   if(!document.hidden&&renderer){const still=paused();
    for(const it of items){if(!it.ready||!it.visible)continue;
     if(still){if(it.dirty){render(it,dt);}continue}
-    const live=it.hoverT>=.05||it.hover||it.drag;
+    const live=it.hoverT>=.05||it.hover||it.drag||it.opts.focus;
     if(ql()>=4&&!live){if(it.dirty){STATS.idleRenders++;render(it,dt)}continue}      // frozen tier: repaint only when something changed
     again=true;it.frame++;const D=idleDiv();if(!live){STATS.idleFrames++;if(it.frame%D)continue;STATS.idleRenders++}else STATS.hoverRenders++;   // idle tiles at 30 / 15 fps, hovered at full rate
     render(it,dt*(live?1:D))}}
@@ -515,7 +515,7 @@
    if(!on)document.dispatchEvent(new CustomEvent('bk:book-close'));
    if(on&&!cv){cv=document.createElement('canvas');cv.className='rec-3d';cv.setAttribute('aria-hidden','true');art.appendChild(cv);
     (document.fonts&&document.fonts.load?Promise.all([document.fonts.load('400 44px Fraunces'),document.fonts.load('400 24px Inter'),document.fonts.load('600 22px "IBM Plex Mono"')]).catch(()=>{}):Promise.resolve()).then(()=>
-     {rit=register(cv,(m)=>{try{return bookScene(m,null,r,true)}catch{return null}},{host:art,drag:true,dbl:true,check:true,onReady:()=>{art.classList.add('rec-ready');mountBookCtl(art,()=>rit,r)}})})}})}
+     {rit=register(cv,(m)=>{try{return bookScene(m,null,r,true)}catch{return null}},{host:art,drag:true,dbl:true,check:true,focus:true,onReady:()=>{art.classList.add('rec-ready');mountBookCtl(art,()=>rit,r)}})})}})}
  /* G4: list view — hovering a row shows a small real 3D cover beside it. One canvas, one registered item; the scene is swapped per record (cached). */
  function mountListPeek(){
   const host=document.getElementById('cards');if(!host||mountListPeek.done||typeof records==='undefined')return;mountListPeek.done=true;
