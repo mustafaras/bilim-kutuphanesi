@@ -7,7 +7,7 @@
    count-up. Honors prefers-reduced-motion and the manual motion toggle. */
 (()=>{
  const root=document.documentElement,canvas=document.getElementById('knowledgeCanvas'),scene=document.querySelector('.hero-scene'),button=document.getElementById('motionToggle'),label=document.getElementById('motionLabel'),progress=document.getElementById('readingProgress');
- const reduced=matchMedia('(prefers-reduced-motion: reduce)'),ctx=canvas?canvas.getContext('2d'):null;let paused=false;try{paused=localStorage.getItem('bk-effects-paused')==='true'}catch{}
+ const reduced=matchMedia('(prefers-reduced-motion: reduce)'),ctx=canvas?canvas.getContext('2d'):null;let paused=false;try{paused=localStorage.getItem('bk-effects-paused')==='true'}catch{}if(window.BKGL&&BKGL.still)paused=true;   // ?still=1 (visual gate): static frames
  try{if(/Mac|iPhone|iPad/.test(navigator.platform))root.dataset.os='mac'}catch{}
  const glOn=()=>!!(scene&&scene.classList&&scene.classList.contains('hero-gl'));
  let visible=true,frame=0,last=0,w=0,h=0,phase=1.7,pointer=null,px=0,py=0,areas=null,meteor=null,nextMeteor=7;
