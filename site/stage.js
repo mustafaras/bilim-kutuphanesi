@@ -51,7 +51,7 @@
     pixels are gone, so every lit material goes dark (only foil and ribbon stay visible). Keep the last frame while lost, rebuild the map and repaint on restore. */
  let glLost=false;
  function watchContext(){const rc=renderer.domElement;
-  renderer.debug.onShaderError=(gl,prog,vs,fs)=>{DIAG.shaderErrors++;if(DIAG.shaderErrors===1)try{console.warn('[stage] shader error, falling back to simpler materials')}catch{}if(SAFE===0)escalate('shader error')};   // later levels are judged by the pixel check only: errors of the level just left arrive late and must not skip levels
+  renderer.debug.onShaderError=(gl,prog,vs,fs)=>{DIAG.shaderErrors++;if(DIAG.shaderErrors===1)try{console.warn('[stage] shader error, falling back to simpler materials')}catch{}if(SAFE===0||performance.now()-lastEsc>6000)escalate('shader error')};   // errors of the level just left arrive late (within seconds) and must not skip levels; a shader error 6 s after the last step means the CURRENT level fails too, so step down without waiting for 70 frames of pixel checks (each frame with a broken program is slow, on a weak GPU that took minutes)
   try{const g=renderer.getContext(),dbg=g.getExtension('WEBGL_debug_renderer_info');DIAG.gpu=dbg?g.getParameter(dbg.UNMASKED_RENDERER_WEBGL):g.getParameter(g.RENDERER);DIAG.maxTex=g.getParameter(g.MAX_TEXTURE_IMAGE_UNITS);DIAG.maxSize=g.getParameter(g.MAX_TEXTURE_SIZE);DIAG.webgl2=!!(g instanceof self.WebGL2RenderingContext)}catch{}
   if(window.BKGL){BKGL.probe(renderer);BKGL.watch(rc,{name:'stage',onLost(){glLost=true},onRestore(){glLost=false;try{rebuildEnv()}catch{}for(const i of items)i.dirty=true;kick()}})}}
  function rebuildEnv(){const old=ENV;if(!old||!THREE)return;ENV=null;const fresh=studioEnv(THREE);if(!fresh){ENV=old;return}
