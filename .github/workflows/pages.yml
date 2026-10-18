@@ -77,12 +77,11 @@ jobs:
           python -m playwright install-deps chromium
       - name: ${{ matrix.name }}
         run: ${{ matrix.cmd }}
-  # R3 visual regression gate: four configurations in parallel (viewport x theme), each captured twice (stability < 0.1 %) and compared with tools/golden/ when goldens exist.
-  # Reports only for now: deploy does not wait for it until its stability has been proven on CI and goldens are committed.
+  # R3 visual regression gate: four configurations in parallel (viewport x theme), each captured twice (stability) and compared with tools/golden/ (committed, generated on CI by update-goldens.yml).
+  # A pixel regression blocks the deploy. After an intended visual change: run 'Update visual goldens' (workflow_dispatch), review the PR from goldens/update, merge it.
   visual:
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -121,7 +120,7 @@ jobs:
             tools/golden/_diff
           if-no-files-found: ignore
   deploy:
-    needs: [static, browser]
+    needs: [static, browser, visual]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     concurrency:
