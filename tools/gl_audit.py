@@ -33,7 +33,7 @@ else:
     sw = (SITE / "sw.js").read_text(encoding="utf-8")
     if f"'gl.js?v={ver}'" not in sw: problems.append(f"sw.js FILES lacks 'gl.js?v={ver}'")
     wf = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
-    if "node --check site/gl.js" not in wf: problems.append("pages.yml lacks 'node --check site/gl.js'")
+    if "node --check" not in wf or "site/*.js" not in wf: problems.append("pages.yml must syntax-check every site/*.js (gl.js included)")
     if "tools/gl_audit.py" not in wf: problems.append("pages.yml does not run tools/gl_audit.py")
 
 print("FAIL" if problems else "OK: shared GL layer wired (no direct context listeners, one watch per renderer)", *problems, sep="\n - " if problems else "")

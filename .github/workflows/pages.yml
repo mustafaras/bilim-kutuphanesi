@@ -2,16 +2,22 @@ name: Publish library
 on:
   push:
     branches: [main]
+    paths-ignore: ['docs/**', '**/*.md']      # documentation-only changes change nothing that is published
   pull_request:
     branches: [main]
+    paths-ignore: ['docs/**', '**/*.md']
   workflow_dispatch:
+# A new push to a pull request cancels its older, now pointless run. Runs on main are never cancelled.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
   pages: write
   id-token: write
 jobs:
-  # Every gate runs on pull requests too, so a broken change is caught before it reaches main.
-  verify:
+  # Fast, browser-free gates (seconds).
+  static:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -23,51 +29,54 @@ jobs:
         run: python tools/validate_i18n.py
       - name: Verify catalog interactions
         run: |
-          node --check site/app.js
-          node --check site/sw.js
-          node --check site/i18n.js
-          node --check site/i18n-data.js
-          node --check site/visuals.js
-          node --check site/effects.js
-          node --check site/record.js
-          node --check site/palette.js
-          node --check site/discovery.js
-          node --check site/nobel3d.js
-          node --check site/gl.js
-          node --check site/motion.js
-          node --check site/empty3d.js
-          node --check site/textfit.js
-          node --check site/stage.js
-          node --check site/hero3d.js
-          node --check site/facets.js
-          node --check site/progress.js
-          node --check site/constellation3d.js
-          node --check site/ground3d.js
-          node --check site/skyline3d.js
+          for f in site/*.js; do node --check "$f"; done
           node tools/check_app.cjs
           node tools/check_app.cjs --missing-art
       - name: Shared GL layer (no direct context listeners, one watch per renderer)
         run: python tools/gl_audit.py
-      - name: UI audit (overflow, console errors, contrast)
-        timeout-minutes: 12
+  # Browser gates run in parallel (each on software GL); the slowest slice now sets the time instead of the sum.
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: UI audit (overflow, console errors, contrast)
+            cmd: python tools/ui_audit.py
+          - name: Text fit, reduced motion, leak check
+            cmd: |
+              python tools/text_fit_audit.py
+              python tools/reduced_audit.py
+              python tools/leak_audit.py --rounds 8
+          - name: Features (camera, governor, dive, book, medal, dome, context loss)
+            cmd: python tools/feature_audit.py --only main
+          - name: Broken GPU fallback (B9)
+            cmd: python tools/feature_audit.py --only b9
+          - name: Quality tiers (B10)
+            cmd: python tools/feature_audit.py --only b10
+    name: ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Playwright
+        run: python -m pip install --quiet playwright
+      - name: Playwright version
+        id: pw
         run: |
-          python -m pip install --quiet playwright
-          python -m playwright install --with-deps chromium
-          python tools/ui_audit.py
-      - name: Canvas text fit (no overflow / overlap on cover, spine, share card)
-        timeout-minutes: 8
-        run: python tools/text_fit_audit.py
-      - name: Reduced motion (still frames only)
-        timeout-minutes: 8
-        run: python tools/reduced_audit.py
-      - name: Package A features (arrival dolly, return flight, governor hysteresis, atlas dive)
-        timeout-minutes: 20
-        run: python tools/feature_audit.py
-      - name: Leak check (open/close records, 3D book)
-        timeout-minutes: 10
-        run: python tools/leak_audit.py --rounds 8
+          echo "v=$(python -m pip show playwright | sed -n 's/^Version: //p')" >> "$GITHUB_OUTPUT"
+      - name: Cache the browser download
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ steps.pw.outputs.v }}
+      - name: Install browser and system libraries
+        run: |
+          python -m playwright install chromium
+          python -m playwright install-deps chromium
+      - name: ${{ matrix.name }}
+        run: ${{ matrix.cmd }}
   deploy:
-    needs: verify
+    needs: [static, browser]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     concurrency:

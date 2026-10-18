@@ -400,4 +400,13 @@ Branch'te commit → `git push origin <branch>` → ana checkout'ta (`C:\Users\m
 - **İstisna:** kayıt sayfasındaki açık kitap (`opts.focus`) her seviyede canlı. İlk uygulamada seviye 4 onu da donduruyordu; yazılımsal GL'de hero yönetici seviyeyi 3–4'e çektiği için kapak hiç açılmadı ve `feature_audit` B5 zaman aşımına düştü (düzeltildi, tam `feature_audit` ve `leak_audit` geçti).
 - **Raf kitabı hatası (§2.1) hâlâ açık:** kullanıcı v107'de "gövde yok, yalnız altın bant ve ayraç" görüntüsü gönderdi. Yerelde (koyu/açık tema) üretilemedi. Haritalı malzemelerin çizilmemesini sessizce taklit eden bir deneme farklı bir görüntü verdi (yalnız sayfa bloğu kalıyor) ve kendi kendini denetleme bunu sağlam saydı (kapsama 0.37, parlaklık 247): denetim yalnız kapsama ve ortalama parlaklığa bakıyor, açık renkli sayfa bloğu yetiyor. Gerçek sebep için `?diag` satırı, F12 hataları ve `chrome://gpu` gerekiyor. Olası bir not: eski önbellekten (service worker) eski sürüm yüklenmiş olabilir, doğrulanmadı.
 - **Yapılmadı / sınır:** nesne düzeyi `renderer.info`, GPU ms ve `?perf` R2'nin işi. Diğer sahneler (ground, skyline, nobel, constellation) kalite seviyesini zaten dinliyordu; bu aşamada onlara dokunulmadı. Yazılımsal GL'de gerçek kare hızı/his ölçülemez.
+- **Deploy:** main koşusu 131 `feature_audit` B10'da düştü (yavaş koşucuda 24 karelik örnek oranı 0.33 verdi, test dalgalanmasıydı, ürün hatası değil); #56 testi en az 80 kare toplayacak şekilde düzeltti. Koşu 133 (`4e3cd9e`) verify + deploy + Deploy adımı yeşil (verify 14 dk 16 sn). Kullanıcı gerçek GPU'da doğruladığını, sorun görmediğini bildirdi; `?diag` satırı/ekran görüntüsü iletilmedi, raf kitabı hatası (§2.1) için bu yeterli bir kanıt değil, ayrıca teyit edilmedi.
+
+## §53 — CI hızlandırma
+- `pages.yml`: `verify` tek işi yerine **`static`** (saniyeler: validate_*, `node --check site/*.js`, check_app, gl_audit) ve paralel **`browser`** matrisi (5 iş: ui_audit · text_fit+reduced+leak · feature_audit `--only main` · B9 · B10). `deploy` `needs: [static, browser]`.
+- `feature_audit.py --only main|b9|b10` (varsayılan hepsi, yerel kullanım değişmedi). B9 ayrı işleve çıkarıldı.
+- Playwright tarayıcı indirmesi `actions/cache@v4` ile önbelleğe alınır (anahtar: Playwright sürümü); sistem kütüphaneleri `install-deps` ile.
+- `paths-ignore: docs/**, **/*.md`: yalnız belge değişen PR/push'ta koşu başlamaz (deploy da olmaz; yayınlanan site değişmediği için).
+- `concurrency`: PR'da yeni push eski koşuyu iptal eder; main'de iptal yok.
+- Ölçüm: önceki `verify` 12–14 dk (UI 3.5 + text/reduced 1.4 + feature_audit 7.4 + leak 2). Beklenen yeni süre en yavaş dilim + kurulum; gerçek süre bu PR'ın koşusunda ölçülür ve aşağıya yazılır.
 
