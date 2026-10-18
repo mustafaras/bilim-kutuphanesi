@@ -11,9 +11,9 @@
  const root=document.documentElement,reduced=typeof matchMedia==='function'?matchMedia('(prefers-reduced-motion: reduce)'):{matches:false};
  const hasGL=()=>{try{const c=document.createElement('canvas');return!!(c.getContext('webgl2')||c.getContext('webgl'))}catch{return false}};
  if(!hasGL())return;
- let THREE=null,renderer=null,loading=null,items=[],raf=0,last=0;
+ let THREE=null,renderer=null,loading=null,items=[],raf=0,last=0,PT=null,warmHold=null;   // PT: ?perf recorder for tile renders; warmHold keeps the warmed scenes (their programs stay compiled)
  const paused=()=>root.classList.contains('effects-paused')||reduced.matches;
- const load=()=>loading||(loading=import('./vendor/three.module.min.js').then(m=>{THREE=m;renderer=new m.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(1);renderer.shadowMap.enabled=true;renderer.shadowMap.type=m.PCFSoftShadowMap;renderer.setClearColor(0x000000,0);renderer.setScissorTest(true);watchContext();return m}).catch(()=>null));
+ const load=()=>loading||(loading=import('./vendor/three.module.min.js').then(m=>{THREE=m;renderer=new m.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(1);renderer.shadowMap.enabled=true;renderer.shadowMap.type=m.PCFSoftShadowMap;renderer.setClearColor(0x000000,0);renderer.setScissorTest(true);watchContext();if(window.BKGL)PT=BKGL.perf.track('stage',renderer);return m}).catch(()=>null));
  /* Self-check and graceful degradation. Some GPU/driver combinations cannot build (or silently drop) the heavy book materials; the book then paints as a few untextured bits
     (headband, foil, ribbon) or not at all. Every checked tile therefore inspects what it painted; when that looks broken the whole stage steps down one level and repaints:
     1 plain standard materials, no shadows / bump / clearcoat / sheen · 2 lambert (no PBR, no environment) · 3 flat basic colours, no textures · 4 give up on 3D, the CSS cover stays.
@@ -81,7 +81,7 @@
   it.hoverT+=(it.hover-it.hoverT)*Math.min(1,dt*7);it.t+=dt*(1+it.hoverT*1.6);
   it.camera.aspect=w/h;it.camera.updateProjectionMatrix();
   if(it.api.update)it.api.update(it.t,dt,it);
-  renderer.setViewport(0,0,w,h);renderer.setScissor(0,0,w,h);renderer.clear();renderer.render(it.scene,it.camera);
+  renderer.setViewport(0,0,w,h);renderer.setScissor(0,0,w,h);renderer.clear();if(PT)PT.begin();renderer.render(it.scene,it.camera);if(PT)PT.end();
   it.ctx.clearRect(0,0,w,h);it.ctx.drawImage(rc,0,rc.height-h,w,h,0,0,w,h);it.dirty=false;selfCheck(it)}
 
  /* A scene whose canvas left the DOM (record closed, preview re-rendered) releases its GPU memory: geometries, materials and every texture except the shared studio environment. Scenes kept in sceneCache survive (they are reused); shared geometries just re-upload on next use. */
@@ -551,7 +551,12 @@
   document.addEventListener('bk:book-close',()=>{if(art.classList.contains('book-open'))setOpen(false)});
   window.BKStage.book={state:()=>{const a=api();return a?a.state():null}}}
  function mountAll(){mountAtlas();mountShelf()}
- const start=()=>{mountAll();if(typeof MutationObserver==='function')for(const id of ['collectionGrid','spotlightGrid']){const el=document.getElementById(id);if(el)new MutationObserver(()=>{clearTimeout(start.t);start.t=setTimeout(mountAll,60)}).observe(el,{childList:true})}};
+ /* Idle shader warm-up (BKGL.warm, after the first 5 s): the record page's 3D book (shadow variant, the heaviest materials) and the Nobel medal compile in parallel now, so the first open does not stall. */
+ const warmUp=()=>{if(!window.BKGL||!renderer||!THREE||warmUp.done||SAFE>=3)return;warmUp.done=1;const m=THREE,hold=warmHold=[];
+  BKGL.warm('stage',renderer,()=>[
+   ()=>{const rec=typeof records!=='undefined'&&records[0];if(!rec)return null;const b=bookScene(m,null,rec,true);if(SAFE>0)simplify(b.scene,SAFE);hold.push(b);return[b.scene,b.camera]},
+   ()=>{const md=ATLAS[7](m,null,new m.Color('#d9b46c'));if(!md)return null;if(SAFE>0)simplify(md.scene,SAFE);hold.push(md);return[md.scene,md.camera]}],{minAt:5200})};
+ const start=()=>{mountAll();load().then(m=>{if(m)warmUp()});if(typeof MutationObserver==='function')for(const id of ['collectionGrid','spotlightGrid']){const el=document.getElementById(id);if(el)new MutationObserver(()=>{clearTimeout(start.t);start.t=setTimeout(mountAll,60)}).observe(el,{childList:true})}};
  const go=()=>{if(typeof requestIdleCallback==='function')requestIdleCallback(start,{timeout:1800});else setTimeout(start,400)};
  {const sh=document.getElementById('recordSheet');if(sh&&typeof MutationObserver==='function')new MutationObserver(()=>setTimeout(mountRecord,80)).observe(sh,{childList:true})}
  document.addEventListener('library:ready',()=>setTimeout(()=>{go();mountListPeek()},300));if(typeof records!=='undefined'&&records.length)setTimeout(go,300);

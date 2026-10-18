@@ -5,13 +5,13 @@
 A1 atlas objects dolly in as their tile arrives (camera z shrinks, opacity rises while scrolling down to the tiles);
 A2 a record opened from a hero star spawns a return ghost when it closes (and none when opened elsewhere);
 A3 the quality governor degrades at once, recovers one level at a time only after sustained fast windows, and locks recovery after a flip-flop;
-B8 context loss, B9 broken GPU, B10 quality tiers reach the stage (DPR cap, idle frame rate) and one ?diag panel; B5 the 3D book opens into a centred reading stage, pages turn and Escape closes it; B6 the medal uses a normal-map relief with a reeded rim; B7 the dome/telescope follows the pointer.
+B8 context loss, B9 broken GPU, B10 quality tiers reach the stage (DPR cap, idle frame rate) and one ?diag panel; B11 GPU timing, ?perf panel and shader warm-up (Long Tasks, zero cost when ?perf is off); B5 the 3D book opens into a centred reading stage, pages turn and Escape closes it; B6 the medal uses a normal-map relief with a reeded rim; B7 the dome/telescope follows the pointer.
 A4 clicking an atlas tile shows the dive (class .diving), delays the filter ~420 ms, then applies it exactly once."""
 import json, argparse, os, socket, subprocess, sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
-ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10"], help="run one slice (CI runs the three slices as parallel jobs); default runs everything"); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
 srv = None
 if not a.url:
     s_ = socket.socket(); s_.bind(("127.0.0.1", 0)); port = s_.getsockname()[1]; s_.close()
@@ -68,6 +68,99 @@ def b10(b):
     if not (mf["dpr"] >= 1.4 and .4 <= mf["idleRate"] <= .6): problems.append(f"B10 BKGL.flags stagequality=off must restore the full-quality stage (dpr {mf['dpr']}, rate {mf['idleRate']})")
     q.evaluate("__setQ(0)"); ctx.close()
 
+def b11(b):
+    """B11 (R2): GPU timer queries, the ?perf panel and idle shader warm-up.
+    1 ?perf off: no panel, the recorder never ran (BKGL.perf.work == 0); long tasks > 50 ms in the first 5 s with warm-up on are not more than with the flag off (warm-up starts after 5 s).
+    2 the warm-up really ran (programs compiled) when the browser has KHR_parallel_shader_compile.  3 ?perf on: the panel opens, the hero numbers flow (>= 20 frames sampled), the copy button puts the text on the clipboard.
+    4 the GPU timer works against a mock context (result, disjoint discard, no extension -> null) and the hero governor looks at GPU ms before rAF time. Software GL is slow: counts and ratios, not milliseconds."""
+    LT = "window.__lt=[];try{new PerformanceObserver(l=>{for(const e of l.getEntries())window.__lt.push([Math.round(e.startTime),Math.round(e.duration)])}).observe({type:'longtask',buffered:true})}catch(e){window.__ltErr=1}"
+    def open_page(url, extra="", perms=None):
+        ctx = b.new_context(viewport={"width": 1440, "height": 900}, device_scale_factor=1, service_workers="block", permissions=perms or [])
+        q = ctx.new_page(); q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}" + extra + LT)
+        errs = []; q.on("pageerror", lambda e: errs.append(str(e)))
+        q.goto(url, wait_until="load"); return ctx, q, errs
+    # 1 + 2: normal load (?perf off), warm-up on. warmforce: software GL has no KHR_parallel_shader_compile, where the warm-up is skipped on purpose; forcing it exercises the whole path
+    FORCE = "try{localStorage.setItem('bk-flag-warmforce','1')}catch(e){}"
+    ctx, q, errs = open_page(a.url + "?b11=" + str(time.time()), FORCE)
+    try:
+        q.wait_for_function('window.BKGL&&BKGL.perf&&window.BKStage&&typeof records!=="undefined"&&records.length', timeout=120000)
+    except Exception: problems.append("B11 BKGL.perf is missing"); ctx.close(); return
+    q.wait_for_timeout(5500)
+    on1 = q.evaluate("window.__lt.filter(e=>e[0]<5000&&e[1]>50).length")
+    off_state = q.evaluate("({on:BKGL.perf.on,work:BKGL.perf.work,panel:!!document.querySelector('[data-bkgl-perf]')})")
+    note(f"B11 ?perf off: {off_state}, long tasks >50 ms in first 5 s (warm-up forced on): {on1}")
+    if off_state["on"] or off_state["work"] != 0 or off_state["panel"]: problems.append(f"B11 ?perf off must cost nothing (no panel, recorder idle): {off_state}")
+    try: q.wait_for_function("(()=>{const w=BKGL.diag().warm;return w&&w.stage&&w.hero&&['done','skipped','failed'].includes(w.stage.state)&&['done','skipped','failed'].includes(w.hero.state)})()", timeout=120000)
+    except Exception: pass
+    w = q.evaluate("BKGL.diag().warm"); par = q.evaluate("!!(BKGL.info&&BKGL.info.parallelCompile)")
+    note(f"B11 warm-up {w}, parallelCompile {par}")
+    if not w or w.get("hero", {}).get("state") != "done" or w.get("stage", {}).get("state") != "done": problems.append(f"B11 warm-up did not finish: {w}")
+    elif w["stage"].get("start", 0) < 5000: problems.append(f"B11 warm-up of the books/medal must wait until after the first 5 s (started at {w['stage'].get('start')} ms)")
+    elif w["stage"].get("programs", 0) < 3: problems.append(f"B11 warm-up compiled no programs: {w['stage']}")
+    ltall = q.evaluate("window.__lt.filter(e=>e[1]>50).map(e=>e.join('@'))"); note(f"B11 all long tasks >50 ms so far (ms@start): {ltall[:14]}")
+    ctx.close()
+    # the default (no forcing) must not warm without the extension, and the flag must switch it off. Long tasks in the first 5 s: warm-up forced on vs flag off, two loads each (best of two: page-load jitter is large)
+    OFF = "try{localStorage.setItem('bk-flag-warm','0')}catch(e){}"
+    def first5(extra, tag):
+        ctx, q, _ = open_page(a.url + f"?b11{tag}=" + str(time.time()), extra); q.wait_for_timeout(6000)
+        n = q.evaluate("window.__lt.filter(e=>e[0]<5000&&e[1]>50).length"); st = q.evaluate("(()=>{const w=BKGL.diag().warm;return w?Object.values(w).map(x=>x.state):[]})()")
+        lt_err = q.evaluate("window.__ltErr||0"); ctx.close(); return n, st, lt_err
+    on2, _, lerr = first5(FORCE, "on2"); off1, st1, _ = first5(OFF, "off1"); off2, _, _ = first5(OFF, "off2")
+    on, off = min(on1, on2), min(off1, off2)
+    note(f"B11 long tasks >50 ms in the first 5 s: warm-up on {on1},{on2} · flag off {off1},{off2} (off states {st1})")
+    if lerr: note("B11 note: Long Task API unavailable in this browser")
+    if on > off + 2: problems.append(f"B11 warm-up added long tasks in the first 5 s ({on} with, {off} without)")
+    if any(x != "off" for x in st1): problems.append(f"B11 warm flag off must not warm anything: {st1}")
+    ctx, q, _ = open_page(a.url + "?b11d=" + str(time.time()))
+    try: q.wait_for_function("(()=>{const w=BKGL.diag().warm;return !!(w&&w.hero)})()", timeout=120000)   # the hero boots late on software GL
+    except Exception: problems.append("B11 the hero never reported a warm-up state")
+    dflt = q.evaluate("(()=>{const w=BKGL.diag().warm;return{par:!!(BKGL.info&&BKGL.info.parallelCompile),states:w?Object.values(w).map(x=>x.state):[]}})()"); ctx.close()
+    note(f"B11 default config {dflt}")
+    if not dflt["par"] and any(x in ("running", "done") for x in dflt["states"]): problems.append(f"B11 without KHR_parallel_shader_compile the warm-up must be skipped (compiling would block the main thread): {dflt}")
+    # 3: ?perf on
+    ctx, q, errs = open_page(a.url + "?perf&b11p=" + str(time.time()), perms=["clipboard-read", "clipboard-write"])
+    try:
+        q.wait_for_selector("[data-bkgl-perf]", timeout=60000)
+        q.wait_for_function("(()=>{const s=BKGL.perf.stats('hero');return !!s&&s.n>=20})()", timeout=180000)
+    except Exception as e:
+        problems.append(f"B11 ?perf panel did not open / hero numbers did not flow: {str(e)[:160]}"); ctx.close(); return
+    s1 = q.evaluate("BKGL.perf.stats('hero')"); q.wait_for_timeout(3000); s2 = q.evaluate("BKGL.perf.stats('hero')")
+    note(f"B11 ?perf hero stats {s1} -> {s2}")
+    if s2["frames"] <= s1["frames"]: problems.append(f"B11 ?perf numbers do not flow ({s1['frames']} -> {s2['frames']} frames)")
+    for k in ("cpuAvg", "fps", "draws", "tris", "programs"):
+        if not (s2[k] > 0): problems.append(f"B11 ?perf hero {k} should be > 0, got {s2[k]}")
+    if s2["level"] is None: problems.append("B11 ?perf lacks the quality level")
+    ptxt = q.evaluate("document.querySelector('[data-bkgl-perf]').textContent")
+    for k in ("GPU", "hero", "draws", "tris", "programs", "L"):
+        if k not in ptxt: problems.append(f"B11 ?perf panel text lacks '{k}': {ptxt[:300]!r}")
+    q.click("[data-bkgl-perf] button"); q.wait_for_timeout(600)
+    clip = None
+    try: clip = q.evaluate("navigator.clipboard.readText()")
+    except Exception as e: note(f"B11 clipboard read unavailable: {str(e)[:100]}")
+    last = q.evaluate("BKGL.perf.lastCopy||''")
+    note(f"B11 copy button: lastCopy {len(last)} chars, clipboard {len(clip) if clip is not None else 'n/a'} chars")
+    if "BK PERF" not in last or "hero" not in last: problems.append(f"B11 copy button produced no report text: {last[:200]!r}")
+    if clip is not None and clip != last: problems.append("B11 copy button did not put the report on the clipboard")
+    # 4: timer against a mock context + governor preference
+    r = q.evaluate("""(()=>{let cur=null,disj=false;const ext={TIME_ELAPSED_EXT:1,GPU_DISJOINT_EXT:2};
+      const g={QUERY_RESULT_AVAILABLE:3,QUERY_RESULT:4,getExtension:n=>n==='EXT_disjoint_timer_query_webgl2'?ext:null,createQuery:()=>({ready:false,ns:0}),beginQuery(t,o){o.ready=false;cur=o},endQuery(){},
+       getQueryParameter:(o,p)=>p===3?o.ready:o.ns,getParameter(){const d=disj;disj=false;return d}};
+      const T=BKGL.gpuTimer(g);if(!T)return{err:'timer null'};
+      const done=ns=>{cur.ns=ns;cur.ready=true};                                     // the GPU finishes the query that is in flight
+      T.begin();T.end();done(4e6);T.begin();T.end();const a=T.last;                  // the next begin polls the finished one: 4 ms
+      done(9e6);disj=true;T.begin();T.end();const b=T.last,dj=T.disjoint;           // a disjoint event discards the result: still 4, counted
+      done(6e6);T.begin();T.end();const c=T.last;
+      const none=BKGL.gpuTimer({getExtension:()=>null,createQuery(){}});
+      const G=BKHero.gov;G.reset();const t=performance.now()+2e6;
+      const fastGpu=G.feed(.05,t,.004);             // rAF says slow (vsync / CPU), the GPU says fine -> stays
+      G.reset();const slowGpu=G.feed(.012,t+10,.03); // rAF says fine, the GPU is slow -> degrades
+      G.reset();const noGpu=G.feed(.05,t+20);       // no GPU number -> the old rAF rule
+      G.reset();return{a,b,dj,c,none,fastGpu,slowGpu,noGpu}})()""")
+    note(f"B11 mock timer + governor: {r}")
+    if r.get("err") or abs(r["a"] - 4) > .01 or abs(r["b"] - 4) > .01 or r["dj"] != 1 or abs(r["c"] - 6) > .01 or r["none"] is not None: problems.append(f"B11 GPU timer misbehaves: {r}")
+    elif not (r["fastGpu"] == 0 and r["slowGpu"] == 1 and r["noGpu"] == 1): problems.append(f"B11 governor must look at GPU ms before rAF time: {r}")
+    ctx.close()
+
 def b9(b):
     """B9 broken GPU (own contexts, independent of the main page)."""
     # ---- B9 broken GPU: the shelf must never show a broken book. Inject a shader fault (fragment shaders containing the given text get a syntax error appended)
@@ -90,11 +183,11 @@ def b9(b):
     f_all = faulty(["gl_FragColor", "pc_fragColor"], lambda o: o["lvl"] == 4 and o["cards"] == 0); note(f"B9 nothing compiles -> {f_all}")
     if f_all["lvl"] != 4 or f_all["cards"] != 0: problems.append(f"B9 stage did not fall back to the CSS covers when nothing compiles: {f_all}")
 
-if a.only in ("b9", "b10"):
+if a.only in ("b9", "b10", "b11"):
     with sync_playwright() as p:
         kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]); exe = os.environ.get("BK_CHROMIUM")
         b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
-        {"b9": b9, "b10": b10}[a.only](b); b.close()
+        {"b9": b9, "b10": b10, "b11": b11}[a.only](b); b.close()
     if srv: srv.terminate()
     print("FAIL" if problems else f"OK: {a.only.upper()}", *problems, sep="\n - " if problems else "")
     sys.exit(1 if problems else 0)
@@ -243,6 +336,7 @@ with sync_playwright() as p:
     if a.only is None: b9(b)
     if errs: problems.append(f"console errors: {errs[:3]}")
     if a.only is None: b10(b)
+    if a.only is None: b11(b)
     b.close()
 if srv: srv.terminate()
 print("FAIL" if problems else "OK: Package A features behave as specified", *problems, sep="\n - " if problems else "")
