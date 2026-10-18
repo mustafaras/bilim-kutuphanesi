@@ -13,3 +13,5 @@ site/og/*.png
 
 # Screen-tour screenshot sets are not committed any more: history already carries ~105 MB of them and a clone cannot shrink without a force push.
 docs/tasarim/ekran/v1[0-9][0-9]/
+tools/golden/_out/
+tools/golden/_diff/
