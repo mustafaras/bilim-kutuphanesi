@@ -127,12 +127,12 @@
   raf=0;const dt=Math.min(.05,(now-last)/1000||0);last=now;
   {const gone=items.filter(i=>!i.canvas.isConnected);if(gone.length){gone.forEach(disposeItem);items=items.filter(i=>i.canvas.isConnected)}}let again=false;
   if(!document.hidden&&renderer){const still=paused();
-   for(const it of items){if(!it.ready||!it.visible)continue;
+   for(const it of items){try{if(!it.ready||!it.visible)continue;
     if(still){if(it.dirty){render(it,dt);}continue}
     const live=it.hoverT>=.05||it.hover||it.drag||it.opts.focus;
     if(ql()>=4&&!live){if(it.dirty){STATS.idleRenders++;render(it,dt)}continue}      // frozen tier: repaint only when something changed
     again=true;it.frame++;const D=idleDiv();if(!live){STATS.idleFrames++;if(it.frame%D)continue;STATS.idleRenders++}else STATS.hoverRenders++;   // idle tiles at 30 / 15 fps, hovered at full rate
-    render(it,dt*(live?1:D))}}
+    render(it,dt*(live?1:D))}catch(e){DIAG.renderErrors=(DIAG.renderErrors||0)+1;DIAG.lastError=String(e&&e.message||e).slice(0,160)}}}
   if(again||items.some(i=>i.ready&&i.visible&&i.dirty))raf=requestAnimationFrame(tick)}
  function kick(){if(!raf)raf=requestAnimationFrame(tick)}
  if(typeof MutationObserver==='function')new MutationObserver(()=>{for(const i of items)i.dirty=true;kick()}).observe(root,{attributes:true,attributeFilter:['class','data-theme']});

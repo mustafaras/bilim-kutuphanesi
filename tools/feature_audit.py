@@ -169,6 +169,7 @@ def b9(b):
         ctx = b.new_context(viewport={"width": 1590, "height": 615}, service_workers="block"); fp = ctx.new_page()
         fp.add_init_script("try{localStorage.setItem('bk-theme','dark')}catch(e){}")
         fp.add_init_script("window.__pats=%s;for(const K of [WebGLRenderingContext,WebGL2RenderingContext]){const P=K.prototype,ss=P.shaderSource;P.shaderSource=function(s,src){if((src.includes('gl_FragColor')||src.includes('pc_fragColor'))&&window.__pats.some(p=>src.includes(p)))src=src+'\\n@@@broken@@@';return ss.call(this,s,src)}}" % json.dumps(pats))
+        perrs = []; fp.on("pageerror", lambda e: perrs.append(str(e)[:160])); fp.on("console", lambda m: perrs.append(m.text[:160]) if m.type == "error" else None)
         fp.goto(a.url + "?fault=" + str(time.time()), wait_until="load")
         fp.wait_for_function('typeof records!=="undefined"&&records.length&&window.BKStage', timeout=120000); fp.wait_for_timeout(4000)
         fp.evaluate("document.documentElement.classList.add('effects-paused')")   # still frames: the hero stops competing for the (software) GPU and a tile needs 2 renders per self-check instead of 70, so the step-down chain is deterministic instead of a race against CI speed
@@ -178,6 +179,7 @@ def b9(b):
         for _ in range(150):   # software GL is slow: poll for the settled state instead of a fixed wait
             fp.wait_for_timeout(1000); out = fp.evaluate(Q)
             if done(out): break
+        out["errs"] = perrs[:4]; out["diag"] = fp.evaluate("(()=>{const d=BKStage.diag();return{renderErrors:d.renderErrors||0,lastError:d.lastError||'',stats:d.stats,esc:d.escalations}})()")   # tail of the story for CI logs
         ctx.close(); return out
     f_std = faulty(["#define STANDARD"], lambda o: o["lvl"] >= 1 and o["cards"] == 4 and all(c and c != "failed" and c["cover"] >= .1 for c in o["cover"])); note(f"B9 standard/physical shaders broken -> {f_std}")
     if f_std["lvl"] < 1 or f_std["cards"] != 4 or any((not c) or c == "failed" or c["cover"] < .1 for c in f_std["cover"]): problems.append(f"B9 books did not recover when the PBR shaders fail: {f_std}")
