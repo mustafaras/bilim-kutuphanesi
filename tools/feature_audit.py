@@ -171,6 +171,7 @@ def b9(b):
         fp.add_init_script("window.__pats=%s;for(const K of [WebGLRenderingContext,WebGL2RenderingContext]){const P=K.prototype,ss=P.shaderSource;P.shaderSource=function(s,src){if((src.includes('gl_FragColor')||src.includes('pc_fragColor'))&&window.__pats.some(p=>src.includes(p)))src=src+'\\n@@@broken@@@';return ss.call(this,s,src)}}" % json.dumps(pats))
         fp.goto(a.url + "?fault=" + str(time.time()), wait_until="load")
         fp.wait_for_function('typeof records!=="undefined"&&records.length&&window.BKStage', timeout=120000); fp.wait_for_timeout(4000)
+        fp.evaluate("document.documentElement.classList.add('effects-paused')")   # still frames: the hero stops competing for the (software) GPU and a tile needs 2 renders per self-check instead of 70, so the step-down chain is deterministic instead of a race against CI speed
         fp.evaluate("document.querySelector('#spotlightGrid').scrollIntoView({block:'start'})")
         Q = "({lvl:BKStage.diag().level,cards:document.querySelectorAll('.spotlight-card.has-3d').length,cover:BKStage.diag().items})"
         out = fp.evaluate(Q)
