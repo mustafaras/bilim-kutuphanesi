@@ -45,7 +45,9 @@ jobs:
       matrix:
         include:
           - name: UI audit (overflow, console errors, contrast)
-            cmd: python tools/ui_audit.py
+            cmd: |
+              python tools/ui_audit.py
+              python tools/palette_audit.py
           - name: Text fit, reduced motion, leak check
             cmd: |
               python tools/text_fit_audit.py
@@ -65,7 +67,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install Playwright
-        run: python -m pip install --quiet playwright
+        run: python -m pip install --quiet playwright pillow numpy
       - name: Playwright version
         id: pw
         run: |

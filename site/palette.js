@@ -27,6 +27,15 @@
   ['actMotion',()=>{const b=$$('motionToggle');b&&b.click&&b.click()}],
   ['actLang',()=>setLanguage(uiLang==='tr'?'en':'tr')],
   ['actSaved',()=>{reset();$('favoritesOnly').checked=true;page=0;render();jump('catalog')}],
+  ['actLight',()=>{if(document.documentElement.dataset.theme!=='light'){const b=$$('themeToggle');b&&b.click&&b.click()}}],
+  ['actDark',()=>{if(document.documentElement.dataset.theme!=='dark'){const b=$$('themeToggle');b&&b.click&&b.click()}}],
+  ['actPerf',()=>{if(window.BKGL&&BKGL.flags)BKGL.flags.set('perf',!BKGL.flags.get('perf'))}],
+  ['actQualityLow',()=>{if(window.BKStage&&BKStage.forceLevel)BKStage.forceLevel(2)}],
+  ['actQualityFull',()=>{if(window.BKStage&&BKStage.forceLevel)BKStage.forceLevel(0)}],
+  ['actShortcuts',()=>openShortcuts()],
+  ['actClear',()=>{reset();page=0;render();jump('catalog')}],
+  ['actTimeline',()=>jump('timeline')],
+  ['actRandom',()=>{const r=records[Math.floor(Math.random()*records.length)];if(r&&window.openRecord)window.openRecord(r.id)}],
   ['actDownload',()=>{const a=document.createElement('a');a.href='data/catalog.json';a.download='bilim-kutuphanesi-katalog.json';a.click()}]
  ];
  /* Bilingual match surface: TR + EN dictionary values together. */
@@ -55,8 +64,11 @@
  /* Recents survive reloads; stored as {k,v} so they re-resolve in the current language. */
  const RKEY='bk-palette-recent';
  const recents=()=>{try{return JSON.parse(localStorage.getItem(RKEY)||'[]').filter(e=>e&&e.k&&e.v!==undefined)}catch{return[]}};
- function remember(item){if(!item.key&&item.key!==0)return;try{const next=[{k:item.kind,v:item.key},...recents().filter(e=>!(e.k===item.kind&&e.v===item.key))].slice(0,5);localStorage.setItem(RKEY,JSON.stringify(next))}catch{}}
- function resolveRecent(e){let item=null;try{if(e.k==='action')item=actions().find(a=>a.key===e.v);else if(e.k==='route')item=routes()[Number(e.v)];else if(e.k==='field')item=fields()[Number(e.v)];else if(e.k==='record'){const r=recordById(e.v);item=r&&recordItem(r)}else if(e.k==='author'&&authorCount(e.v))item=authorItem(e.v)}catch{}return item?{...item,recent:true}:null}
+ const FKEY='bk-palette-freq';
+ const freqs=()=>{try{return JSON.parse(localStorage.getItem(FKEY)||'[]').filter(e=>e&&e.k&&e.v!==undefined&&e.n>0)}catch{return[]}};
+ function remember(item){if(!item.key&&item.key!==0)return;try{const next=[{k:item.kind,v:item.key},...recents().filter(e=>!(e.k===item.kind&&e.v===item.key))].slice(0,5);localStorage.setItem(RKEY,JSON.stringify(next));
+  const f=freqs(),at=f.find(e=>e.k===item.kind&&e.v===item.key);if(at)at.n++;else f.push({k:item.kind,v:item.key,n:1});localStorage.setItem(FKEY,JSON.stringify(f.sort((a,b)=>b.n-a.n).slice(0,40)))}catch{}}
+ function resolveRecent(e,flag){let item=null;try{if(e.k==='action')item=actions().find(a=>a.key===e.v);else if(e.k==='route')item=routes()[Number(e.v)];else if(e.k==='field')item=fields()[Number(e.v)];else if(e.k==='record'){const r=recordById(e.v);item=r&&recordItem(r)}else if(e.k==='author'&&authorCount(e.v))item=authorItem(e.v)}catch{}return item?{...item,[flag||'recent']:true}:null}
 
  /* "> theme", "#path", "~ physics", "@tong" jump straight into a scope. */
  function parse(q){const c=String(q).trimStart()[0];if(PREFIX[c])return{kind:PREFIX[c],text:String(q).trimStart().slice(1)};return{kind:scope==='all'?null:scope,text:String(q)}}
@@ -73,22 +85,23 @@
   const pre=String(q).trimStart()[0],prefix=PREFIX[pre]?pre:'';
   const res=build0(prefix+fixed.join(' '));if(!res.length)return out0;
   const phrase=fixed.join(' ');
-  return[{kind:'action',key:'dym',label:t('paletteDym')+' '+phrase+'?',sub:'',hay:'',run:()=>{input.value=prefix+phrase;render();input.focus()},pv:()=>`<p class="pv-hint">${esc(t('paletteDym'))} <b>${esc(phrase)}</b> <kbd>↵</kbd></p>`},...res].slice(0,12)}
+  return[{kind:'action',key:'dym',label:t('paletteDym')+' '+phrase+'?',sub:'',hay:'',run:()=>{input.value=prefix+phrase;render();input.focus()},pv:()=>`<p class="pv-hint">${esc(t('paletteDym'))} <b>${esc(phrase)}</b> <kbd>↵</kbd></p>`},...res].slice(0,16)}
  function build0(q){
   const {kind,text}=parse(q),tokens=norm(text).split(/\s+/).filter(Boolean),want=k=>!kind||kind===k,solo=!!kind;
   const match=x=>!tokens.length||tokens.every(w=>x.hay.includes(w));
-  if(!tokens.length&&!kind){const rec=recents().map(resolveRecent).filter(Boolean).slice(0,4);return[...rec,...actions().slice(0,10)]}
+  if(!tokens.length&&!kind){const fq=freqs().filter(e=>e.n>=2).slice(0,4),fk=new Set(fq.map(e=>e.k+'\u0000'+e.v)),fre=fq.map(e=>resolveRecent(e,'freq')).filter(Boolean),rec=recents().filter(e=>!fk.has(e.k+'\u0000'+e.v)).map(e=>resolveRecent(e)).filter(Boolean).slice(0,4),seen=new Set([...fre,...rec].map(x=>x.kind+'\u0000'+x.key));
+   return[...fre,...rec,...actions().filter(a=>!seen.has(a.kind+'\u0000'+a.key)).slice(0,16)].slice(0,16)}
   const out=[];
-  if(want('action'))out.push(...actions().filter(match).slice(0,solo?12:4));
-  if(want('route'))out.push(...routes().filter(match).slice(0,solo?12:4));
-  if(want('field'))out.push(...fields().filter(match).slice(0,solo?12:4));
-  if(want('record')&&tokens.length&&(solo||out.length<12))out.push(...recordsFor(tokens,solo?12:6));
-  if(want('author')&&(solo||out.length<12)&&(tokens.length||solo))out.push(...authorsFor(tokens,solo?12:4));
-  return out.slice(0,12)}
+  if(want('action'))out.push(...actions().filter(match).slice(0,solo?24:5));
+  if(want('route'))out.push(...routes().filter(match).slice(0,solo?16:5));
+  if(want('field'))out.push(...fields().filter(match).slice(0,solo?16:5));
+  if(want('record')&&tokens.length&&(solo||out.length<16))out.push(...recordsFor(tokens,solo?16:7));
+  if(want('author')&&(solo||out.length<16)&&(tokens.length||solo))out.push(...authorsFor(tokens,solo?16:5));
+  return out.slice(0,solo?24:16)}
 
- const groupKey=item=>item.recent?'recent':item.kind;
- const groupLabel=k=>k==='recent'?t('paletteRecent'):t(GROUP[k]);
- function rowHtml(item,i){const k=groupKey(item);return `<div class="pk-opt pk-${item.kind}" role="option" id="pk-${i}" data-pk="${i}" style="--i:${Math.min(i,9)}" aria-selected="${i===active}"><span class="pk-glyph" aria-hidden="true">${item.recent?ICON.recent:ICON[item.kind]}</span><span class="pk-main"><strong>${highlight(item.label,query)}</strong>${item.sub?`<small>${esc(item.sub)}</small>`:''}</span><span class="pk-kind">${esc(groupLabel(item.recent?item.kind:k))}</span></div>`}
+ const groupKey=item=>item.freq?'freq':item.recent?'recent':item.kind;
+ const groupLabel=k=>k==='recent'?t('paletteRecent'):k==='freq'?t('paletteFrequent'):t(GROUP[k]);
+ function rowHtml(item,i){const k=groupKey(item);return `<div class="pk-opt pk-${item.kind}" role="option" id="pk-${i}" data-pk="${i}" style="--i:${Math.min(i,9)}" aria-selected="${i===active}"><span class="pk-glyph" aria-hidden="true">${item.recent||item.freq?ICON.recent:ICON[item.kind]}</span><span class="pk-main"><strong>${highlight(item.label,query)}</strong>${item.sub?`<small>${esc(item.sub)}</small>`:''}</span><span class="pk-kind">${esc(groupLabel(item.recent||item.freq?item.kind:k))}</span></div>`}
  function renderScopes(){if(!scopesBox)return;const cur=parse(input.value).kind||'all';scopesBox.innerHTML=SCOPES.map(k=>`<button type="button" class="pk-chip" data-scope="${k}" aria-pressed="${cur===k}">${esc(k==='all'?t('scopeAll'):t(GROUP[k]))}</button>`).join('')}
  function render(q){
   query=String(q===undefined?input.value||'':q);const parsed=parse(query);query=parsed.text;results=build(q===undefined?input.value||'':q);active=-1;
