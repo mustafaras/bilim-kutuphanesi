@@ -16,16 +16,19 @@ Ortak sınırlar (her aşama için geçerli):
 | R3 | Deterministik görsel regresyon kapısı | **tamam, engelleyici** — `?still=1`, `tools/visual_audit.py` (10 yüzey × 4 yapılandırma, kararlılık + hata enjeksiyonu + altın karşılaştırma), altın görüntüler CI'da üretilip commit edildi (`tools/golden/`, 40 PNG); `deploy` görsel işe bağlı | v110–v115, PR #59, #63, #66, #68 |
 | R4 | Ortak malzeme ve ışık kitaplığı (`BKMaterials`, tek PMREM) | **tamam (kod + CI kapıları)** — `site/materials.js`; stage.js `new m.MeshPhysicalMaterial(` 12 → 0, `PMREMGenerator` 2 → 1 (grep), R3 altınları değişmedi (görsel kapı CI'da); ACES yalnız `acestone` bayrağıyla (varsayılan kapalı, bilinçli); gerçek GPU'da bakılmadı | v116, bu PR |
 | R5 | Kitap gerçekçiliği (sayfa bükülmesi, kâğıt, yaldız) | **tamam (v120)**: silindir bükme + kalınlık (`pagebend`), lif normal haritası + arka yüz sızması + yaprak gölgeleri (`paperfiber`), yaldızlı kenar + kıvrımlı başlık bandı + kapak kabartması normal haritası (`gilt`), 2× sayfa dokusu (1536×2160, anisotropi 16, seviye 0–1) ve ayracın sayfaya oturması | v120 |
-| R6 | Madalya ve Nobel arşivi nesneleri | bekliyor | — |
-| R7 | Hero galaksi ve kubbe | bekliyor | — |
-| R8 | Zemin ve atmosfer | bekliyor | — |
-| R9 | Silüet / Nobel zaman çizelgesi (veri dokusu, kimlik tamponu) | bekliyor | — |
-| R10 | Sahneler arası portal geçişleri | bekliyor | — |
-| R11 | Kütüphane duvarı (2653 kayıt, instancing) | bekliyor | — |
-| R12 | Erişilebilirlik ve dokunmatik girdi | bekliyor | — |
-| R13 | (isteğe bağlı) Ana iş parçacığından ayırma: OffscreenCanvas + Worker | bekliyor | — |
+| A1–A6 | **Premium ortak altyapı**: `BKFX` (uber son işlem), `BKSim` (GPGPU), `BKShaders`, kare bütçesi + adaptif çözünürlük, varlık/bellek hattı, yeni denetimler (`gpu_budget_audit`, `shaders_audit`, `leak_audit` eğim testi) | tasarım yazıldı, kodlanmadı; R6–R9'dan önce; ayrıntı `PREMIUM-GORSEL-VIZYON.md` §4 | — |
+| R6 | Madalya ve Nobel arşivi nesneleri | bekliyor — **premium kapsam yazıldı**: POM + iridesans kalınlık haritası, gerçek defne/tırtıl geometrisi, `RectAreaLight`, kalınlıklı cam; ayrıntı `PREMIUM-R6-R9-SAHNELER.md` (R6) | — |
+| R7 | Hero galaksi ve kubbe | bekliyor — **premium kapsam yazıldı**: GPU simülasyonlu 262 144–1 048 576 yıldız, spiral kollar + toz, kırınım ışınları, 32³ LUT, hacimsel koni, sinematik giriş; ayrıntı `PREMIUM-R6-R9-SAHNELER.md` (R7) | — |
+| R8 | Zemin ve atmosfer | bekliyor — **premium kapsam yazıldı**: planar yansıma, GPU dalga denklemi + kostik, ufuk sisi, `fwidth` kontur; ayrıntı `PREMIUM-R6-R9-SAHNELER.md` (R8) | — |
+| R9 | Silüet / Nobel zaman çizelgesi (veri dokusu, kimlik tamponu) | bekliyor — **premium kapsam yazıldı**: DataTexture + GPU yay, ışık dalgası, kimlik tamponu, seçici bloom, kamera rayı, cam; ayrıntı `PREMIUM-R6-R9-SAHNELER.md` (R9) | — |
+| R10 | Sahneler arası portal geçişleri | bekliyor — **premium kapsam yazıldı**: dondur-ve-geç, dalış/materyalizasyon/iris shader kitaplığı, gerçek kamera uçuşu; ayrıntı `PREMIUM-R10-R13-GECISLER-OLCEK.md` (R10) | — |
+| R11 | Kütüphane duvarı (2653 kayıt, instancing) | bekliyor — **premium kapsam yazıldı**: InstancedMesh sırtlar, sanal kapak atlası (LRU), LOD/chunk, kimlik tamponu, GPU filtre yayı; ayrıntı `PREMIUM-R10-R13-GECISLER-OLCEK.md` (R11) | — |
+| R12 | Erişilebilirlik ve dokunmatik girdi | bekliyor — **premium kapsam yazıldı** (her aşamayla paralel): klavye uçtan uca, fotosensitivite sınırı + güvenli mod, dokunmatik; ayrıntı `PREMIUM-R10-R13-GECISLER-OLCEK.md` (R12) | — |
+| R13 | (isteğe bağlı) Ana iş parçacığından ayırma: OffscreenCanvas + Worker | bekliyor — **ölçüme bağlı karar kapısı** (Worker + WebGPU spike); ayrıntı `PREMIUM-R10-R13-GECISLER-OLCEK.md` (R13) | — |
 
 Önerilen sıra: R1 → R2 → R3 → R4 → (R5, R6, R7, R8, R9 herhangi sırayla, kullanıcı önceliğine göre) → R10 → R11 → R12 → R13.
+
+**Premium kapsam (R6–R13 yeniden yazıldı):** ilkeler, three r160 yetenek envanteri, ortak altyapı (A1–A6), kalite katmanları ve bütçe tablosu `PREMIUM-GORSEL-VIZYON.md`; sahne ayrıntıları `PREMIUM-R6-R9-SAHNELER.md` ve `PREMIUM-R10-R13-GECISLER-OLCEK.md`. **Önerilen yeni sıra:** A6 → A3 → A1 → A4 → **R7** (A2 ile) → R6 → R8 → R9 → R10 → R11 (A5 ile) → R12 (her aşamayla paralel) → R13 (yalnız ölçümle). Aşağıdaki R6–R13 bölümleri **temel (seviye 2) kapsamı** korur; premium kapsam üstüne eklenir ve seviye 2'de bu temel kapsam geçerlidir.
 
 ---
 
@@ -77,10 +80,12 @@ Ortak sınırlar (her aşama için geçerli):
 **Gerçek GPU doğrulaması (kullanıcı):** sayfa çevirme akıcılığı ve kâğıt hissi; `?perf` kare maliyeti açık kitapta ≤ 6 ms hedefi.
 
 ## R6 — Madalya ve Nobel arşivi nesneleri
+> **Premium kapsam:** bu aşamanın radikal/sinematik hâli (GPU simülasyon, gerçek geometri, kimlik tamponu vb.), seviye tablosu, bütçe ve kabul testleri `PREMIUM-R6-R9-SAHNELER.md` içinde **R6** başlığında. Aşağıdaki metin temel (seviye 2) kapsamdır.
 **Yapılacak:** madalya yüzünde paralaks-oklüzyon (basit yükseklik tabanlı UV kayması, `onBeforeCompile`), iridescence'ın kalınlık haritasıyla çeşitlendirilmesi, defne çelengi için `ExtrudeGeometry` ile gerçek derinlik, kenar tırtıllarının geometrik olması (bugün normal haritası), imleci izleyen anahtar ışık, yüzeyde çok ince toz parçacıkları (instanced, ≤ 200). Atlas kutularındaki cam nesnelere (atom, DNA, küre) kalite katmanlı `transmission` (yalnız seviye 0).
 **Kabul:** R3 altınları (madalya), `feature_audit` B6 (normal, tırtıl) geçer; seviye 1+'da transmission kapanır; bellek sızıntısı yok.
 
 ## R7 — Hero galaksi ve kubbe
+> **Premium kapsam:** bu aşamanın radikal/sinematik hâli (GPU simülasyon, gerçek geometri, kimlik tamponu vb.), seviye tablosu, bütçe ve kabul testleri `PREMIUM-R6-R9-SAHNELER.md` içinde **R7** başlığında. Aşağıdaki metin temel (seviye 2) kapsamdır.
 **Yapılacak:**
 - Parçacıkları yumuşak SDF sprite'a (`InstancedBufferGeometry` + özel shader) taşı: yoğunluk dalgası kolları, toz şeritleri (koyulaştıran ikinci geçiş), yıldız renk sıcaklığı dağılımı (kolay B-V → renk eğrisi).
 - İmleç çekim merceği: bugünkü radyal bulanıklığa ek olarak vertex'te yerçekimsel sapma (kalite katmanlı).
@@ -90,26 +95,32 @@ Ortak sınırlar (her aşama için geçerli):
 **Kabul:** R3 altınları (hero koyu/açık); kalite seviyesi 3'te parçacık sayısı ve LUT/flare kapanır (B9); `?perf` hero ≤ 8 ms (kullanıcı); `leak_audit` geçer.
 
 ## R8 — Zemin ve atmosfer
+> **Premium kapsam:** bu aşamanın radikal/sinematik hâli (GPU simülasyon, gerçek geometri, kimlik tamponu vb.), seviye tablosu, bütçe ve kabul testleri `PREMIUM-R6-R9-SAHNELER.md` içinde **R8** başlığında. Aşağıdaki metin temel (seviye 2) kapsamdır.
 **Yapılacak:** zeminde galaksinin düzlemsel yansıması (düşük çözünürlüklü ayna render hedefi, yalnız seviye 0–1; bugünkü şerit yansıması yedek), ufukta alçak sis (derinlik tabanlı), kontur çizgilerinin eğriliğe duyarlı kalınlığı, dalga halkalarının fiziksel sönümü, zemin ile kubbe lambasının ışık havuzu.
 **Kabul:** R3 altınları; zemin hero GPU maliyetini ≤ +1.5 ms artırır (kullanıcı `?perf`); yansıma hedefi bağlam kaybında yeniden oluşur (B8 genişletilir).
 
 ## R9 — Silüet / Nobel zaman çizelgesi
+> **Premium kapsam:** bu aşamanın radikal/sinematik hâli (GPU simülasyon, gerçek geometri, kimlik tamponu vb.), seviye tablosu, bütçe ve kabul testleri `PREMIUM-R6-R9-SAHNELER.md` içinde **R9** başlığında. Aşağıdaki metin temel (seviye 2) kapsamdır.
 **Yapılacak:** kule/yıldız verisini uniform dizisi yerine `DataTexture`'a taşı (yıl, alan, sayı → doku); kimlik tamponu ile tıklama/hover seçimi (tek ek geçiş, 1/4 çözünürlük); yıllar arası kamera rayı (`CatmullRomCurve3`) ve kaydırma/zaman çubuğu senkronu; cam kulelerde kalite katmanlı `transmission`; DOM etiketleri `BKText.declutter` ile (SDF metin reddedilmişti, bkz. `ARASTIRMA-3D.md`).
 **Kabul:** 126 yıl × 1895 kayıtla etkileşim gecikmesi (hover → vurgu) ≤ 2 kare; R3 altınları; Nobel grafiği ve galaksi geçişlerinde tek görünür görünüm (iki grafik alt alta hatası bir daha olmaz: ui_audit ek denetimi).
 
 ## R10 — Sahneler arası portal geçişleri
+> **Premium kapsam:** bu aşamanın radikal/sinematik hâli (GPU simülasyon, gerçek geometri, kimlik tamponu vb.), seviye tablosu, bütçe ve kabul testleri `PREMIUM-R10-R13-GECISLER-OLCEK.md` içinde **R10** başlığında. Aşağıdaki metin temel (seviye 2) kapsamdır.
 **Yapılacak:** iki sahneyi ayrı render hedeflerine çizip gölgelendiricide birleştiren ortak geçiş (gürültü çözülmesi, radyal silme, kromatik ayrışma). Yıldıza dalış: bugünkü DOM hayalet kapağı yerine gerçek kamera uçuşu + kapak malzemelenmesi (kitap kapağı yıldızın konumunda belirir, kapak dokusu yıldız renginden kapak rengine karışır). View Transitions API ile DOM geçişi eşlenir.
 **Kabul:** geçiş süresince kare sayısı ≥ 20 (reduced-motion hariç; yazılımsal GL'de ≥ 4); reduced-motion'da yalnız kesme; `record.js` `withMorph` ad çakışması testi (A3/A4) geçer; bağlam kaybı geçiş ortasında olsa bile sahne kurtarılır.
 
 ## R11 — Kütüphane duvarı (2653 kayıt)
+> **Premium kapsam:** bu aşamanın radikal/sinematik hâli (GPU simülasyon, gerçek geometri, kimlik tamponu vb.), seviye tablosu, bütçe ve kabul testleri `PREMIUM-R10-R13-GECISLER-OLCEK.md` içinde **R11** başlığında. Aşağıdaki metin temel (seviye 2) kapsamdır.
 **Yapılacak:** katalog için opsiyonel "duvar" görünümü: `InstancedMesh` ile binlerce ince kitap sırtı, kapak dokuları atlas dokusunda (8×8), kimlik tamponu ile seçim, odak kitap "raftan çıkar" (mevcut raf kitabı sahnesine devir). Filtreler (alan, yıl, dil) örnek başına renk/ölçek değişimiyle canlı. Sanallaştırma: yalnız kamera çevresi tam detay.
 **Kabul:** 2653 örnekle ≥ 30 fps hedefi (kullanıcı `?perf`); seviye 3'te statik sıralı ızgaraya düşer; erişilebilir alternatif liste her zaman DOM'da (sanal duvar yalnız görsel katman).
 
 ## R12 — Erişilebilirlik ve dokunmatik girdi
+> **Premium kapsam:** bu aşamanın radikal/sinematik hâli (GPU simülasyon, gerçek geometri, kimlik tamponu vb.), seviye tablosu, bütçe ve kabul testleri `PREMIUM-R10-R13-GECISLER-OLCEK.md` içinde **R12** başlığında. Aşağıdaki metin temel (seviye 2) kapsamdır.
 **Yapılacak:** yıldız/kutu/kitap için klavye ile gezinti (roving tabindex + 3D odak halkası), `prefers-contrast` ve `prefers-reduced-transparency` yolları, her 3D sahne için `aria-describedby` metin özeti (hesaplanmış), dokunmatik: iki parmakla yakınlaştır/döndür (galaksi, kitap), uzun basma = önizleme. Mevcut kitap canlı bölgesi (`aria-live`) tüm sahnelere genelleştirilir.
 **Kabul:** klavye ile galaksiden bir kayda varış ve geri dönüş testi (Playwright, yalnız klavye); axe-benzeri kontrast ve ad denetimi `ui_audit`'e eklenir.
 
 ## R13 — (isteğe bağlı, yüksek risk) OffscreenCanvas + Worker
+> **Premium kapsam:** bu aşamanın radikal/sinematik hâli (GPU simülasyon, gerçek geometri, kimlik tamponu vb.), seviye tablosu, bütçe ve kabul testleri `PREMIUM-R10-R13-GECISLER-OLCEK.md` içinde **R13** başlığında. Aşağıdaki metin temel (seviye 2) kapsamdır.
 **Neden:** ağır hero'yu ana iş parçacığından ayırmak etkileşim gecikmesini düşürür. **Risk:** DOM etiketleri/pointer olayları köprülenmeli, Safari desteği, hata ayıklama zor. Yalnızca R2 `?perf` çıktısı ana iş parçacığı sıkışmasını gösterirse yapılır; aksi hâlde yapılmaz.
 
 ---

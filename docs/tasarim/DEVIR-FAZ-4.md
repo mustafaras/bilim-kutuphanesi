@@ -489,3 +489,10 @@ Hipotezler (hiçbiri kanıtlanmadı): (a) v110 `stage.js` değişiklikleri — `
 - **Neden:** `disposeItem` geometri ve malzeme dokularını serbest bırakıyor, ışığın gölge render hedefini bırakmıyordu (three'de `light.shadow.dispose()` gerekir). Sızıntı R5 öncesinden geliyordu (v118'de aynı hız); R5'in 2× sayfa dokusuyla ilgisi yok.
 - **Düzeltme:** `disposeItem` her ışığın `shadow.dispose()`'unu çağırır. `leak_audit --rounds 40`: doku sayısı 20. ve 40. turda 1 (önce 12 → 21).
 - **Yapılmadı:** `leak_audit` eşiği hâlâ +24; doğrusal büyümeyi yakalayacak şekilde sıkılaştırılmadı (bu iş istenmedi).
+
+
+## §64 — Premium görsel kapsam belgeleri (yalnız belge, kod yok)
+- **Ne:** R6–R13'ün radikal/sinematik yeniden tasarımı üç yeni belgeye yazıldı: `PREMIUM-GORSEL-VIZYON.md` (sanat yönü "Yaşayan Arşiv", three.js r160 yetenek envanteri, ortak altyapı A1–A6: `BKFX` uber son işlem, `BKSim` GPGPU, `BKShaders`, kare bütçesi/adaptif çözünürlük, varlık/bellek hattı, test altyapısı; seviye modeli, yüzey başına kare bütçesi, kural kitabı, sıralama, risk kaydı), `PREMIUM-R6-R9-SAHNELER.md` (madalya, hero, zemin, silüet) ve `PREMIUM-R10-R13-GECISLER-OLCEK.md` (geçişler, duvar, erişilebilirlik, worker/WebGPU karar kapısı, uygulama sırası, kabul test envanteri).
+- **Temel:** kodda doğrulanan sayılar (hero 56 000/14 000 + 3 600/1 200 + 3 200/900 parçacık, `EffectComposer` zinciri, silüet `InstancedMesh`, three r160 vendor ≈ 670 KB). Milisaniye ve bellek değerleri **hedeftir, ölçülmemiştir**; her aşama kendi ölçümüyle günceller.
+- **Önemli kararlar:** (1) altyapı önce (A6→A3→A1→A4), vitrin R7; (2) her özellik seviye tablosunda, seviye 2'de bugünkü görünüm; (3) `leak_audit` doğrusal eğim testi ve `visual_audit` sabit port/yüzey toleransı (v120–v121 derslerinden); (4) R13 yalnız ölçümle; (5) fotosensitivite sınırı ve "güvenli mod" R12'de her aşamanın kabulüne bağlı.
+- **Yapılmayan:** hiçbir madde kodlanmadı; yeni vendor modülü eklenmedi (ek bütçe ≤ 120 KB gzip, KTX2 hariç, ilgili aşamada karara bağlanır).

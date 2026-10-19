@@ -18,6 +18,7 @@ Bu belge, bir sonraki oturumun sıfırdan başlayıp doğru yerden devam etmesi 
 - Seviye ≥ 1 ise: `?diag` satırının ekran görüntüsü + F12 konsolundaki kırmızı hatalar + `chrome://gpu` istenir. Bununla kesin sebep bulunup sadeleşmeye gerek bırakmayacak şekilde düzeltilir (ör. belirli bir malzeme özelliği, doku birimi sayısı, ANGLE/D3D derleme sınırı).
 
 ### 2.1b Premium three.js geliştirmeleri → `YOL-HARITASI-3D.md`
+> **Güncel (v121):** R1–R5 tamam. Kalan R6–R13 için **premium kapsam** yazıldı: `PREMIUM-GORSEL-VIZYON.md` (ana belge: ilkeler, yetenek envanteri, altyapı A1–A6, seviyeler, bütçe), `PREMIUM-R6-R9-SAHNELER.md` ve `PREMIUM-R10-R13-GECISLER-OLCEK.md`. Önerilen sıra: A6 → A3 → A1 → A4 → R7 (A2 ile) → R6 → R8 → R9 → R10 → R11 → R12 → R13. Henüz kodlanmadı.
 Büyük geliştirmeler **aşama aşama** (R1–R13) ayrı belgede: her aşama ayrı oturum + ayrı PR, sayısal kabul ölçütü, kapanabilir (flag), kalite katmanlı. İlk üç aşama altyapıdır (ortak GL katmanı, gerçek GPU zamanlaması + `?perf`, deterministik görsel regresyon kapısı) ve görsel işlerden önce yapılmalıdır. Durum tablosu o belgenin §0'ındadır; R1 (BKGL) v108'de tamamlandı ve deploy edildi; R2 (GPU zamanlaması, `?perf`, ısıtma) v109'da kodlandı; gerçek GPU çıktısı bekleniyor (DEVIR §54). Bir sonraki oturum **R3** (görsel regresyon kapısı).
 
 ### 2.2 Düşük öncelikli açıklar
