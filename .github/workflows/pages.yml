@@ -50,11 +50,12 @@ jobs:
             cmd: |
               python tools/ui_audit.py
               python tools/palette_audit.py
-          - name: Text fit, reduced motion, leak check
+          - name: Text fit, reduced motion
             cmd: |
               python tools/text_fit_audit.py
               python tools/reduced_audit.py
-              python tools/leak_audit.py --rounds 40
+          - name: Leak check, 40 rounds, slope test (A6)
+            cmd: python tools/leak_audit.py --rounds 40
           - name: Features (camera, governor, dive, book, medal, dome, context loss)
             cmd: python tools/feature_audit.py --only main
           - name: Broken GPU fallback (B9)
@@ -67,10 +68,16 @@ jobs:
             cmd: python tools/feature_audit.py --only b12
           - name: Uber post-processing chain (B13)
             cmd: python tools/feature_audit.py --only b13
-          - name: GPU budgets per surface (A6), hero chain legacy vs uber
-            cmd: |
-              python tools/gpu_budget_audit.py
-              python tools/gpu_budget_audit.py --fx-compare
+          - name: GPU budgets, hero + ground + shelf (A6)
+            cmd: python tools/gpu_budget_audit.py --surfaces hero,ground,stage
+          - name: GPU budgets, skyline + Nobel + constellation (A6)
+            cmd: python tools/gpu_budget_audit.py --surfaces skyline,nobel,constellation
+          - name: Hero chain, legacy vs uber (A1)
+            cmd: python tools/gpu_budget_audit.py --fx-compare
+          - name: Hero kill switch, fxuber=0 (1440x900)
+            cmd: python tools/visual_audit.py --config 1440x900:dark --legacy
+          - name: Hero kill switch, fxuber=0 (1024x768)
+            cmd: python tools/visual_audit.py --config 1024x768:dark --legacy
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v6
@@ -124,9 +131,6 @@ jobs:
           python -m playwright install-deps chromium
       - name: Visual regression gate (R3)
         run: python tools/visual_audit.py --config ${{ matrix.config }}
-      - name: Hero kill switch (fxuber=0 restores the pre-BKFX picture)
-        if: contains(matrix.config, 'dark')
-        run: python tools/visual_audit.py --config ${{ matrix.config }} --legacy
       - name: Visual output (candidates and differences)
         if: always()
         uses: actions/upload-artifact@v4
