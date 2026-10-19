@@ -12,10 +12,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {config: '1440x900:dark', slug: '1440-dark'}
-          - {config: '1440x900:light', slug: '1440-light'}
-          - {config: '1024x768:dark', slug: '1024-dark'}
-          - {config: '1024x768:light', slug: '1024-light'}
+          - {config: '1440x900:dark', slug: '1440-dark', prefix: '1440x900-dark'}
+          - {config: '1440x900:light', slug: '1440-light', prefix: '1440x900-light'}
+          - {config: '1024x768:dark', slug: '1024-dark', prefix: '1024x768-dark'}
+          - {config: '1024x768:light', slug: '1024-light', prefix: '1024x768-light'}
     steps:
       - uses: actions/checkout@v6
       - run: python -m pip install --quiet playwright pillow numpy
@@ -27,7 +27,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: golden-${{ matrix.slug }}
-          path: tools/golden/*.png
+          path: tools/golden/${{ matrix.prefix }}__*.png   # only this configuration's files: every job checks out all 40 old goldens, and merge-multiple lets the last artifact overwrite the others' new files with the old ones
           if-no-files-found: error
   commit:
     needs: capture
