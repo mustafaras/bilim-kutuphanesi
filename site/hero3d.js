@@ -171,6 +171,8 @@
      uniforms:{...uniforms,uGain:{value:1.05}},material:{vertexShader:simVert,fragmentShader:frag(true),blending:THREE.AdditiveBlending}});
     if(!sim)return;
     window.__bkSim=sim;mats.push(sim.material);dust.visible=false;setLevel(degrade,0);
+    /* software GL (CI, audit tools): the governor needs four 3-8 s frames to leave tier 0 — by then it has starved every other surface on the page. Start at tier 3 there (compute off, 14 000 points: the v123 frame cost). NOT in ?still (the visual goldens must show what a real GPU renders) and NOT for the B14 tier test (it sets levels explicitly). */
+    if(!BKGL.still&&/swiftshader|llvmpipe|basic render|software/i.test((BKGL.probe(renderer).gpu||'')))setLevel(3,0);
    }catch(e){console.warn('BKSim:',e);if(sim){try{sim.dispose()}catch{}}sim=null;window.__bkSim=null;dust.visible=true}}
 
   /* core glow */

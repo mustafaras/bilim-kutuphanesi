@@ -64,7 +64,7 @@ PREP = {
     "stage": "document.getElementById('spotlightGrid').scrollIntoView({block:'center'})",
     "skyline": "document.querySelector('.timeline-section').scrollIntoView({block:'center'})",
     "nobel": "(()=>{const b=document.querySelector('[data-v=galaxy]');if(b)b.click()})()",
-    "constellation": "(()=>{openRecord(records[5].id)})()",
+    "constellation": "(()=>{openRecord(records[5].id);let k=0;const iv=setInterval(()=>{const c=document.querySelector('.rv-gl');if(c)c.scrollIntoView({block:'center'});if(++k>4)clearInterval(iv)},300)})()",   # the canvas is built async; the box must be in view or its IntersectionObserver parks the render loop and the window sees zero frames (v124)
 }
 names = [n for n in (a.surfaces.split(",") if a.surfaces else LIMITS)]
 flags = "".join(f"localStorage.setItem('bk-flag-{k}','{v}');" for k, v in (f.split("=") for f in a.flag))
@@ -128,6 +128,7 @@ try:
             ctx, q = open_page(b)
             rows = []
             for n in names:
+                if n != "hero": q.evaluate("window.BKHero&&BKHero.gov&&(BKHero.gov.setLevel(3),BKHero.gov.pin(true))")   # silence the hero (bottom tier, pinned) before another surface's window: on software GL its tier-0 GPGPU frames starve every other canvas for minutes (v124 R7.b); the governor's own behavior is measured by B10/main
                 try: r = measure(q, n)
                 except Exception as e: r = None; problems.append(f"{n}: measurement failed: {str(e)[:160]}")
                 if r is not None: rows.append((n, r)); check(n, r)
