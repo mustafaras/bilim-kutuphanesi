@@ -108,7 +108,8 @@
  function disposeItem(it){const sc=it.scene;if(!sc||it.disposed)return;it.disposed=true;
   try{if([...sceneCache.values()].some(x=>x.scene===sc))return}catch{}
   const env=sc.environment;
-  sc.traverse(o=>{if(o.geometry)o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:o.material?[o.material]:[];
+  sc.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.isLight&&o.shadow&&o.shadow.dispose)o.shadow.dispose();   // the key light's 1024x1024 shadow map is a render target of its own: it stays on the GPU unless released
+   const ms=Array.isArray(o.material)?o.material:o.material?[o.material]:[];
    ms.forEach(mt=>{for(const k in mt){const v=mt[k];if(v&&v.isTexture&&v!==env)v.dispose()}mt.dispose()})});
   it.scene=null;it.api=null;it.ready=false}
  /* Quality tiers (BKMotion.quality, published by the hero governor; switch off with BKGL.flags stagequality=0): level >= 2 caps the tile DPR at 1.0 (was 1.5),
