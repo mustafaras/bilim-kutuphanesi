@@ -374,6 +374,39 @@ with sync_playwright() as p:
         pg.evaluate("BKStage.forceLevel(2)"); pg.wait_for_timeout(600); eg2 = pg.evaluate("BKStage.book.edges()"); pg.evaluate("BKStage.forceLevel(0)"); pg.wait_for_timeout(600)
         note(f"R5 book edges at level 2 {eg2}")
         if eg2["fore"]["normal"] or eg2["head"]["normal"]: problems.append(f"R5 edge normal maps must be off at level 2: {eg2}")
+        # cover emboss: the foil stamping + binding grain as a normal map derived from the height field (not a bump map)
+        if not (eg.get("cover") and eg["cover"]["normal"] and not eg["cover"]["bump"]): problems.append(f"R5 cover relief must be a normal map from the height field (no bump map): {eg.get('cover')}")
+        if eg2.get("cover") and eg2["cover"]["normal"]: problems.append(f"R5 cover normal map must be off at level 2: {eg2['cover']}")
+    # ---- R5 step 4: page text is repainted at 2x (1536x2160, anisotropy 16) while the book is open at levels 0-1, back to 768x1080 at level 2
+    pr = None
+    for _ in range(40):
+        pr = pg.evaluate("BKStage.book.pageRes?BKStage.book.pageRes():null")
+        if pr and pr["w"] >= 1536 and pr["all"]: break
+        pg.wait_for_timeout(250)
+    note(f"R5 page texture {pr}")
+    if not pr: problems.append("R5 BKStage.book.pageRes() is missing")
+    else:
+        if not (pr["w"] == 1536 and pr["h"] == 2160 and pr["all"] and pr["aniso"] == min(16, pr["maxAniso"])): problems.append(f"R5 open book pages must be repainted at 1536x2160 with anisotropy 16 (or the GPU maximum): {pr}")
+        pg.evaluate("BKStage.forceLevel(2)")
+        for _ in range(40):
+            pg.wait_for_timeout(250); pr2 = pg.evaluate("BKStage.book.pageRes()")
+            if pr2["w"] == 768 and pr2["all"]: break
+        pg.evaluate("BKStage.forceLevel(0)"); pg.wait_for_timeout(1500)
+        note(f"R5 page texture at level 2 {pr2}")
+        if pr2["w"] != 768 or not pr2["all"]: problems.append(f"R5 page textures must go back to 768x1080 at level 2: {pr2}")
+    # ---- R5 step 5: the ribbon rests on the page (never inside it) and hangs from the page edge; closed again it returns to the block head
+    rb = None
+    for _ in range(30):
+        pg.wait_for_timeout(200); rb = pg.evaluate("BKStage.book.ribbon?BKStage.book.ribbon():null")
+        if rb and rb["open"]: break
+    note(f"R5 ribbon {rb}")
+    if not rb: problems.append("R5 BKStage.book.ribbon() is missing")
+    else:
+        if not rb["open"]: problems.append(f"R5 ribbon does not know the book is open: {rb}")
+        if rb["minClear"] < 0: problems.append(f"R5 ribbon sinks into the page ({rb['minClear']:.4f}): {rb}")
+        if rb["maxClear"] > .06: problems.append(f"R5 ribbon floats above the page ({rb['maxClear']:.4f}), it must rest on it: {rb}")
+        if rb["speed"] >= .02: problems.append(f"R5 the part of the ribbon lying on the page must be at rest (speed {rb['speed']:.4f})")
+        if rb["tail"] >= 1.0: problems.append(f"R5 the ribbon tail below the page swings wildly (speed {rb['tail']:.3f} units/s)")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(600)
     closed = pg.evaluate("!document.querySelector('.rv-art.book-open')&&!BKStage.book.state().open")
     note(f"B5 closed {st0['open']}, opened {st1['open']} (coverK {st1['coverK']}), stage centred {stage_ok}, leaf after 2x next {st2['leaf']}, after prev {st3['leaf']}, after 3x more {st4['leaf']} (next disabled {next_dis}), Esc closes {closed}")

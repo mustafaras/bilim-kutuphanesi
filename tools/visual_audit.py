@@ -6,7 +6,7 @@ Surfaces (hero, discovery atlas incl. medal, shelf books, record book closed + 3
 Math.random, effects paused, tiles at dt 0) at 1440x900 and 1024x768 in dark and light, TR. Checks:
  1 stability: the same code captured twice differs by < 0.1 % of the pixels (1440x900 dark+light; --quick: dark only)
  2 known defects break the gate: hidden atlas canvases and a shelf forced to the CSS fallback must differ by far more than the tolerance
- 3 golden images (tools/golden/<config>__<surface>.png, half size): compared when they exist (per-channel tolerance, < 0.5 % changed pixels); --update rewrites them.
+ 3 golden images (tools/golden/<config>__<surface>.png, half size): compared when they exist (per-channel tolerance 10, the open-book spreads 3; < 0.5 % changed pixels); --update rewrites them.
     Goldens come from CI (same software GL): download the 'visual-candidates' artifact of a green run and commit its files. Without goldens the gate says so and checks 1 + 2 only.
 Captures go to tools/golden/_out/ (git-ignored), differences to tools/golden/_diff/."""
 import argparse, os, socket, subprocess, sys, time, shutil
@@ -28,11 +28,17 @@ LOOSE = {'constellation': (0.02, 0.03), 'nobel-galaxy': (0.01, 0.02)}
 def lim(name, k): return LOOSE.get(name.split('__')[1][:-4], (STABLE, GOLDEN))[k]
 CONFIGS = [(1440, 900, "dark"), (1440, 900, "light"), (1024, 768, "dark"), (1024, 768, "light")]
 
-def ratio(p1, p2, save=None):
-    """share of pixels whose largest channel difference exceeds TOL (0..1); sizes differing = 1"""
+# the open book changes in fine detail (paper fibre, edge gilt, page thickness): measured v116 -> v119 on the same GL, only 0.1-0.3 % of its pixels differ by more than 10 levels (under the 0.5 % limit,
+# so the gate was blind to it) but 3-11 % differ by more than 2-4. Its spreads therefore compare at a finer per-channel tolerance; every other surface was identical across those versions (0.0000 at any tolerance).
+FINE = 3
+def tol_for(name): return FINE if name.split('__')[1].startswith('book-open') else TOL
+
+def ratio(p1, p2, save=None, tol=None):
+    """share of pixels whose largest channel difference exceeds the tolerance (0..1); sizes differing = 1"""
+    tol = TOL if tol is None else tol
     x, y = np.asarray(Image.open(p1).convert("RGB"), dtype=np.int16), np.asarray(Image.open(p2).convert("RGB"), dtype=np.int16)
     if x.shape != y.shape: return 1.0
-    m = np.abs(x - y).max(axis=2) > TOL
+    m = np.abs(x - y).max(axis=2) > tol
     if save is not None and m.any():
         DIFF.mkdir(parents=True, exist_ok=True); d = np.zeros(m.shape + (3,), np.uint8); d[...] = (x.mean(axis=2, keepdims=True) * .35).astype(np.uint8); d[m] = (255, 0, 80); Image.fromarray(d).save(save)
     return float(m.mean())
@@ -102,7 +108,7 @@ try:
         for (w, h, th) in cfgs:
             out, _ = capture(b, w, h, th, "b")
             for k, f in out.items():
-                r = ratio(runA[f.name], f, DIFF / f"unstable-{f.name}"); worst = max(worst, r)
+                r = ratio(runA[f.name], f, DIFF / f"unstable-{f.name}", tol_for(f.name)); worst = max(worst, r)
                 if r > lim(f.name, 0): problems.append(f"{f.name} unstable between two runs: {r:.4f} of the pixels changed (limit {lim(f.name, 0)})")
         note(f"stability: worst difference between two captures {worst:.5f} (limit {STABLE})")
         b.close()
@@ -119,7 +125,7 @@ try:
         miss = 0
         for g in sorted(cand.glob("*.png")):
             if g.name not in gold: miss += 1; continue
-            r = ratio(gold[g.name], g, DIFF / f"golden-{g.name}")
+            r = ratio(gold[g.name], g, DIFF / f"golden-{g.name}", tol_for(g.name))
             if r > lim(g.name, 1): problems.append(f"{g.name} differs from its golden: {r:.4f} of the pixels (limit {lim(g.name, 1)}); see tools/golden/_diff/")
         note(f"goldens compared: {len(list(cand.glob('*.png'))) - miss}, without golden: {miss}")
 finally:
