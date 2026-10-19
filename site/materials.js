@@ -75,12 +75,20 @@
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D bleedMap;uniform float bleedK;')
      .replace('#include <map_fragment>','#include <map_fragment>\n#ifdef USE_MAP\n diffuseColor.rgb*=1.0-bleedK*(1.0-dot(texture2D(bleedMap,vec2(1.0-vMapUv.x,vMapUv.y)).rgb,vec3(.299,.587,.114)));\n#endif')}}
   return mt}
+ /* page-block edge height field (W x H, deterministic): one faint ridge per leaf, a few every-so-often deeper gaps; vertical = ridges run across x (the fore-edge strip), else across y (head / tail). The caller turns it into a normal map. */
+ function edgeHeight(W,H,vertical){const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle='#808080';x.fillRect(0,0,W,H);
+  let a=0x2545f491;const R=()=>((a=Math.imul(a^a>>>15,1|a)+0x6D2B79F5|0,(a^a>>>7)>>>0)/4294967296),n=vertical?W:H;
+  for(let i=0;i<n;i++){const v=128+(R()-.5)*(i%7===0?150:60)|0;x.fillStyle=`rgb(${v},${v},${v})`;vertical?x.fillRect(i,0,1,H):x.fillRect(0,i,W,1)}
+  return c}
+ /* gilt page-block edge: the cover's foil metal stamped on the block (flag gilt off = the plain paper edge the caller passes as o.plain) */
+ function gilt(m,o){o=Object.assign({},o);const plain=o.plain;delete o.plain;if(!flag('gilt'))return paper(m,plain||{});
+  return foil(m,Object.assign({metalness:.92,roughness:.3,clearcoat:.12,clearcoatRoughness:.35,envMapIntensity:1.6},o))}
  const foil=(m,o)=>physical(m,BASE.foil,o),cloth=(m,o)=>physical(m,BASE.cloth,o),glass=(m,o)=>physical(m,BASE.glass,o),brass=(m,o)=>physical(m,BASE.brass,o);
 
  function diag(){const envs=[];
   for(let i=baked.length-1;i>=0;i--){const r=baked[i].deref();if(!r){baked.splice(i,1);continue}for(const p in cache.get(r))envs.push(ids.get(r)+'#'+p)}
-  return{bakes,rebakes,envs:envs.sort(),tone:tracked.map(w=>w.deref()).filter(Boolean).map(r=>({name:r.__bkTone,mapping:r.toneMapping,exposure:r.toneMappingExposure})),flags:{matlib:flag('matlib'),acestone:flag('acestone'),paperfiber:flag('paperfiber')}}}
+  return{bakes,rebakes,envs:envs.sort(),tone:tracked.map(w=>w.deref()).filter(Boolean).map(r=>({name:r.__bkTone,mapping:r.toneMapping,exposure:r.toneMappingExposure})),flags:{matlib:flag('matlib'),acestone:flag('acestone'),paperfiber:flag('paperfiber'),gilt:flag('gilt')}}}
 
- window.BKMaterials={LEVELS,PRESETS,foil,cloth,paper,leaf,fiberHeight,glass,brass,lighter,env,rebake,swapEnv,tone,diag};
+ window.BKMaterials={LEVELS,PRESETS,foil,cloth,paper,leaf,fiberHeight,edgeHeight,gilt,glass,brass,lighter,env,rebake,swapEnv,tone,diag};
  if(window.BKGL)BKGL.report('materials',()=>{const d=diag();return 'bakes '+d.bakes+' (re-bakes '+d.rebakes+') · envs '+d.envs.join(',')+' · tone '+d.tone.map(t=>t.name+':'+t.mapping+'/'+t.exposure).join(' ')+' · matlib '+d.flags.matlib+' acestone '+d.flags.acestone});
 })();

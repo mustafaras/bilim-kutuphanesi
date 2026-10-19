@@ -284,6 +284,9 @@
  function pageShape(p,bend=bendOn()){let len=0,tip=0,thick=1e9,px=0,pz=0;
   for(let i=0;i<=PSEG;i++){const q=leafAt(i/PSEG*PLW,p,bend),mx=(q[0]+q[2])/2,mz=(q[1]+q[3])/2;thick=Math.min(thick,Math.hypot(q[0]-q[2],q[1]-q[3]));if(i){len+=Math.hypot(mx-px,mz-pz);tip=Math.abs(Math.atan2(mz-pz,mx-px))}px=mx;pz=mz}
   return{arc:len/PLW,tip,thick}}
+ const giltOn=()=>!window.BKGL||BKGL.flags.get('gilt');
+ let _en=null;const edgeNormal=(m,vertical)=>{_en=_en||{};const k=vertical?'v':'h';return _en[k]||(_en[k]=(()=>{const t=normalFromHeight(m,BM.edgeHeight(vertical?512:64,vertical?64:512,vertical),2.2);t.anisotropy=4;return t})())};
+ let _bt=null;const bandTex=m=>_bt||(_bt=(()=>{const c=document.createElement('canvas');c.width=64;c.height=8;const x=c.getContext('2d');for(let i=0;i<8;i++){x.fillStyle=i%2?'#e9dcc0':'#b8423a';x.fillRect(i*8,0,8,8)}const t=new m.CanvasTexture(c);t.colorSpace=m.SRGBColorSpace;t.wrapS=t.wrapT=m.RepeatWrapping;t.repeat.set(2,1);return t})());
  let _fib=null;const fiberTex=m=>_fib||(_fib=(()=>{const t=normalFromHeight(m,BM.fiberHeight(256),2.4);t.repeat.set(3,4);t.anisotropy=4;return t})());
  window.BKStage={pageShape,diag:()=>({level:SAFE,...DIAG,ql:ql(),dprCap:dprCap(),stats:{...STATS},lost:glLost,items:items.filter(i=>i.opts.check).map(i=>i.failed?'failed':i.stat||null)}),forceLevel:l=>{SAFE=Math.max(0,Math.min(4,l|0));lastEsc=0;applySafe()},paintPage,medalInfo:()=>{const it=items.find(i=>i.api&&i.api.face&&i.api.info);return it?it.api.info():null},medal:k=>{const it=items.find(i=>i.api&&i.api.face);if(!it)return false;it.api.face(k);it.dirty=true;kick();return true},tiles:()=>items.filter(i=>i.canvas.classList.contains('tile-3d')&&i.camera).map(i=>({z:+i.camera.position.z.toFixed(3),op:i.canvas.style.opacity,top:Math.round(i.host.getBoundingClientRect().top+scrollY)})),info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
 
@@ -412,9 +415,13 @@
   [-1.3,-1.2,1.2,1.3].forEach(y=>{const band=new m.Mesh(new m.TorusGeometry(D/2+.002,.008,8,40,Math.PI),new m.MeshStandardMaterial({color:new m.Color(MT.foil),metalness:1,roughness:.28,envMapIntensity:1.3}));band.rotation.set(Math.PI/2,0,Math.PI/2);band.position.set(xL,y,0);g.add(band)});
   /* page block with real page-edge texture + headbands */
   const edgeV=pageEdge(m,true),edgeH=pageEdge(m,false),paper=BM.paper(m,{color:0xefe6cf,roughness:.95}),
-   pagesMat=[BM.paper(m,{map:edgeV,bumpMap:edgeV,bumpScale:.6}),paper,BM.paper(m,{map:edgeH,bumpMap:edgeH,bumpScale:.6}),BM.paper(m,{map:edgeH}),paper,paper];
+   gild=!!real&&giltOn(),gc=new m.Color(MT.foil),foreG=gild&&BM.gilt(m,{color:gc,normalMap:edgeNormal(m,true),plain:{map:edgeV,bumpMap:edgeV,bumpScale:.6}}),headG=gild&&BM.gilt(m,{color:gc,normalMap:edgeNormal(m,false),plain:{map:edgeH,bumpMap:edgeH,bumpScale:.6}}),
+   pagesMat=[foreG||BM.paper(m,{map:edgeV,bumpMap:edgeV,bumpScale:.6}),paper,headG||BM.paper(m,{map:edgeH,bumpMap:edgeH,bumpScale:.6}),gild?headG:BM.paper(m,{map:edgeH}),paper,paper];
   const pgGeo=shared('pages',()=>new m.BoxGeometry(W-.2,Hh-.14,D-.1,28,1,8)),pgPos=pgGeo.attributes.position,PX=(W-.2)/2,PY=(Hh-.14)/2;/* fore-edge bulge + gently wavy head/tail edges (±0.004), so the block reads as loose leaves, not a brick */if(!pgGeo.userData.shaped)for(let i=0;i<pgPos.count;i++){const u=pgPos.getZ(i)/((D-.1)/2),px=pgPos.getX(i);if(px>PX-1e-4)pgPos.setX(i,px+.022*(1-u*u));if(Math.abs(Math.abs(pgPos.getY(i))-PY)<1e-4)pgPos.setY(i,pgPos.getY(i)+Math.sign(pgPos.getY(i))*.004*Math.sin(px*13+u*5.3)*Math.cos(px*5.1-u*2))}if(!pgGeo.userData.shaped){pgGeo.computeVertexNormals();pgGeo.userData.shaped=true}const pages=new m.Mesh(pgGeo,pagesMat);pages.position.set(xL+(W-.2)/2+.01,0,0);g.add(pages);
-  [1,-1].forEach(s=>{const hb=new m.Mesh(new m.CylinderGeometry(.02,.02,D-.12,12),new m.MeshStandardMaterial({color:0xb8423a,roughness:.5}));hb.rotation.x=Math.PI/2;hb.position.set(xL+.03,s*(Hh/2-.085),0);g.add(hb)});
+  const bands=[];[1,-1].forEach(s=>{let hb;
+   if(gild){/* R5 headband: a tube that bows outward over the block and carries twisted cloth stripes */const hz=(D-.12)/2,bow=.012,pts=[-1,-.5,0,.5,1].map(u=>new m.Vector3(0,s*bow*(1-u*u),u*hz));hb=new m.Mesh(new m.TubeGeometry(new m.CatmullRomCurve3(pts),16,.02,10,false),BM.cloth(m,{map:bandTex(m),roughness:.5,sheen:.9,sheenColor:0xffd9c8}));hb.position.set(xL+.03,s*(Hh/2-.085),0)}
+   else{hb=new m.Mesh(new m.CylinderGeometry(.02,.02,D-.12,12),new m.MeshStandardMaterial({color:0xb8423a,roughness:.5}));hb.rotation.x=Math.PI/2;hb.position.set(xL+.03,s*(Hh/2-.085),0)}
+   g.add(hb);bands.push(hb)});
   /* ribbon bookmark: 6-segment verlet chain hanging from the head of the block (gravity follows the book's pose; a fast yaw flicks the tail); the plane's rows are skinned onto the chain */
   const rg=new m.PlaneGeometry(.07,.65,1,14),RN=6,RL=.65/RN,AX=xL+.55,AY=-Hh/2+.145,AZ=.02,chain=[];for(let i=0;i<=RN;i++)chain.push({x:AX,y:AY-i*RL,z:AZ,px:AX,py:AY-i*RL,pz:AZ});
   const rpos=rg.attributes.position,rrow=new Float32Array(rpos.count),rside=new Float32Array(rpos.count);for(let i=0;i<rpos.count;i++){rrow[i]=(.325-rpos.getY(i))/.65*RN;rside[i]=rpos.getX(i)}
@@ -473,6 +480,7 @@
    turn(d){if(!bookOpen)return leafIdx;leafIdx=Math.max(0,Math.min(LN,leafIdx+d));for(let k=0;k<LN;k++)leafT[k]=k<leafIdx?1:0;return leafIdx},
    bounds(){g.updateMatrixWorld(true);camera.updateMatrixWorld();const v=new m.Vector3(),o={x0:1e9,x1:-1e9,y0:1e9,y1:-1e9};
     leaves.forEach(L=>{if(!L.pv.visible)return;for(const me of [L.fr,L.bk]){const pa=me.geometry.attributes.position;for(let i=0;i<pa.count;i++){v.fromBufferAttribute(pa,i).applyMatrix4(me.matrixWorld).project(camera);o.x0=Math.min(o.x0,v.x);o.x1=Math.max(o.x1,v.x);o.y0=Math.min(o.y0,v.y);o.y1=Math.max(o.y1,v.y)}}});return o},
+   edges(){const e=mt=>({metal:mt.metalness||0,normal:!!mt.normalMap}),bb=bands[0]&&(bands[0].geometry.computeBoundingBox(),bands[0].geometry.boundingBox);return{gilt:!!gild,fore:e(pages.material[0]),head:e(pages.material[2]),band:{curved:!!bands[0]&&bands[0].geometry.type==='TubeGeometry',bow:bb?+(bb.max.y-bb.min.y-.04).toFixed(4):0,striped:!!(bands[0]&&bands[0].material.map)}}},
    leaves(){return leaves.map(L=>{const mt=Array.isArray(L.fr.material)?L.fr.material[0]:L.fr.material;return{fiber:!!mt.normalMap,bleed:mt.userData.bleed===true,recv:L.fr.receiveShadow&&renderer.shadowMap.enabled}})},
    state(){return{open:bookOpen,leaf:leafIdx,leaves:LN,coverK:+coverK.toFixed(3),p:leafP.map(v=>+v.toFixed(3))}},
    dbl(){if(bookOpen)return;if(mode==='read'){mode='auto';yaw=wrap(yaw,BASE)}else{mode='read';yaw=wrap(yaw,-.12)}},
@@ -587,7 +595,7 @@
   art.addEventListener('click',e=>{if(!art.classList.contains('book-open')||e.target.closest('.rv-book-ctl,.rv-3d-toggle,.rv-book-scrim'))return;const c=art.querySelector('.rec-3d');if(!c)return;const r=c.getBoundingClientRect();turn(e.clientX>r.left+r.width/2?1:-1)});
   document.addEventListener('keydown',e=>{if(!art.classList.contains('book-open')||!art.isConnected)return;if(e.key==='Escape'){e.preventDefault();setOpen(false);return}if(e.key==='ArrowRight'){e.preventDefault();turn(1)}else if(e.key==='ArrowLeft'){e.preventDefault();turn(-1)}});
   document.addEventListener('bk:book-close',()=>{if(art.classList.contains('book-open'))setOpen(false)});
-  window.BKStage.book={state:()=>{const a=api();return a?a.state():null},bounds:()=>{const a=api();return a&&a.bounds?a.bounds():null},leaves:()=>{const a=api();return a&&a.leaves?a.leaves():null}}}
+  window.BKStage.book={state:()=>{const a=api();return a?a.state():null},bounds:()=>{const a=api();return a&&a.bounds?a.bounds():null},leaves:()=>{const a=api();return a&&a.leaves?a.leaves():null},edges:()=>{const a=api();return a&&a.edges?a.edges():null}}}
  function mountAll(){mountAtlas();mountShelf()}
  /* Idle shader warm-up (BKGL.warm, after the first 5 s): the record page's 3D book (shadow variant, the heaviest materials) and the Nobel medal compile in parallel now, so the first open does not stall. */
  const warmUp=()=>{if(!window.BKGL||!renderer||!THREE||warmUp.done||SAFE>=3)return;warmUp.done=1;const m=THREE,hold=warmHold=[];

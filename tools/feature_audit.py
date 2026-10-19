@@ -184,7 +184,8 @@ def b12(b):
       document.documentElement.dataset.theme='light';await new Promise(r=>setTimeout(r,80));out.aceLight=M.diag().tone.map(t=>[t.mapping,t.exposure]);
       document.documentElement.dataset.theme='dark';F.set('acestone',false);await new Promise(r=>setTimeout(r,80));out.back=M.diag().tone.map(t=>[t.mapping,t.exposure]);
       const dm=document.createElement('canvas');dm.width=dm.height=8;const tx=new T.CanvasTexture(dm),lf=o=>{const m=M.leaf(T,Object.assign({map:tx,bleedMap:tx,fiber:tx},o||{}));return[kind(m),!!m.normalMap,m.userData.bleed===true,typeof m.onBeforeCompile==='function'&&m.onBeforeCompile!==T.Material.prototype.onBeforeCompile]};
-      out.leafOn=lf();F.set('paperfiber',false);out.leafOff=lf();F.set('paperfiber',true);out.fiberH=!!(M.fiberHeight&&M.fiberHeight(64).getContext);return out}""" % T)
+      out.leafOn=lf();F.set('paperfiber',false);out.leafOff=lf();F.set('paperfiber',true);out.fiberH=!!(M.fiberHeight&&M.fiberHeight(64).getContext);
+      const gl=o=>{const m=M.gilt?M.gilt(T,Object.assign({color:0xe3c17a},o||{})):null;return m?[kind(m),m.metalness,!!m.normalMap]:null};out.giltOn=gl({normalMap:tx});F.set('gilt',false);out.giltOff=gl({normalMap:tx});F.set('gilt',true);out.edgeH=!!(M.edgeHeight&&M.edgeHeight(64,8,true).getContext);return out}""" % T)
     note(f"B12 {r}")
     if r["factories"] != {"foil": "physical", "cloth": "physical", "glass": "physical", "brass": "physical"} or r["paper"] != "standard": problems.append(f"B12 factory material types wrong: {r['factories']} paper {r['paper']}")
     if r["levels"] != ["physical", "standard", "lambert", "basic"] or r["names"] != ["full", "standard", "lambert", "basic"]: problems.append(f"B12 material levels wrong: {r['levels']} {r['names']}")
@@ -194,6 +195,8 @@ def b12(b):
     if any(m != 0 or e != 1 for m, e in r["back"]): problems.append(f"B12 acestone off must restore NoToneMapping / exposure 1: {r['back']}")
     if r["leafOn"] != ["standard", True, True, True]: problems.append(f"B12 BKMaterials.leaf must give a standard paper with fibre normal map and back-face bleed shader: {r['leafOn']}")
     if r["leafOff"] != ["standard", False, False, False] or not r["fiberH"]: problems.append(f"B12 flag paperfiber=off must give the plain paper (and fiberHeight must exist): {r['leafOff']} {r['fiberH']}")
+    if not r["giltOn"] or r["giltOn"][0] != "physical" or r["giltOn"][1] < .8 or not r["giltOn"][2]: problems.append(f"B12 BKMaterials.gilt must give metallic foil with the ridge normal map: {r['giltOn']}")
+    if not r["giltOff"] or r["giltOff"][0] != "standard" or r["giltOff"][2] or not r["edgeH"]: problems.append(f"B12 flag gilt=off must give the plain paper edge (and edgeHeight must exist): {r['giltOff']} {r['edgeH']}")
     if errs12: problems.append(f"B12 page errors: {errs12[:3]}")
     ctx.close()
 
@@ -362,6 +365,15 @@ with sync_playwright() as p:
         pg.evaluate("BKStage.forceLevel(2)"); pg.wait_for_timeout(600); lv2 = pg.evaluate("BKStage.book.leaves()"); pg.evaluate("BKStage.forceLevel(0)"); pg.wait_for_timeout(600)
         note(f"R5 leaf materials at level 2 {lv2}")
         if any(l["fiber"] or l["bleed"] for l in lv2): problems.append(f"R5 heavy paper layers must be off at level 2: {lv2}")
+    # ---- R5 step 3: gilt page-block edges (foil with a leaf-ridge normal map) and a curved, striped headband; only the record book (the shelf books stay as they were)
+    eg = pg.evaluate("BKStage.book.edges?BKStage.book.edges():null"); note(f"R5 book edges {eg}")
+    if not eg: problems.append("R5 BKStage.book.edges() is missing")
+    else:
+        if not (eg["gilt"] and eg["fore"]["metal"] >= .8 and eg["fore"]["normal"] and eg["head"]["metal"] >= .8 and eg["head"]["normal"]): problems.append(f"R5 page block edges are not gilt foil with a ridge normal map: {eg}")
+        if not (eg["band"]["curved"] and eg["band"]["bow"] >= .008 and eg["band"]["striped"]): problems.append(f"R5 headband must be a curved, striped tube (bow >= 8 mm): {eg['band']}")
+        pg.evaluate("BKStage.forceLevel(2)"); pg.wait_for_timeout(600); eg2 = pg.evaluate("BKStage.book.edges()"); pg.evaluate("BKStage.forceLevel(0)"); pg.wait_for_timeout(600)
+        note(f"R5 book edges at level 2 {eg2}")
+        if eg2["fore"]["normal"] or eg2["head"]["normal"]: problems.append(f"R5 edge normal maps must be off at level 2: {eg2}")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(600)
     closed = pg.evaluate("!document.querySelector('.rv-art.book-open')&&!BKStage.book.state().open")
     note(f"B5 closed {st0['open']}, opened {st1['open']} (coverK {st1['coverK']}), stage centred {stage_ok}, leaf after 2x next {st2['leaf']}, after prev {st3['leaf']}, after 3x more {st4['leaf']} (next disabled {next_dis}), Esc closes {closed}")
