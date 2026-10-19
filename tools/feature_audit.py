@@ -387,9 +387,13 @@ with sync_playwright() as p:
     if not pr: problems.append("R5 BKStage.book.pageRes() is missing")
     else:
         if not (pr["w"] == 1536 and pr["h"] == 2160 and pr["all"] and pr["aniso"] == min(16, pr["maxAniso"])): problems.append(f"R5 open book pages must be repainted at 1536x2160 with anisotropy 16 (or the GPU maximum): {pr}")
-        pg.evaluate("BKStage.forceLevel(2)"); pg.wait_for_timeout(1500); pr2 = pg.evaluate("BKStage.book.pageRes()"); pg.evaluate("BKStage.forceLevel(0)"); pg.wait_for_timeout(1500)
+        pg.evaluate("BKStage.forceLevel(2)")
+        for _ in range(40):
+            pg.wait_for_timeout(250); pr2 = pg.evaluate("BKStage.book.pageRes()")
+            if pr2["w"] == 768 and pr2["all"]: break
+        pg.evaluate("BKStage.forceLevel(0)"); pg.wait_for_timeout(1500)
         note(f"R5 page texture at level 2 {pr2}")
-        if pr2["w"] != 768: problems.append(f"R5 page textures must go back to 768x1080 at level 2: {pr2}")
+        if pr2["w"] != 768 or not pr2["all"]: problems.append(f"R5 page textures must go back to 768x1080 at level 2: {pr2}")
     # ---- R5 step 5: the ribbon rests on the page (never inside it) and hangs from the page edge; closed again it returns to the block head
     rb = None
     for _ in range(30):

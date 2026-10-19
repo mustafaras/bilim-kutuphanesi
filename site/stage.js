@@ -469,7 +469,7 @@
   /* R5 text clarity: while the book is open at levels 0-1 the pages are repainted at 2x (1536x2160, anisotropy 16), one page per frame (all at once in ?still); back to 768x1080 otherwise */
   function sharpen(still){if(!ptex.length)return;const want=bookOpen&&coverK>.5&&SAFE<=1&&renderer.capabilities.maxTextureSize>=4096?2:1;
    for(let n=0;n<ptex.length;n++){const k=(hiK+n)%ptex.length,t=ptex[k];if((t.userData.s||1)===want)continue;
-    const c=t.image,x=c.getContext('2d');c.width=768*want;c.height=1080*want;x.setTransform(want,0,0,want,0,0);paintPage(x,768,1080,r,k);t.anisotropy=want>1?Math.min(16,renderer.capabilities.getMaxAnisotropy()):8;t.userData.s=want;t.dispose();t.needsUpdate=true;hiK=(k+1)%ptex.length;if(!still)break}}
+    const c=t.image,x=c.getContext('2d');c.width=768*want;c.height=1080*want;x.setTransform(want,0,0,want,0,0);paintPage(x,768,1080,r,k);t.anisotropy=want>1?Math.min(16,renderer.capabilities.getMaxAnisotropy()):8;t.userData.s=want;t.dispose();t.needsUpdate=true;hiK=(k+1)%ptex.length;if(!still&&want>1)break}}   // 2x one page per frame; back to 1x all at once (cheap)
   function animateLeaves(dt,still){
    sharpen(still);const bend=bendOn();
    leaves.forEach((L,k)=>{leafP[k]+=still?leafT[k]-leafP[k]:(leafT[k]-leafP[k])*(1-Math.exp(-6.2*Math.min(dt,.05)));const p=leafP[k];
