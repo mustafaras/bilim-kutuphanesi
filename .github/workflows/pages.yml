@@ -54,8 +54,8 @@ jobs:
             cmd: |
               python tools/text_fit_audit.py
               python tools/reduced_audit.py
-          - name: Leak check, 40 rounds, slope test (A6)
-            cmd: python tools/leak_audit.py --rounds 40
+          - name: Leak check, 24 rounds, slope test (A6)
+            cmd: python tools/leak_audit.py --rounds 24
           - name: Features (camera, governor, dive, book, medal, dome, context loss)
             cmd: python tools/feature_audit.py --only main
           - name: Broken GPU fallback (B9)

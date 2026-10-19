@@ -518,4 +518,4 @@ Hipotezler (hiçbiri kanıtlanmadı): (a) v110 `stage.js` değişiklikleri — `
 - **Yan düzeltme:** `visual_audit` sunucu portu denemesi `SO_REUSEADDR` kullanır (art arda iki koşuda önceki bağlantıların TIME_WAIT'i "port meşgul" diyordu); `gpu_budget_audit` kancası `drawArrays` ile çizilen tam ekran üçgeni (three geçişleri) PR-1'de saymıyordu (yalnız indeksli dörtgen), düzeltildi.
 - **Doğrulanmayan:** gerçek GPU (ms, bant genişliği), canlı site. LUT'un tadı ekranda ayarlanmadı (ince tutuldu). `fxuber` yükleme sırasında okunur; çalışırken geçiş yok.
 - **Sıradaki:** R7.b — A2 `BKSim` GPU simülasyonu (GPGPU) ile 262 144 parçacık ve spiral kollar.
-
+- **CI süresi (PR-2 düzeltmesi):** ilk PR-2 koşusu ~8 dk sürdü (40 turluk sızıntı testi tek başına ~8 dk: süre yazılımsal GL'in tur başına çizim hızı, sabit beklemeler değil; koşullu beklemeye çevirmek süreyi değiştirmedi). Önlem: sızıntı, GPU bütçe (iki yüzey grubu), `--fx-compare` ve hero kill switch (iki çözünürlük) ayrı paralel işler; CI'da sızıntı testi **24 tur** (eğim testi ≥ 16 tur ister; v121 sızıntısı +0,5/tur ikinci yarıdaki 12 noktada yakalanır), yerel varsayılan 40 tur kalır. Eşik (0,1/tur) değişmedi.
