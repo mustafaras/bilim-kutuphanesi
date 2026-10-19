@@ -51,7 +51,7 @@ HOOK = r"""
 # Per surface: how to bring it on screen, and the limits (worst frame in the window; live programs / render targets / textures at its end).
 # Measured on software GL at 1440x900, dark theme, v121 plus ~25 % headroom, then tightened where a PR removes work (the comment says which).
 LIMITS = {
-    "hero":          dict(draws=38, tris=14800, points=280000, programs=26, targets=18, textures=30),   # BKFX (v123): 30 draws / 12 targets measured (v122: 32 / 13) · BKSim R7.b (v124): +2 GCR compute draws, +4 float ping-pong targets (16), 26 textures, tier-0 worst frame draws 262144 points
+    "hero":          dict(draws=38, tris=14800, points=280000, programs=28, targets=18, textures=30),   # BKFX (v123): 30 draws / 12 targets measured (v122: 32 / 13) · BKSim R7.b (v124): +2 GCR compute draws, +4 float ping-pong targets (16), 26 textures, tier-0 worst frame draws 262144 points · R7.c (v125): +2 programs (HII points + hot-core sprite), +2 textures (black-body LUT, dust/sky map)
     "ground":        dict(draws=1, tris=70000, points=0, programs=2, targets=0, textures=5),
     "stage":         dict(draws=125, tris=44000, points=75, programs=19, targets=1, textures=66),
     "skyline":       dict(draws=12, tris=19200, points=330, programs=8, targets=1, textures=12),

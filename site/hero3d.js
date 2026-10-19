@@ -131,8 +131,20 @@
      Quality tiers are pure drawRange over the same texture (262144/131072/56000/14000 — no buffer rebuilds). Compute only runs at tiers 0-1; below that the offsets freeze (still a simulated field, just calm) and only the DPR drops.
      The distribution uses its OWN seeded PRNG so the flag-bksim=0 picture (tools/golden/legacy) keeps consuming the exact same rnd() sequence as before. */
   const SIMN=[262144,131072,56000,14000,14000];let sim=null;
-  const simVert=`attribute vec2 aRef;attribute float aS;attribute vec3 aC;attribute float aT;
-   uniform float uTime,uScale,uMouseOn,uLight,uWell;uniform vec3 uMouse,uPulse;uniform sampler2D tPos,uHome;varying vec3 vC;varying float vA;varying float vBig;
+  /* ---------- R7.c · realistic look, sim path only (the legacy dust layer and its goldens keep the old palette) ----------
+     Black-body colour: BKShaders.bakeBlackbody bakes 256 texels of B-V (-.4..2) into a colour ramp; a per-star temperature index aBv
+     (an approximate initial mass function per population) picks the texel: hot blue-white O/B stars on the arm ridges and star-forming
+     clumps, yellow F/G stars between the arms, orange-red K/M giants in the bulge and halo. The ramp is sRGB-decoded into the linear
+     working space exactly like every other hero colour (hex()/THREE.Color does the same).
+     Disc-plane pattern uSky (256² RGBA8, built from the SAME arm maths ARMS+phase so it stays glued to the drawn arms): R = dust
+     optical depth tau, the lanes hugged to the inner edge of the ridge like the pixel lanes (offset -.24), G = density-wave brightness
+     gain (.35 haze .. 1 ridge). The shader applies exp(-tau*k) extinction, reddens beside the lanes and multiplies the density-wave gain.
+     The pattern is sampled in the un-rotated disc frame: stars of a kinematic (pure density-wave) galaxy stream through the pattern, but
+     the pattern itself must not shear away from the drawn arms. */
+  const SKYR=RMAX*1.15,SKUV=+((.5/SKYR).toFixed(8)),HKEEP=[1,1,.75,.5,.3];
+  let hotGlow=null,hii=null,hiiN=0,simFxData=null;
+  const simVert=`attribute vec2 aRef;attribute float aS;attribute float aBv;attribute float aT;
+   uniform float uTime,uScale,uMouseOn,uLight,uWell,uGain,uArmA,uDust;uniform vec3 uMouse,uPulse;uniform sampler2D tPos,uHome,uSky,uLut;varying vec3 vC;varying float vA;varying float vBig;
    void main(){
     float tw=.8+.2*sin(uTime*(.6+aT*2.4)+aT*60.);
     vec4 hm=texture2D(uHome,aRef);float r=hm.x,a0=hm.y,hy=hm.z;
@@ -140,9 +152,16 @@
     vec4 wp=modelMatrix*vec4(cos(ang)*r+off.x,hy+.022*r*r*sin(ang-.6)+off.z,sin(ang)*r+off.y,1.);
     vec2 dm=uMouse.xy-wp.xy;float g=uMouseOn*smoothstep(2.8+uWell*1.6,0.,length(dm));
     float dt=uTime-uPulse.z;float ring=0.;if(dt>0.&&dt<1.7){vec2 dp=wp.xy-uPulse.xy;float rd=abs(length(dp)-dt*7.);ring=exp(-rd*rd*.8)*(1.-dt/1.7);}
+    /* R7.c: density wave + dust on the un-rotated disc frame — black-body colour from the LUT, extinction with a reddening shift, arm gain, rim fade */
+    vec2 hxy=vec2(cos(a0)*r,sin(a0)*r);
+    vec4 sky=texture2D(uSky,clamp(hxy*${SKUV}+.5,0.,1.));
+    float tau=sky.r*uDust;vec3 col=texture2D(uLut,vec2(clamp(aBv,0.,1.),.5)).rgb;
+    col*=mix(vec3(1.),vec3(1.,.75,.53),smoothstep(.12,.6,sky.r))*exp(-tau*1.1);   /* reddening beside the lanes, then extinction */
+    col*=1.+(sky.g-.5)*2.*uArmA;            /* density wave: arms brighter, inter-arm dimmer */
+    col*=exp(-max(0.,r-6.1)*.55)*(1.+.22*smoothstep(2.1,0.,r));
     vec4 mv=viewMatrix*wp;gl_Position=projectionMatrix*mv;
     float sz=mix(1.,.95,uLight)*aS*uScale/-mv.z*tw*(1.+ring*2.2+g*.7);sz=sz<9.?sz:9.+(sz-9.)*.22;gl_PointSize=clamp(sz,1.,34.);
-    vC=mix(aC,vec3(1.),clamp(ring*.5,0.,1.));vA=tw+ring*1.4+g*.4;vBig=smoothstep(.07,.12,aS);}`;
+    vC=mix(col,vec3(1.),clamp(ring*.5,0.,1.));vA=tw+ring*1.4+g*.4;vBig=smoothstep(.07,.12,aS);}`;
   async function buildSim(){
    if(!(window.BKSim&&window.BKShaders&&window.BKGL))return;
    if(!BKGL.flags.get('bksim'))return;
@@ -151,7 +170,7 @@
     const S=512,N=S*S;
     let s2=77142693;const srnd=()=>{s2|=0;s2=s2+0x6D2B79F5|0;let t=Math.imul(s2^s2>>>15,1|s2);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
     const sgauss=()=>{let u=0;for(let i=0;i<4;i++)u+=srnd();return(u-2)*1.7};
-    const home=new Float32Array(N*4),aS=new Float32Array(N),aC=new Float32Array(N*3),aT=new Float32Array(N),tc=new THREE.Color();
+    const home=new Float32Array(N*4),aS=new Float32Array(N),aBv=new Float32Array(N),aT=new Float32Array(N);
     for(let i=0;i<N;i++){const u=srnd();let r,a,y,kind=0;
      if(u<.085){kind=1;r=Math.pow(srnd(),1.9)*1.7;a=srnd()*Math.PI*2;y=sgauss()*.6*Math.max(0,1-r/2.6)}
      else if(u<.2){kind=2;r=1+srnd()*RMAX*1.15;a=srnd()*Math.PI*2;y=sgauss()*.12*(1-r/(RMAX*1.5))}
@@ -164,16 +183,47 @@
        r=(.8+Math.pow(srnd(),.7)*(RMAX*1.1-.8))*ARMS[arm].len;r*=edgeK(ARMS[arm].b+phase(r))/.8;a=ARMS[arm].b+phase(r)+sgauss()*(.13+.08*r);y=sgauss()*.1*(1-Math.min(1,r/(RMAX*1.3)))}
      home[i*4]=r;home[i*4+1]=a;home[i*4+2]=y;home[i*4+3]=srnd();
      aS[i]=(kind===1?.024:kind===3?.02:kind===6?.03:.026)+srnd()*.05*(srnd()<.03?3.2:1);aT[i]=srnd();
-     const k=Math.min(1.3,r/RMAX);tc.copy(WARM).lerp(BRASS,Math.min(1,k*1.8));if(k>.3)tc.lerp(BLUE,Math.min(.85,(k-.3)*1.6));if(k>.62)tc.lerp(VIOLET,Math.min(.7,(k-.62)*1.6));
-     if(kind===6){tc.lerp(BLUE,.55);if(srnd()<.2)tc.copy(PINK)}if(kind===0&&srnd()<.03)tc.copy(PINK);if(kind===3)tc.lerp(BRASS,.5);if(kind===4)tc.copy(BRASS).lerp(WARM,.4);if(kind===5)tc.copy(ICE);
-     const m=kind===3?.55:kind===5?.6:.8;aC[i*3]=tc.r*m;aC[i*3+1]=tc.g*m;aC[i*3+2]=tc.b*m}
-    sim=await BKSim.create(THREE,renderer,{size:S,home,radius:RMAX,attrs:{aS,aC,aT},attrSize:{aS:1,aC:3,aT:1},
-     uniforms:{...uniforms,uGain:{value:1.05}},material:{vertexShader:simVert,fragmentShader:frag(true),blending:THREE.AdditiveBlending}});
-    if(!sim)return;
-    window.__bkSim=sim;mats.push(sim.material);dust.visible=false;setLevel(degrade,0);
-    /* software GL (CI, audit tools): the governor needs four 3-8 s frames to leave tier 0 — by then it has starved every other surface on the page. Start at tier 3 there (compute off, 14 000 points: the v123 frame cost). NOT in ?still (the visual goldens must show what a real GPU renders) and NOT for the B14 tier test (it sets levels explicitly). */
-    if(!BKGL.still&&/swiftshader|llvmpipe|basic render|software/i.test((BKGL.probe(renderer).gpu||'')))setLevel(3,0);
-   }catch(e){console.warn('BKSim:',e);if(sim){try{sim.dispose()}catch{}}sim=null;window.__bkSim=null;dust.visible=true}}
+     /* R7.c temperature (B-V index on the 256-texel LUT ramp) per population — an approximate IMF: arms and clumps young (heavy tail),
+        the inter-arm haze and bulge old and warm, the halo red. Pink knots are no longer per-star colours (they moved to the HII sprites). */
+     aBv[i]=kind===0?.1+Math.pow(srnd(),2.2)*.42:kind===1?.6+srnd()*.25:kind===2?.42+srnd()*.28:kind===3?.65+srnd()*.3:kind===4?.45+srnd()*.2:kind===5?.1+srnd()*.2:.02+Math.pow(srnd(),1.5)*.3}
+    /* black-body LUT (A3 bakeBlackbody) -> linearized like every hero colour */
+    let lutTex=null,skyTex=null;
+    const LUTN=256,lutData=BKShaders.bakeBlackbody(LUTN),raw=lutData.slice();   /* raw = the canonical sRGB ramp the LUT report shows; on the texture the values are decoded into the linear working space like every hero colour */
+     for(let i=0;i<LUTN*4;i++)if(i%4!==3){const v=lutData[i]/255;lutData[i]=Math.round(255*Math.pow(v,2.2))}
+     lutTex=new THREE.DataTexture(lutData,LUTN,1,THREE.RGBAFormat);
+     lutTex.minFilter=lutTex.magFilter=THREE.LinearFilter;lutTex.wrapS=lutTex.wrapT=THREE.ClampToEdgeWrapping;lutTex.needsUpdate=true;
+     /* disc-plane pattern: tau (R), density-wave gain (G) — same arm maths as the drawn arms, deterministic sin-hash noise */
+     const SK=256,skyData=new Uint8Array(SK*SK*4),smm=(e,f,x)=>{x=Math.max(0,Math.min(1,(x-e)/(f-e)));return x*x*(3-2*x)},h2=(x,z)=>{const n=Math.sin(x*127.1+z*311.7)*43758.5453;return n-Math.floor(n)};
+     let tauMax=0,gMin=1,gMax=0;
+     for(let py=0;py<SK;py++)for(let px=0;px<SK;px++){
+      const x=((px+.5)/SK*2-1)*SKYR,z=((py+.5)/SK*2-1)*SKYR,r=Math.hypot(x,z),a=Math.atan2(z,x),n1=h2(x*.53+7.1,z*.53),n2=h2(x*1.7+3.7,z*1.7);
+      let lane=0,gain=0;
+      for(let j=0;j<ARMS.length;j++){const d=Math.atan2(Math.sin(a-(ARMS[j].b+phase(r))),Math.cos(a-(ARMS[j].b+phase(r))));
+       const off=.24+.07*Math.sin(r*2.6+a*1.3),ld=(d+off)/(.09+.05*n1);lane=Math.max(lane,Math.exp(-ld*ld));
+       const gd=d/(.19+.05*Math.sin(r*1.3));gain=Math.max(gain,Math.exp(-gd*gd))}
+      const wD=smm(1.15,1.9,r)*(1-smm(5.4,6.05,r)),wG=smm(1.,1.5,r)*(1-smm(5.8,6.35,r));
+      const tau=lane*wD*(.55+.45*n2)*.95,g=wG*(.35+.65*gain);
+      const o=(py*SK+px)*4;skyData[o]=Math.max(0,Math.min(255,Math.round(tau*255)));skyData[o+1]=Math.round(g*255);skyData[o+3]=255;
+      if(r>1.5&&r<5.5){if(tau>tauMax)tauMax=tau;if(g<gMin)gMin=g;if(g>gMax)gMax=g}}
+     skyTex=new THREE.DataTexture(skyData,SK,SK,THREE.RGBAFormat);skyTex.minFilter=skyTex.magFilter=THREE.LinearFilter;skyTex.wrapS=skyTex.wrapT=THREE.ClampToEdgeWrapping;skyTex.needsUpdate=true;
+     sim=await BKSim.create(THREE,renderer,{size:S,home,radius:RMAX,attrs:{aS,aBv,aT},attrSize:{aS:1,aBv:1,aT:1},
+      uniforms:{...uniforms,uGain:{value:1.35},uSky:{value:skyTex},uLut:{value:lutTex},uDust:{value:.85},uArmA:{value:.32}},material:{vertexShader:simVert,fragmentShader:frag(true),blending:THREE.AdditiveBlending}});
+     if(!sim){try{lutTex.dispose();skyTex.dispose()}catch{}return}
+     window.__bkSim=sim;mats.push(sim.material);dust.visible=false;setLevel(degrade,0);
+     /* R7.c HII regions: pink emission sprites on the arm ridges, one soft-hot core sprite. Both only exist in the sim branch. */
+     hiiN=small?90:150;const H={r:new Float32Array(hiiN),a:new Float32Array(hiiN),y:new Float32Array(hiiN),s:new Float32Array(hiiN),t:new Float32Array(hiiN),c:new Float32Array(hiiN*3),g:new Float32Array(hiiN).fill(-1),i:new Float32Array(hiiN).fill(-1)};
+     for(let i=0;i<hiiN;i++){const u=srnd(),arm=u<.4?0:u<.75?1:u<.88?2:3;const r=1.3+Math.pow(srnd(),.75)*RMAX*.92*ARMS[arm].len,p=.75+srnd()*.35;
+      H.r[i]=r;H.a[i]=ARMS[arm].b+phase(r)+sgauss()*.05;H.y[i]=sgauss()*.05;H.s[i]=.1+srnd()*.09;H.t[i]=srnd();
+      H.c[i*3]=PINK.r*p;H.c[i*3+1]=PINK.g*p;H.c[i*3+2]=PINK.b*p}
+     const hb=new THREE.BufferGeometry();attr(hb,'position',new Float32Array(hiiN*3),3);attr(hb,'aR',H.r,1);attr(hb,'aA',H.a,1);attr(hb,'aY',H.y,1);attr(hb,'aS',H.s,1);attr(hb,'aC',H.c,3);attr(hb,'aT',H.t,1);attr(hb,'aG',H.g,1);attr(hb,'aI',H.i,1);
+     hii=new THREE.Points(hb,new THREE.ShaderMaterial({vertexShader:vert(true),fragmentShader:`varying vec3 vC;varying float vA;void main(){vec2 c=gl_PointCoord-.5;float d=length(c);float a=(smoothstep(.5,0.,d)+exp(-d*d*5.)*.55)*.5;gl_FragColor=vec4(vC*1.3,a*vA*.42);}`,uniforms:{...uniforms},transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
+     hii.frustumCulled=false;mats.push(hii.material);tilt.add(hii);hii.geometry.setDrawRange(0,hiiN);
+     const hotTex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const g2=c.getContext('2d'),r0=g2.createRadialGradient(64,64,0,64,64,64);r0.addColorStop(0,'rgba(255,246,224,1)');r0.addColorStop(.18,'rgba(255,224,170,.5)');r0.addColorStop(1,'rgba(255,200,140,0)');g2.fillStyle=r0;g2.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})();
+     hotGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:hotTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.5}));hotGlow.scale.set(3.4,3.4,1);rig.add(hotGlow);
+     simFxData={armA:.32,tau:+tauMax.toFixed(3),gain:[+gMin.toFixed(3),+gMax.toFixed(3)],hii:hiiN,lut:{blue:[raw[0]/255,raw[1]/255,raw[2]/255],mid:[raw[112*4]/255,raw[112*4+1]/255,raw[112*4+2]/255],red:[raw[255*4]/255,raw[255*4+1]/255,raw[255*4+2]/255]}};
+     /* software GL (CI, audit tools): the governor needs four 3-8 s frames to leave tier 0 — by then it has starved every other surface on the page. Start at tier 3 there (compute off, 14 000 points: the v123 frame cost). NOT in ?still (the visual goldens must show what a real GPU renders) and NOT for the B14 tier test (it sets levels explicitly). */
+     if(!BKGL.still&&/swiftshader|llvmpipe|basic render|software/i.test((BKGL.probe(renderer).gpu||'')))setLevel(3,0);
+    }catch(e){console.warn('BKSim:',e);if(sim){try{sim.dispose()}catch{}}sim=null;window.__bkSim=null;try{lutTex&&lutTex.dispose();skyTex&&skyTex.dispose()}catch{}dust.visible=true}}
 
   /* core glow */
   const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),r=g.createRadialGradient(64,64,0,64,64,64);r.addColorStop(0,'rgba(255,236,196,.95)');r.addColorStop(.25,'rgba(232,206,158,.35)');r.addColorStop(1,'rgba(232,206,158,0)');g.fillStyle=r;g.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})();
@@ -332,6 +382,7 @@
    const light=root.dataset.theme==='light';uniforms.uLight.value=light?1:0;domeTheme(light);if(fx)fx.setTheme(light?'light':'dark');
    mats.forEach(m=>{m.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;m.needsUpdate=true});
    lanes.visible=!light;glow.material.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;glow.material.color.set(light?0xffd9a0:0xffffff);glow.material.needsUpdate=true;
+   if(hotGlow){hotGlow.material.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;hotGlow.material.color.set(light?0xffb86e:0xffffff);hotGlow.material.needsUpdate=true}
    meteors.forEach(m=>{if(light)m.l.visible=false});
    syncBloom()}
   /* bloom is used on the dark theme while the composer exists and the governor has not suspended it */
@@ -427,7 +478,7 @@
     an.onfinish=()=>g.remove();setTimeout(()=>g.remove(),900);
     setTimeout(()=>{caSpike=Math.max(caSpike,1.4)},470)}catch{}});
   /* test hook: only exposed when localStorage bk-test=1 (the audit tools set it) */
-  if((()=>{try{return localStorage.getItem('bk-test')==='1'}catch{return false}})())window.BKHero={fly:i=>fly(i),count:()=>rec.n,info:()=>heroInfo(),simSample:()=>sim?sim.sample():null,simKick:()=>{if(!sim)return false;tilt.updateMatrixWorld(true);const p=tilt.localToWorld(new THREE.Vector3(0,0,0));uniforms.uPulse.value.set(p.x,p.y,time);return true},gov:{pin:v=>{pinned=!!v},level:()=>degrade,setLevel:l=>{setLevel(l,performance.now());return degrade},feed:(avg,now,gpu)=>govern(avg,now,gpu),lock:()=>recLock,reset:()=>{good=0;recLock=0;lastRec=-1e9;if(degrade!==0)setLevel(0,0);lastChange=-1e9;return degrade}}};/* test hook (tools/motion_audit.py, tools/feature_audit.py B14) */
+  if((()=>{try{return localStorage.getItem('bk-test')==='1'}catch{return false}})())window.BKHero={fly:i=>fly(i),count:()=>rec.n,info:()=>heroInfo(),simSample:()=>sim?sim.sample():null,simFx:()=>simFxData,simKick:()=>{if(!sim)return false;tilt.updateMatrixWorld(true);const p=tilt.localToWorld(new THREE.Vector3(0,0,0));uniforms.uPulse.value.set(p.x,p.y,time);return true},gov:{pin:v=>{pinned=!!v},level:()=>degrade,setLevel:l=>{setLevel(l,performance.now());return degrade},feed:(avg,now,gpu)=>govern(avg,now,gpu),lock:()=>recLock,reset:()=>{good=0;recLock=0;lastRec=-1e9;if(degrade!==0)setLevel(0,0);lastChange=-1e9;return degrade}}};/* test hook (tools/motion_audit.py, tools/feature_audit.py B14) */
   /* what the post chain costs, from the objects that run (tools/gpu_budget_audit.py --fx-compare): logical passes, full-screen draws, full-resolution reads, render targets */
   function heroInfo(){const o={fx:fx?'uber':composer?'legacy':'none',bloom:useBloom,level:degrade,sim:sim?'gpu':'cpu',particles:sim?SIMN[Math.min(degrade,4)]:GN,drawn:sim?sim.drawn:Math.floor(GN*QKEEP[degrade])};
    if(fx){const i=fx.info();return{...o,passes:useBloom?i.passes:1,draws:useBloom?i.draws:0,fullReads:useBloom?i.fullReads:0,targets:i.targets}}
@@ -458,6 +509,7 @@
    rig.rotation.y=yaw+Math.sin(time*.07)*.12-(1-intro)*.9+sp*.45;rig.rotation.x=pitch;
    uniforms.uFade.value=intro*(1-sp*.75);
    glow.material.opacity=(root.dataset.theme==='light'?.3:.1)*uniforms.uFade.value+.03*Math.sin(time*.9);
+   if(hotGlow)hotGlow.material.opacity=(root.dataset.theme==='light'?.14:.5)*uniforms.uFade.value+.02*Math.sin(time*1.3);
    uniforms.uMouseOn.value+=((mouse.in&&!drag?1:0)-uniforms.uMouseOn.value)*Math.min(1,dt*5);
    /* hold still on the galaxy = singularity: gravity well + lensing; release = shock + chromatic burst */
    wellT=lensOn&&drag&&!drag.moved&&performance.now()-drag.t0>320?1:0;if(wellT)uniforms.uMouseOn.value=Math.max(uniforms.uMouseOn.value,1);
@@ -491,7 +543,7 @@
      Fast windows step back UP one level at a time, only after 4 consecutive fast windows and 20 s since the last change;
      a recovery that is undone within 15 s locks recovery for 2 minutes, so a borderline GPU never flip-flops. */
   const QPX=[1.6,1.6,1,.7,.55],QKEEP=[1,1,1,.55,.3];let lastChange=-1e9,lastRec=-1e9,recLock=0,good=0;
-  function setLevel(l,now){degrade=l;bloomOff=l>=1;quality=QPX[l];dust.geometry.setDrawRange(0,Math.floor(GN*QKEEP[l]));lanes.geometry.setDrawRange(0,Math.floor(LN*QKEEP[l]));if(sim){sim.setDrawRange(SIMN[Math.min(l,4)]);sim.setActive(l<=0)}lastChange=now;if(MO)MO.quality.set(l);syncBloom();layout()}
+  function setLevel(l,now){degrade=l;bloomOff=l>=1;quality=QPX[l];dust.geometry.setDrawRange(0,Math.floor(GN*QKEEP[l]));lanes.geometry.setDrawRange(0,Math.floor(LN*QKEEP[l]));  if(sim){sim.setDrawRange(SIMN[Math.min(l,4)]);sim.setActive(l<=0);hii&&hii.geometry.setDrawRange(0,Math.floor(hiiN*HKEEP[Math.min(l,4)]))}lastChange=now;if(MO)MO.quality.set(l);syncBloom();layout()}
   /* GPU ms first (EXT_disjoint_timer_query_webgl2: the real cost of the frame, vsync and CPU noise excluded), rAF time only where the GPU has no timer.
      GPU thresholds: slow above 13 ms (20 ms from level 2), fast below 5 ms; rAF thresholds as before. */
   function govern(avg,now,gpu){if(pinned)return degrade;const G=gpu!=null,v=G?gpu:avg;
