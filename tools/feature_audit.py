@@ -11,7 +11,7 @@ import json, argparse, os, socket, subprocess, sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
-ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11", "b12", "b13", "b14", "b15"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11", "b12", "b13", "b14", "b15", "b16"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
 srv = None
 if not a.url:
     s_ = socket.socket(); s_.bind(("127.0.0.1", 0)); port = s_.getsockname()[1]; s_.close()
@@ -231,7 +231,8 @@ def b13(b):
       neutral();fx.u.uVignette=1;fx.render(flat,cam);out.vigC=px(32,32);out.vigE=px(1,1);
       const bright=new T.Scene();bright.add(quad(new T.Color(8,8,8),.12,.12,0,0));
       neutral();fx.render(bright,cam);out.bloomOffNear=px(32+5,32);
-      neutral();fx.bloom.enabled=true;fx.render(bright,cam);out.bloomOnNear=px(32+5,32);out.bloomOnFar=px(60,60);out.drawsBloom=fx.info().draws;out.infoBloom=fx.info();
+      neutral();fx.bloom.enabled=true;fx.streak.enabled=false;fx.render(bright,cam);out.bloomOnNear=px(32+5,32);out.bloomOnFar=px(60,60);out.drawsBloom=fx.info().draws;out.infoBloom=fx.info();
+      fx.streak.enabled=true;fx.render(bright,cam);out.infoStreak=fx.info();fx.streak.enabled=false;   /* R7.d: the anamorphic streak adds exactly 2 draws and 1 pass, no render target */
       neutral();fx.u.uGrain=1;fx.u.uTime=1.25;fx.render(flat,cam);const g1=px(20,20).concat(px(40,11));fx.render(flat,cam);const g2=px(20,20).concat(px(40,11));out.grainStable=JSON.stringify(g1)===JSON.stringify(g2);
       neutral();fx.render(flat,cam);out.infoNeutral=fx.info();
       const t1=fx.info().targets;fx.bloom.enabled=true;fx.render(flat,cam);fx.setSize(96,96);fx.render(flat,cam);fx.setSize(64,64);fx.render(flat,cam);out.targetsAfterResize=fx.info().targets;out.pool=fx.info().pool;
@@ -249,6 +250,8 @@ def b13(b):
     if max(r["bloomOffNear"]) > 3: problems.append(f"B13 bloom off must leave pixels beside the bright quad dark: {r['bloomOffNear']}")
     if max(r["bloomOnNear"]) < 8 or max(r["bloomOnNear"]) <= max(r["bloomOnFar"]) + 4: problems.append(f"B13 bloom must light pixels beside the bright quad, more than far away: near {r['bloomOnNear']} far {r['bloomOnFar']}")
     if r["drawsBloom"] != 13 or r["infoBloom"]["fullReads"] != 2 or r["infoBloom"]["passes"] > 5: problems.append(f"B13 bloom frame must be 13 full-screen draws / 2 full-resolution reads / <= 5 passes: {r['infoBloom']}")
+    sk = r.get("infoStreak") or {}
+    if sk.get("draws") != 15 or sk.get("passes") != 4 or sk.get("fullReads") != 2 or sk.get("targets") != r["infoBloom"]["targets"] or not sk.get("streak"): problems.append(f"B13 the anamorphic streak must add exactly 2 draws and 1 pass (15 / 4 passes), 0 render targets, no extra full-resolution read: {sk} vs {r['infoBloom']}")
     if r["infoNeutral"]["draws"] != 1 or r["infoNeutral"]["fullReads"] != 1: problems.append(f"B13 neutral frame plan wrong: {r['infoNeutral']}")
     if not r["grainStable"]: problems.append("B13 grain must be deterministic for a fixed time (visual gate)")
     if r["targetsAfterResize"] != 12: problems.append(f"B13 chain must hold 12 render targets (scene + bright + 5 + 5), got {r['targetsAfterResize']} after resizing back")
@@ -377,6 +380,45 @@ def b15(b):
     ctx3.close()
     if errs15: problems.append(f"B15 page errors: {errs15[:3]}")
 
+
+def b16(b):
+    """B16 R7.d: the diffuse starlight layer (BKHero layer 'disc'), ~300 diffraction beacons, the anamorphic streak in the BKFX chain and the data-driven field tint.
+    Checks (sim path, tier 0, dark): simFx() reports disc + >= 100 beacons all shown; the field weights are 8 finite numbers in [.4, 1.7] that are NOT all equal (the library is lopsided, so a flat tint would mean the data
+    never reached the shader); info() reports streak true with passes <= 5 and the render-target count unchanged (the streak reuses the bloom's idle quarter-resolution mips); tier 3 hides the beacons and the disc and switches
+    the streak off; bksim=0 leaves the legacy path untouched (no simFx object)."""
+    ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q = ctx.new_page()
+    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
+    q.goto(a.url + "?b16=" + str(time.time()), wait_until="load")
+    try: q.wait_for_function("window.BKHero&&BKHero.info&&BKHero.info().sim!==undefined&&!!document.querySelector('#heroGL.on')", timeout=180000)
+    except Exception: problems.append("B16 the hero never reported a sim mode"); ctx.close(); return
+    q.evaluate("BKHero.gov.pin(true)"); q.evaluate("BKHero.gov.setLevel(0)")
+    probe = q.evaluate("window.BKGL?BKGL.probe():null") or {}
+    if probe.get("floatRT"):
+        q.wait_for_function("(()=>{const f=BKHero.simFx&&BKHero.simFx();return !!(f&&f.fieldW&&f.fieldW.some(v=>v!==1))})()", timeout=60000)
+        f = q.evaluate("BKHero.simFx()"); i0 = q.evaluate("BKHero.info()"); note(f"B16 tier 0: simFx {f} | info {i0}")
+        if not f.get("disc") or not f.get("discShown"): problems.append(f"B16 the diffuse starlight layer is missing or hidden at tier 0: {f}")
+        if f.get("beacons", 0) < 100 or f.get("beaconsShown") != f.get("beacons"): problems.append(f"B16 tier 0 must show every diffraction beacon (>= 100): {f}")
+        w = f.get("fieldW") or []
+        if len(w) != 8 or any((not isinstance(v, (int, float))) or v < .4 or v > 1.7 for v in w): problems.append(f"B16 the 8 field weights must be finite numbers in [.4, 1.7]: {w}")
+        elif max(w) - min(w) < .1: problems.append(f"B16 every field has the same glow weight — the record counts never reached the shader: {w}")
+        if not i0.get("streak"): problems.append(f"B16 the anamorphic streak must run on the dark bloom chain at tier 0: {i0}")
+        if i0.get("passes", 99) > 5: problems.append(f"B16 the chain with the streak must stay within 5 passes: {i0}")
+        if i0.get("targets") != 12: problems.append(f"B16 the streak must reuse the bloom's quarter-resolution mips (12 render targets), got {i0.get('targets')}")
+        q.evaluate("BKHero.gov.setLevel(3)"); f3 = q.evaluate("BKHero.simFx()"); i3 = q.evaluate("BKHero.info()")
+        if f3.get("beaconsShown") != 0 or f3.get("discShown"): problems.append(f"B16 tier 3 must hide the beacons and the diffuse layer: {f3}")
+        if i3.get("streak"): problems.append(f"B16 tier 3 must switch the streak off: {i3}")
+    else:
+        note(f"B16 this GL has no float render targets ({probe.get('gpu')}) — only the CPU-fallback branch applies here")
+    ctx.close()
+    ctx3 = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q3 = ctx3.new_page()
+    q3.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark');localStorage.setItem('bk-flag-bksim','0')}catch(e){}")
+    q3.goto(a.url + "?b16c=" + str(time.time()), wait_until="load")
+    try:
+        q3.wait_for_function("window.BKHero&&BKHero.info&&BKHero.info().sim!==undefined&&!!document.querySelector('#heroGL.on')", timeout=180000)
+        if q3.evaluate("BKHero.simFx?BKHero.simFx():null"): problems.append("B16 flag bksim=0 must leave no R7.d objects (simFx must be empty)")
+    except Exception: problems.append("B16 bksim=0 hero never came up")
+    ctx3.close()
+
 def b9(b):
     """B9 broken GPU (own contexts, independent of the main page)."""
     # ---- B9 broken GPU: the shelf must never show a broken book. Inject a shader fault (fragment shaders containing the given text get a syntax error appended)
@@ -402,11 +444,11 @@ def b9(b):
     f_all = faulty(["gl_FragColor", "pc_fragColor"], lambda o: o["lvl"] == 4 and o["cards"] == 0); note(f"B9 nothing compiles -> {f_all}")
     if f_all["lvl"] != 4 or f_all["cards"] != 0: problems.append(f"B9 stage did not fall back to the CSS covers when nothing compiles: {f_all}")
 
-if a.only in ("b9", "b10", "b11", "b12", "b13", "b14", "b15"):
+if a.only in ("b9", "b10", "b11", "b12", "b13", "b14", "b15", "b16"):
     with sync_playwright() as p:
         kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]); exe = os.environ.get("BK_CHROMIUM")
         b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
-        {"b9": b9, "b10": b10, "b11": b11, "b12": b12, "b13": b13, "b14": b14, "b15": b15}[a.only](b); b.close()
+        {"b9": b9, "b10": b10, "b11": b11, "b12": b12, "b13": b13, "b14": b14, "b15": b15, "b16": b16}[a.only](b); b.close()
     if srv: srv.terminate()
     print("FAIL" if problems else f"OK: {a.only.upper()}", *problems, sep="\n - " if problems else "")
     sys.exit(1 if problems else 0)
@@ -628,7 +670,7 @@ with sync_playwright() as p:
     if a.only is None: b12(b)
     if a.only is None: b13(b)
     if a.only is None: b14(b)
-    if a.only is None: b15(b)
+    if a.only is None: b15(b); b16(b)
     b.close()
 if srv: srv.terminate()
 print("FAIL" if problems else "OK: Package A features behave as specified", *problems, sep="\n - " if problems else "")
