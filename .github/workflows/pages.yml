@@ -39,7 +39,10 @@ jobs:
       - name: Shared shader library (no second copy of a part, program cache keys on every patched material)
         run: python tools/shaders_audit.py
   # Browser gates run in parallel (each on software GL); the slowest slice now sets the time instead of the sum.
+  # The heavy browser and visual gates run on pull requests (and manual dispatch). A push to main is the squash-merge of a pull request that already passed them on the same tree, so it only
+  # re-runs `static` and deploys: the publish takes about a minute instead of repeating ~5 minutes of software-GL audits.
   browser:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
@@ -50,11 +53,12 @@ jobs:
             cmd: |
               python tools/ui_audit.py
               python tools/palette_audit.py
-          - name: Text fit, reduced motion, leak check
+          - name: Text fit, reduced motion
             cmd: |
               python tools/text_fit_audit.py
               python tools/reduced_audit.py
-              python tools/leak_audit.py --rounds 40
+          - name: Leak check, 24 rounds, slope test (A6)
+            cmd: python tools/leak_audit.py --rounds 24
           - name: Features (camera, governor, dive, book, medal, dome, context loss)
             cmd: python tools/feature_audit.py --only main
           - name: Broken GPU fallback (B9)
@@ -65,8 +69,18 @@ jobs:
             cmd: python tools/feature_audit.py --only b11
           - name: Material and light library (B12)
             cmd: python tools/feature_audit.py --only b12
-          - name: GPU budgets per surface (A6)
-            cmd: python tools/gpu_budget_audit.py
+          - name: Uber post-processing chain (B13)
+            cmd: python tools/feature_audit.py --only b13
+          - name: GPU budgets, hero + ground + shelf (A6)
+            cmd: python tools/gpu_budget_audit.py --surfaces hero,ground,stage
+          - name: GPU budgets, skyline + Nobel + constellation (A6)
+            cmd: python tools/gpu_budget_audit.py --surfaces skyline,nobel,constellation
+          - name: Hero chain, legacy vs uber (A1)
+            cmd: python tools/gpu_budget_audit.py --fx-compare
+          - name: Hero kill switch, fxuber=0 (1440x900)
+            cmd: python tools/visual_audit.py --config 1440x900:dark --legacy
+          - name: Hero kill switch, fxuber=0 (1024x768)
+            cmd: python tools/visual_audit.py --config 1024x768:dark --legacy
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v6
@@ -90,6 +104,7 @@ jobs:
   # R3 visual regression gate: four configurations in parallel (viewport x theme), each captured twice (stability) and compared with tools/golden/ (committed, generated on CI by update-goldens.yml).
   # A pixel regression blocks the deploy. After an intended visual change: run 'Update visual goldens' (workflow_dispatch), review the PR from goldens/update, merge it.
   visual:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
@@ -131,7 +146,8 @@ jobs:
           if-no-files-found: ignore
   deploy:
     needs: [static, browser, visual]
-    if: github.event_name != 'pull_request'
+    # push: browser / visual are skipped (they passed on the pull request); dispatch: they ran and must have passed
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.static.result == 'success' && contains(fromJSON('["success","skipped"]'), needs.browser.result) && contains(fromJSON('["success","skipped"]'), needs.visual.result) }}
     runs-on: ubuntu-latest
     concurrency:
       group: github-pages

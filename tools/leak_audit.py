@@ -29,18 +29,19 @@ try:
         count = lambda: pg.evaluate("document.querySelectorAll('canvas').length")
         pg.wait_for_function("document.querySelectorAll('.tile-3d.on').length>=4", timeout=90000)   # atlas tiles mount lazily: baseline only after they exist
         def cycle(i):
-            pg.evaluate(f"openRecord(records[{3 + i % 6}].id)"); pg.wait_for_timeout(1800)
+            """one open / (3D book on every other round) / close round; waits for the state it needs instead of a fixed time, so a fast machine does not idle and a slow one is still correct"""
+            pg.evaluate(f"openRecord(records[{3 + i % 6}].id)"); pg.wait_for_function("(()=>{const v=document.getElementById('recordView');return !!v&&!v.hidden&&!!document.getElementById('recordBack')})()", timeout=60000); pg.wait_for_timeout(500)
             if i % 2 == 0:
-                pg.evaluate("(()=>{const b=document.querySelector('.rv-3d-toggle');if(b)b.click()})()"); pg.wait_for_timeout(2500)
-            pg.evaluate("document.getElementById('recordBack').click()"); pg.wait_for_timeout(900)
+                pg.evaluate("(()=>{const b=document.querySelector('.rv-3d-toggle');if(b)b.click()})()")
+                try: pg.wait_for_function("!!document.querySelector('.rv-book-ctl')", timeout=60000)
+                except Exception: pass
+                pg.wait_for_timeout(600)
+            pg.evaluate("document.getElementById('recordBack').click()")
+            pg.wait_for_function("document.getElementById('recordView').hidden", timeout=60000); pg.wait_for_timeout(400)
         for i in range(2): cycle(i)          # warm-up: first record opens create the per-session helpers
         base = count(); snaps = []
         for i in range(a.rounds):
-            pg.evaluate(f"openRecord(records[{3 + i % 6}].id)"); pg.wait_for_timeout(1800)
-            if i % 2 == 0:
-                pg.evaluate("(()=>{const b=document.querySelector('.rv-3d-toggle');if(b)b.click()})()"); pg.wait_for_timeout(2500)
-            pg.evaluate("document.getElementById('recordBack').click()"); pg.wait_for_timeout(900)
-            snaps.append(pg.evaluate("window.BKStage.info()"))
+            cycle(i); snaps.append(pg.evaluate("window.BKStage.info()"))
         end = count()
         warm = snaps[len(snaps) // 2]; last = snaps[-1]
         print(f"canvases: baseline {base} -> end {end}")

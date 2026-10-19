@@ -17,11 +17,11 @@ import numpy as np
 from PIL import Image
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent; GOLD = ROOT / "tools" / "golden"; OUT = GOLD / "_out"; DIFF = GOLD / "_diff"
-ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--quick", action="store_true", help="1440x900 dark only"); ap.add_argument("--config", help="one configuration, e.g. 1440x900:dark (CI runs the four as parallel jobs)"); ap.add_argument("--update", action="store_true"); ap.add_argument("--port", type=int, default=8613, help="fixed server port (default 8613)"); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--quick", action="store_true", help="1440x900 dark only"); ap.add_argument("--config", help="one configuration, e.g. 1440x900:dark (CI runs the four as parallel jobs)"); ap.add_argument("--update", action="store_true"); ap.add_argument("--hero-only", action="store_true", help="capture only the hero (candidates in tools/golden/_out/candidates), no comparison: for before/after pictures on the same GL"); ap.add_argument("--legacy", action="store_true", help="hero only, with the flag fxuber=0, compared with tools/golden/legacy/ (the pre-BKFX hero images): proves the kill switch restores the old picture"); ap.add_argument("--port", type=int, default=8613, help="fixed server port (default 8613)"); a = ap.parse_args()
 srv = None
 if not a.url:
     # fixed port: the address is part of the page text (permalinks, share card), so a random port makes two captures differ by a few glyph pixels. Two local runs at once need different --port values.
-    s_ = socket.socket()
+    s_ = socket.socket(); s_.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)   # a previous run's connections linger in TIME_WAIT; http.server reuses the address too
     try: s_.bind(("127.0.0.1", a.port))
     except OSError: sys.exit(f"port {a.port} is busy: stop the other server or pass --port (the port must stay the same between the captures you compare)")
     finally: s_.close()
@@ -47,6 +47,7 @@ def spec(name, key):
     return {"tol": TOL, "stable": STABLE, "golden": GOLDEN}[key]
 def tol_for(name): return spec(name, "tol")
 def lim(name, k): return spec(name, ("stable", "golden")[k])
+FLAGJS = ";localStorage.setItem('bk-flag-fxuber','0')" if a.legacy else ""
 CONFIGS = [(1440, 900, "dark"), (1440, 900, "light"), (1024, 768, "dark"), (1024, 768, "light")]
 
 def ratio(p1, p2, save=None, tol=None):
@@ -62,7 +63,7 @@ def ratio(p1, p2, save=None, tol=None):
 def capture(b, w, h, theme, tag, keep=False):
     """one page load, every surface; returns ({surface: png path}, page-or-None)"""
     ctx = b.new_context(viewport={"width": w, "height": h}, device_scale_factor=1, service_workers="block", locale="tr-TR"); q = ctx.new_page()
-    q.add_init_script(f"try{{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','{theme}');localStorage.setItem('bk-lang','tr')}}catch(e){{}}")
+    q.add_init_script(f"try{{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','{theme}');localStorage.setItem('bk-lang','tr'){FLAGJS}}}catch(e){{}}")
     q.goto(a.url + f"?still=1&vr={time.time()}", wait_until="load")
     q.wait_for_function('window.BKStage&&window.BKMotion&&typeof records!=="undefined"&&records.length', timeout=180000)
     q.wait_for_function("document.querySelectorAll('.tile-3d.on').length>=8", timeout=180000)
@@ -78,6 +79,7 @@ def capture(b, w, h, theme, tag, keep=False):
             q.evaluate("(sel)=>{const e=document.querySelector(sel);if(e)e.scrollIntoView({block:'center'})}", target); q.wait_for_timeout(1800); q.locator(target).first.screenshot(path=str(f))
         out[name] = f
     q.evaluate("scrollTo(0,0)"); q.wait_for_timeout(1500); shot("hero", ".hero")
+    if a.legacy or a.hero_only: ctx.close(); return out, None
     q.evaluate("document.querySelector('.atlas-tile').parentElement.setAttribute('data-vr','atlas')"); shot("atlas", "[data-vr=atlas]")
     shot("shelf", "#spotlightGrid")
     if q.evaluate("!!document.querySelector('.timeline-section')"): shot("timeline", ".timeline-section")
@@ -103,6 +105,19 @@ try:
             sz, th_ = a.config.split(":"); w_, h_ = sz.split("x"); cfgs = [(int(w_), int(h_), th_)]
         else: cfgs = CONFIGS[:1] if a.quick else CONFIGS
         runA = {}; keep_page = None
+        if a.legacy or a.hero_only:
+            LEG = GOLD / "legacy"; bad = 0
+            for (w, h, th) in cfgs:
+                out, _ = capture(b, w, h, th, "legacy")
+                for name, f in out.items():
+                    im = Image.open(f).convert("RGB").resize((max(1, Image.open(f).width // 2), max(1, Image.open(f).height // 2)), Image.LANCZOS); cand = OUT / "candidates"; cand.mkdir(parents=True, exist_ok=True); im.save(cand / f.name, optimize=True)
+                    if a.hero_only: note(f"captured {f.name}"); continue
+                    g = LEG / f.name if (LEG / f.name).exists() else GOLD / f.name
+                    r = ratio(g, cand / f.name, DIFF / f"legacy-{f.name}", tol_for(f.name)); note(f"fxuber=0 {f.name}: {r:.5f} of the pixels differ from {g.relative_to(ROOT)} (limit {lim(f.name, 1)})")
+                    if r > lim(f.name, 1): problems.append(f"{f.name}: with fxuber=0 the hero differs from the pre-BKFX image: {r:.4f} (limit {lim(f.name, 1)})")
+            b.close(); print("FAIL" if problems else "OK: fxuber=0 restores the old hero", *problems, sep="\n - " if problems else ""); 
+            if srv: srv.terminate()
+            sys.exit(1 if problems else 0)
         for (w, h, th) in cfgs:
             out, kp = capture(b, w, h, th, "a", keep=(w, h, th) == (1440, 900, "dark"))
             if kp: keep_page = kp
