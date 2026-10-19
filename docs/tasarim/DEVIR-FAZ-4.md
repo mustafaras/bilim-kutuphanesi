@@ -482,3 +482,10 @@ Hipotezler (hiçbiri kanıtlanmadı): (a) v110 `stage.js` değişiklikleri — `
 - **Testler (önce yazıldı, kırıldı):** B5 `BKStage.book.edges().cover`, `pageRes()` (1536×2160, tüm sayfalar, anisotropi; seviye 2'de 768), `ribbon()` (sayfa üzerinde `minClear ≥ 0`, `maxClear ≤ 0,06`, sayfadaki düğümler durur, kuyruk hızı < 1). Test yazarken bulunan iki ölçüm hatası düzeltildi (`edges()` eski malzemeyi okuyordu; sayfa geri dönüşü kare başına bir sayfaydı).
 - **Görsel kapı (kullanıcı onayıyla):** aynı yerel GL'de v116 → v119 ölçümü: açık kitapta piksellerin %0,1–0,3'ü 10'dan fazla, %3–11'i 2–4'ten fazla değişiyordu; eski eşik (tolerans 10, %0,5) kapıyı kör bırakıyordu. `visual_audit.py`: açık kitap spreadleri (`book-open-*`) tolerans 3 ile karşılaştırılır; diğer yüzeyler 10 (onlar sürümler arasında 0,0000 farklı). Kapalı kitap v119 → v120'de %2,5 (tol 10) değişti: kabartma + yaldız artık kapıya görünür.
 - **Doğrulama:** yerelde `feature_audit --only main` (B5, B8 dahil), `leak_audit` (geometri 0; doku sayacı 10. turda 7, son turda 11, v118'deki 8 → 12 ile aynı fark, kaynağı ölçülmedi), `materials_audit`. Ekran görüntüleri (v119 ↔ yeni, aynı GL): kapalı kitapta kapak kabartması/yaldız net, açık kitapta ince.
+
+
+## §63 — v121: gölge haritası sızıntısı
+- **Bulgu:** `leak_audit --rounds 40`: paylaşılan sahnenin doku sayısı 20. turda 12, 40. turda 21 (tur başına ≈ +0,45, doğrusal). Denetimin eşiği (+24) bunu yakalamıyordu. GL düzeyinde izleme (createTexture/deleteTexture + boyut): her 3D kitap açılışında bir 1024×1024 doku (kayıt kitabının anahtar ışığının gölge haritası, `shadow.mapSize 1024`) kalıyordu.
+- **Neden:** `disposeItem` geometri ve malzeme dokularını serbest bırakıyor, ışığın gölge render hedefini bırakmıyordu (three'de `light.shadow.dispose()` gerekir). Sızıntı R5 öncesinden geliyordu (v118'de aynı hız); R5'in 2× sayfa dokusuyla ilgisi yok.
+- **Düzeltme:** `disposeItem` her ışığın `shadow.dispose()`'unu çağırır. `leak_audit --rounds 40`: doku sayısı 20. ve 40. turda 1 (önce 12 → 21).
+- **Yapılmadı:** `leak_audit` eşiği hâlâ +24; doğrusal büyümeyi yakalayacak şekilde sıkılaştırılmadı (bu iş istenmedi).
