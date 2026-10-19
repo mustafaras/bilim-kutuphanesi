@@ -39,12 +39,12 @@ window.NobelSkyline=(()=>{
      totalEmissiveRadiance+=diffuseColor.rgb*win*on*uWin;
      float fr=pow(1.-abs(dot(normalize(vNormal),normalize(vViewPosition))),2.6);
      totalEmissiveRadiance+=diffuseColor.rgb*fr*uRim;}`)};
-  mat.onBeforeCompile=windows;
+  mat.customProgramCacheKey=()=>'bk-sky-windows';mat.onBeforeCompile=windows;
   /* optional glass towers: real transmission + clearcoat (heavier, so it is a toggle) */
-  const glassMat=new THREE.MeshPhysicalMaterial({metalness:0,roughness:.12,transmission:.62,thickness:.45,ior:1.45,clearcoat:1,clearcoatRoughness:.08,iridescence:.35,iridescenceIOR:1.3,envMapIntensity:1.5,attenuationDistance:.7});glassMat.onBeforeCompile=windows;
+  const glassMat=new THREE.MeshPhysicalMaterial({metalness:0,roughness:.12,transmission:.62,thickness:.45,ior:1.45,clearcoat:1,clearcoatRoughness:.08,iridescence:.35,iridescenceIOR:1.3,envMapIntensity:1.5,attenuationDistance:.7});glassMat.customProgramCacheKey=()=>'bk-sky-windows-glass';glassMat.onBeforeCompile=windows;
   const towers=new THREE.InstancedMesh(geo,mat,K),reflMat=new THREE.MeshStandardMaterial({metalness:.1,roughness:.35,transparent:true,opacity:.2,depthWrite:false,envMapIntensity:.8}),refl=new THREE.InstancedMesh(geo,reflMat,K);
   /* floor reflection = an exact mirror of the city (same lit windows, fading with depth below the floor) */
-  reflMat.onBeforeCompile=sh=>{sh.uniforms.uTime=winU.uTime;sh.uniforms.uWin=winU.uWin;sh.uniforms.uRim=winU.uRim;
+  reflMat.customProgramCacheKey=()=>'bk-sky-refl';reflMat.onBeforeCompile=sh=>{sh.uniforms.uTime=winU.uTime;sh.uniforms.uWin=winU.uWin;sh.uniforms.uRim=winU.uRim;
    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWP;').replace('#include <project_vertex>','#include <project_vertex>\nvWP=(modelMatrix*instanceMatrix*vec4(transformed,1.0)).xyz;');
    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vWP;uniform float uTime,uWin,uRim;').replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
     {vec2 g=vec2((vWP.x+vWP.z*1.37)/.045,abs(vWP.y)/.105);vec2 c=floor(g),f=fract(g);float win=step(.2,f.y)*step(f.y,.8)*step(.18,f.x)*step(f.x,.84);float hh=fract(sin(dot(c,vec2(12.9898,78.233)))*43758.5453);float on=step(.42,hh)*(.55+.45*sin(uTime*.55+hh*40.));totalEmissiveRadiance+=diffuseColor.rgb*win*on*uWin*.8;}`).replace('#include <dithering_fragment>','#include <dithering_fragment>\ngl_FragColor.a*=exp(vWP.y*.62)*smoothstep(.0,.25,-vWP.y+.02);')};
