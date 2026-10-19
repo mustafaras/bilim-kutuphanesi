@@ -381,7 +381,7 @@ with sync_playwright() as p:
     pr = None
     for _ in range(40):
         pr = pg.evaluate("BKStage.book.pageRes?BKStage.book.pageRes():null")
-        if pr and pr["w"] >= 1536: break
+        if pr and pr["w"] >= 1536 and pr["all"]: break
         pg.wait_for_timeout(250)
     note(f"R5 page texture {pr}")
     if not pr: problems.append("R5 BKStage.book.pageRes() is missing")
@@ -394,14 +394,15 @@ with sync_playwright() as p:
     rb = None
     for _ in range(30):
         pg.wait_for_timeout(200); rb = pg.evaluate("BKStage.book.ribbon?BKStage.book.ribbon():null")
-        if rb and rb["open"] and rb["speed"] < .02: break
+        if rb and rb["open"]: break
     note(f"R5 ribbon {rb}")
     if not rb: problems.append("R5 BKStage.book.ribbon() is missing")
     else:
         if not rb["open"]: problems.append(f"R5 ribbon does not know the book is open: {rb}")
         if rb["minClear"] < 0: problems.append(f"R5 ribbon sinks into the page ({rb['minClear']:.4f}): {rb}")
         if rb["maxClear"] > .06: problems.append(f"R5 ribbon floats above the page ({rb['maxClear']:.4f}), it must rest on it: {rb}")
-        if rb["speed"] >= .02: problems.append(f"R5 ribbon never settles (no wind, speed {rb['speed']:.4f})")
+        if rb["speed"] >= .02: problems.append(f"R5 the part of the ribbon lying on the page must be at rest (speed {rb['speed']:.4f})")
+        if rb["tail"] >= 1.0: problems.append(f"R5 the ribbon tail below the page swings wildly (speed {rb['tail']:.3f} units/s)")
     pg.keyboard.press("Escape"); pg.wait_for_timeout(600)
     closed = pg.evaluate("!document.querySelector('.rv-art.book-open')&&!BKStage.book.state().open")
     note(f"B5 closed {st0['open']}, opened {st1['open']} (coverK {st1['coverK']}), stage centred {stage_ok}, leaf after 2x next {st2['leaf']}, after prev {st3['leaf']}, after 3x more {st4['leaf']} (next disabled {next_dis}), Esc closes {closed}")
