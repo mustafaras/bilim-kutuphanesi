@@ -403,6 +403,7 @@
   const wseed=(idx+3)*2654435+String(r.id||'').length*977,col=canvasTex(m,512,720,(x,W,H)=>{paintCover(x,W,H,r,idx,false);wearEdges(x,W,H,wseed,'col')},true),mask=canvasTex(m,512,720,(x,W,H)=>paintCover(x,W,H,r,idx,true),false);
   const rough=canvasTex(m,512,720,(x,W,H)=>{paintCover(x,W,H,r,idx,true);const d=x.getImageData(0,0,W,H),q=d.data;for(let i=0;i<q.length;i+=4){const v=q[i];const rr=Math.round(215-v*.78);q[i]=q[i+1]=q[i+2]=rr}x.putImageData(d,0,0);wearEdges(x,W,H,wseed,'rough')},false);
   const MT=matOf(idx),bump=grainBump(m,mask,MT.bind,(idx+1)*7919+String(r.id||'').length*131),cover=BM.foil(m,{map:col,roughnessMap:rough,roughness:1,metalnessMap:mask,metalness:1,bumpMap:bump,bumpScale:2.6,clearcoat:MT.coat,clearcoatRoughness:MT.rough*.7,clearcoatNormalMap:smudgeNormal(m,wseed),clearcoatNormalScale:new m.Vector2(.16,.16),anisotropy:.5,anisotropyRotation:Math.PI/2,sheen:.8,sheenRoughness:.6,sheenColor:0x8fa3b8,envMapIntensity:1.1});
+  if(real&&giltOn()){/* R5: the stamping + binding grain height field becomes a normal map (a bump map would be ignored next to it) */cover.bumpMap=null;cover.normalMap=normalFromHeight(m,bump.image,2.4);cover.normalScale=new m.Vector2(1,1);cover.needsUpdate=true}
   const backCol=canvasTex(m,512,720,(x,W,H)=>{const gr=x.createLinearGradient(0,0,W,H);gr.addColorStop(0,COVER[idx%8]);gr.addColorStop(1,'#0d1822');x.fillStyle=gr;x.fillRect(0,0,W,H);noise(x,W,H,.14,5200);x.strokeStyle=GOLD;x.lineWidth=3;x.strokeRect(24,24,W-48,H-48);x.lineWidth=1.2;x.strokeRect(34,34,W-68,H-68);x.fillStyle=GOLD;x.font='600 64px Fraunces,Georgia,serif';x.textAlign='center';x.fillText('BK',W/2,H/2);x.font='600 15px "IBM Plex Mono",monospace';x.fillText('BİLİM KÜTÜPHANEM',W/2,H/2+42);x.fillStyle='rgba(246,239,220,.16)';for(let i=0;i<9;i++)x.fillRect(80,120+i*22,W-160-((i*53)%90),5)},true);
   const backM=BM.cloth(m,{map:backCol,roughness:.75,sheen:.7,envMapIntensity:.8});
   const clothSide=BM.cloth(m,{color:new m.Color(COVER[idx%8]).multiplyScalar(.7)});
@@ -426,15 +427,17 @@
   const rg=new m.PlaneGeometry(.07,.65,1,14),RN=6,RL=.65/RN,AX=xL+.55,AY=-Hh/2+.145,AZ=.02,chain=[];for(let i=0;i<=RN;i++)chain.push({x:AX,y:AY-i*RL,z:AZ,px:AX,py:AY-i*RL,pz:AZ});
   const rpos=rg.attributes.position,rrow=new Float32Array(rpos.count),rside=new Float32Array(rpos.count);for(let i=0;i<rpos.count;i++){rrow[i]=(.325-rpos.getY(i))/.65*RN;rside[i]=rpos.getX(i)}
   const ribbon=new m.Mesh(rg,BM.cloth(m,{color:0xa5262c,roughness:.4,sheen:1,sheenColor:0xff8a80,side:m.DoubleSide}));ribbon.frustumCulled=false;g.add(ribbon);
-  const gdown=new m.Vector3(),qInv=new m.Quaternion();let lastYaw=null;
+  const gdown=new m.Vector3(),qInv=new m.Quaternion();let lastYaw=null;const RS={surf:null,fly:false};/* RS.surf(x): z of the page under the ribbon (null while the book is closed), set once the leaves exist */
   const stepRibbon=(dt,yawV,t)=>{dt=Math.min(dt,.033);g.updateMatrixWorld(true);g.getWorldQuaternion(qInv).invert();gdown.set(0,-1,0).applyQuaternion(qInv);
-   const G=7.5,wx=Math.sin(t*1.3)*.5+yawV*.9;
+   const G=7.5,onPage=!!RS.surf&&RS.surf(AX)!=null,wx=onPage?0:Math.sin(t*1.3)*.5+yawV*.9,az=onPage?RS.surf(AX):AZ;
    for(let i=1;i<=RN;i++){const n=chain[i],tail=i/RN,vx=(n.x-n.px)*.955,vy=(n.y-n.py)*.955,vz=(n.z-n.pz)*.955;n.px=n.x;n.py=n.y;n.pz=n.z;
-    n.x+=vx+(gdown.x*G+wx*tail)*dt*dt;n.y+=vy+gdown.y*G*dt*dt;n.z+=vz+(gdown.z*G+Math.cos(t*1.1+i)*.35*tail)*dt*dt}
-   for(let it2=0;it2<5;it2++){chain[0].x=AX;chain[0].y=AY;chain[0].z=AZ;
+    n.x+=vx+(gdown.x*G+wx*tail)*dt*dt;n.y+=vy+gdown.y*G*dt*dt;n.z+=vz+(gdown.z*G+(onPage?0:Math.cos(t*1.1+i)*.35*tail))*dt*dt}
+   for(let it2=0;it2<5;it2++){chain[0].x=AX;chain[0].y=AY;chain[0].z=az;
     for(let i=0;i<RN;i++){const a=chain[i],b=chain[i+1];let dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z;const d=Math.hypot(dx,dy,dz)||1e-6,k=(d-RL)/d*(i===0?1:.5);
      if(i===0){b.x-=dx*k;b.y-=dy*k;b.z-=dz*k}else{a.x+=dx*k;a.y+=dy*k;a.z+=dz*k;b.x-=dx*k;b.y-=dy*k;b.z-=dz*k}}
-    chain.forEach(n=>{if(n.z<.004&&n.x>xL-.05&&n.x<xL+W-.1&&n.y>-Hh/2)n.z=.004})}
+    chain.forEach(n=>{const sz=RS.surf?RS.surf(n.x):null;
+     if(sz!=null){if(n.y>-LH/2-.02&&n.y<LH/2){n.z+=(sz-n.z)*.35;if(n.z<sz)n.z=sz;n.px+=(n.x-n.px)*.4;n.py+=(n.y-n.py)*.4;n.pz=n.z}}   // lies on the page: pulled onto it, never through it, extra damping
+     else if(n.z<.004&&n.x>xL-.05&&n.x<xL+W-.1&&n.y>-Hh/2)n.z=.004})}
    for(let i=0;i<rpos.count;i++){const f=Math.max(0,Math.min(RN-1e-4,rrow[i])),k=Math.floor(f),u=f-k,a=chain[k],b=chain[k+1];rpos.setXYZ(i,a.x+(b.x-a.x)*u+rside[i],a.y+(b.y-a.y)*u,a.z+(b.z-a.z)*u)}
    rpos.needsUpdate=true;rg.computeVertexNormals()};
   for(let i=0;i<30;i++)stepRibbon(.016,0,0);
@@ -450,20 +453,25 @@
   let yaw=BASE,pitch=.08,vy=0,mode='auto',snapYaw=BASE,idle=0,open=0,zoom=1,bookOpen=false,coverK=0,leafIdx=0;const dark=()=>root.dataset.theme!=='light';
   /* B5: pages. Built on first open (6 canvases are not free). Three leaves hinge on the spine axis; leaf k carries page 2k on its front and 2k+1 on its back.
      The cover swings a full 180°, an endpaper lines its inside, a turning leaf curls (its outer edge lags) and lifts over the stack. */
-  const LN=3,LW=W-.34,LH=Hh-.22,LPX=xL+.07,leaves=[],leafP=[0,0,0],leafT=[0,0,0];let endpaper=null;
+  const LN=3,LW=W-.34,LH=Hh-.22,LPX=xL+.07,leaves=[],leafP=[0,0,0],leafT=[0,0,0];let ptex=[],hiK=0;let endpaper=null;
   const zr=k=>.2225+.0035*(LN-k),zl=k=>.2985+.0035*k;/* left stack must clear the endpaper (hinge z .245 + .045 = .29 once the cover lies flat) */
+  RS.surf=x=>{if(!(bookOpen&&coverK>.9))return null;if(x>=LPX&&x<=LPX+LW)return zr(leafIdx)+.006;if(x<LPX&&x>=LPX-LW)return(leafIdx>0?zl(leafIdx-1):.29)+.006;return null};
   function buildLeaves(){
    if(leaves.length||!real)return;
    endpaper=new m.Mesh(new m.PlaneGeometry(W-.13,Hh-.16),new m.MeshStandardMaterial({map:canvasTex(m,512,720,(x,w2,h2)=>{x.fillStyle=COVER[idx%8];x.fillRect(0,0,w2,h2);const gr=x.createLinearGradient(0,0,w2,0);gr.addColorStop(0,'rgba(0,0,0,.28)');gr.addColorStop(.18,'rgba(0,0,0,0)');x.fillStyle=gr;x.fillRect(0,0,w2,h2);x.strokeStyle='rgba(246,239,220,.22)';x.lineWidth=2;x.strokeRect(34,34,w2-68,h2-68);x.strokeStyle='rgba(246,239,220,.12)';for(let i=0;i<22;i++){x.beginPath();x.arc(w2*.6,h2*.5,20+i*18,0,7);x.stroke()}noise(x,w2,h2,.1,321)},true),roughness:.85,side:m.FrontSide}));
    endpaper.rotation.y=Math.PI;endpaper.position.set((W-.04)/2,0,-(T/2+.016)-.004);/* just outside the board's inner bevel (bevelThickness .016), or the cap hides it */hinge.add(endpaper);endpaper.visible=false;
-   const ptex=Array.from({length:LN*2},(_,k)=>canvasTex(m,768,1080,(x,w2,h2)=>paintPage(x,w2,h2,r,k),true));
+   ptex=Array.from({length:LN*2},(_,k)=>canvasTex(m,768,1080,(x,w2,h2)=>paintPage(x,w2,h2,r,k),true));
    const pageMat=k=>BM.leaf(m,{map:ptex[k],roughness:.9,side:m.FrontSide,fiber:fiberTex(m),bleedMap:ptex[k^1]});
    const lgeo=()=>{const gg=new m.PlaneGeometry(LW,LH,24,1);gg.translate(LW/2,0,0);return gg};
    for(let k=0;k<LN;k++){const pv=new m.Group();pv.position.set(LPX,0,zr(k));
     const fr=new m.Mesh(lgeo(),pageMat(k*2)),bk=new m.Mesh(lgeo(),pageMat(k*2+1));bk.rotation.y=Math.PI;bk.position.x=LW;
     fr.receiveShadow=bk.receiveShadow=true;pv.add(fr,bk);pv.visible=false;g.add(pv);leaves.push({pv,fr,bk,base:Float32Array.from(fr.geometry.attributes.position.array)})}}
+  /* R5 text clarity: while the book is open at levels 0-1 the pages are repainted at 2x (1536x2160, anisotropy 16), one page per frame (all at once in ?still); back to 768x1080 otherwise */
+  function sharpen(still){if(!ptex.length)return;const want=bookOpen&&coverK>.5&&SAFE<=1&&renderer.capabilities.maxTextureSize>=4096?2:1;
+   for(let n=0;n<ptex.length;n++){const k=(hiK+n)%ptex.length,t=ptex[k];if((t.userData.s||1)===want)continue;
+    const c=t.image,x=c.getContext('2d');c.width=768*want;c.height=1080*want;x.setTransform(want,0,0,want,0,0);paintPage(x,768,1080,r,k);t.anisotropy=want>1?Math.min(16,renderer.capabilities.getMaxAnisotropy()):8;t.userData.s=want;t.dispose();t.needsUpdate=true;hiK=(k+1)%ptex.length;if(!still)break}}
   function animateLeaves(dt,still){
-   const bend=bendOn();
+   sharpen(still);const bend=bendOn();
    leaves.forEach((L,k)=>{leafP[k]+=still?leafT[k]-leafP[k]:(leafT[k]-leafP[k])*(1-Math.exp(-6.2*Math.min(dt,.05)));const p=leafP[k];
     L.pv.visible=coverK>.02;L.pv.rotation.y=-Math.PI*p*.995;L.pv.position.z=zr(k)+(zl(k)-zr(k))*p+Math.sin(Math.PI*p)*.03;
     const lift=p>.02&&p<.98;if(L.fr.castShadow!==lift)L.fr.castShadow=L.bk.castShadow=lift;
@@ -480,7 +488,10 @@
    turn(d){if(!bookOpen)return leafIdx;leafIdx=Math.max(0,Math.min(LN,leafIdx+d));for(let k=0;k<LN;k++)leafT[k]=k<leafIdx?1:0;return leafIdx},
    bounds(){g.updateMatrixWorld(true);camera.updateMatrixWorld();const v=new m.Vector3(),o={x0:1e9,x1:-1e9,y0:1e9,y1:-1e9};
     leaves.forEach(L=>{if(!L.pv.visible)return;for(const me of [L.fr,L.bk]){const pa=me.geometry.attributes.position;for(let i=0;i<pa.count;i++){v.fromBufferAttribute(pa,i).applyMatrix4(me.matrixWorld).project(camera);o.x0=Math.min(o.x0,v.x);o.x1=Math.max(o.x1,v.x);o.y0=Math.min(o.y0,v.y);o.y1=Math.max(o.y1,v.y)}}});return o},
-   edges(){const e=mt=>({metal:mt.metalness||0,normal:!!mt.normalMap}),bb=bands[0]&&(bands[0].geometry.computeBoundingBox(),bands[0].geometry.boundingBox);return{gilt:!!gild,fore:e(pages.material[0]),head:e(pages.material[2]),band:{curved:!!bands[0]&&bands[0].geometry.type==='TubeGeometry',bow:bb?+(bb.max.y-bb.min.y-.04).toFixed(4):0,striped:!!(bands[0]&&bands[0].material.map)}}},
+   ribbon(){const nodes=chain.map(n=>[+n.x.toFixed(4),+n.y.toFixed(4),+n.z.toFixed(4)]);let lo=1e9,hi=-1e9,sp=0;chain.forEach(n=>{sp=Math.max(sp,Math.hypot(n.x-n.px,n.y-n.py,n.z-n.pz)*60);const sz=RS.surf?RS.surf(n.x):null;if(sz!=null&&n.y>-LH/2-.02&&n.y<LH/2){lo=Math.min(lo,n.z-(sz-.006));hi=Math.max(hi,n.z-(sz-.006))}});
+    return{open:!!(RS.surf&&RS.surf(AX)!=null),nodes,minClear:lo===1e9?0:lo,maxClear:hi===-1e9?0:hi,speed:+sp.toFixed(4),anchorZ:+chain[0].z.toFixed(4)}},
+   pageRes(){const t=ptex[0],c=t&&t.image;return c?{w:c.width,h:c.height,aniso:t.anisotropy,maxAniso:renderer.capabilities.getMaxAnisotropy(),all:ptex.every(q=>q.image.width===c.width)}:null},
+   edges(){const e=mt=>({metal:mt.metalness||0,normal:!!mt.normalMap}),bb=bands[0]&&(bands[0].geometry.computeBoundingBox(),bands[0].geometry.boundingBox);return{gilt:!!gild,cover:{normal:!!cover.normalMap,bump:!!cover.bumpMap},fore:e(pages.material[0]),head:e(pages.material[2]),band:{curved:!!bands[0]&&bands[0].geometry.type==='TubeGeometry',bow:bb?+(bb.max.y-bb.min.y-.04).toFixed(4):0,striped:!!(bands[0]&&bands[0].material.map)}}},
    leaves(){return leaves.map(L=>{const mt=Array.isArray(L.fr.material)?L.fr.material[0]:L.fr.material;return{fiber:!!mt.normalMap,bleed:mt.userData.bleed===true,recv:L.fr.receiveShadow&&renderer.shadowMap.enabled}})},
    state(){return{open:bookOpen,leaf:leafIdx,leaves:LN,coverK:+coverK.toFixed(3),p:leafP.map(v=>+v.toFixed(3))}},
    dbl(){if(bookOpen)return;if(mode==='read'){mode='auto';yaw=wrap(yaw,BASE)}else{mode='read';yaw=wrap(yaw,-.12)}},
@@ -595,7 +606,7 @@
   art.addEventListener('click',e=>{if(!art.classList.contains('book-open')||e.target.closest('.rv-book-ctl,.rv-3d-toggle,.rv-book-scrim'))return;const c=art.querySelector('.rec-3d');if(!c)return;const r=c.getBoundingClientRect();turn(e.clientX>r.left+r.width/2?1:-1)});
   document.addEventListener('keydown',e=>{if(!art.classList.contains('book-open')||!art.isConnected)return;if(e.key==='Escape'){e.preventDefault();setOpen(false);return}if(e.key==='ArrowRight'){e.preventDefault();turn(1)}else if(e.key==='ArrowLeft'){e.preventDefault();turn(-1)}});
   document.addEventListener('bk:book-close',()=>{if(art.classList.contains('book-open'))setOpen(false)});
-  window.BKStage.book={state:()=>{const a=api();return a?a.state():null},bounds:()=>{const a=api();return a&&a.bounds?a.bounds():null},leaves:()=>{const a=api();return a&&a.leaves?a.leaves():null},edges:()=>{const a=api();return a&&a.edges?a.edges():null}}}
+  window.BKStage.book={state:()=>{const a=api();return a?a.state():null},ribbon:()=>{const a=api();return a&&a.ribbon?a.ribbon():null},pageRes:()=>{const a=api();return a&&a.pageRes?a.pageRes():null},bounds:()=>{const a=api();return a&&a.bounds?a.bounds():null},leaves:()=>{const a=api();return a&&a.leaves?a.leaves():null},edges:()=>{const a=api();return a&&a.edges?a.edges():null}}}
  function mountAll(){mountAtlas();mountShelf()}
  /* Idle shader warm-up (BKGL.warm, after the first 5 s): the record page's 3D book (shadow variant, the heaviest materials) and the Nobel medal compile in parallel now, so the first open does not stall. */
  const warmUp=()=>{if(!window.BKGL||!renderer||!THREE||warmUp.done||SAFE>=3)return;warmUp.done=1;const m=THREE,hold=warmHold=[];
