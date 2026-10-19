@@ -461,3 +461,11 @@ Hipotezler (hiçbiri kanıtlanmadı): (a) v110 `stage.js` değişiklikleri — `
 - **Testler (önce yazıldı, kırıldı):** `feature_audit` B5 eki (`pageShape`: uç açı ≥0,3, yay uzunluğu ±%0,3, kalınlık 1,5–4 mm, `pagebend=0` eski; `book.bounds()`: ara karelerde sayfa köşeleri ≤0,985; `book.leaves()`: lif/sızma/alma, seviye 2'de kapalı), B12 eki (`leaf`, `paperfiber=0`), `materials_audit` (leaf/fiberHeight, satır içi sayfa malzemesi yok).
 - **Bilinçli sapma:** R3 açık kitap altınları güncellenir (yalnız `book-open-*`). Kenar şeritleri (sayfa ucu kalınlığı geometrisi) yapılmadı; kalınlık yüzey ayrımıdır. Alt adım 3–5 sonraki oturum.
 - **Doğrulanmayan:** gerçek GPU (akıcılık, kâğıt hissi, `?perf` açık kitap ≤ 6 ms); R2'nin gerçek GPU çıktısı hâlâ gelmedi ve R4/R5 gerçek GPU'da bakılmadı.
+
+
+## §60 — v118: aşama R5 alt adım 3 (yaldız kenarlar, başlık bandı)
+- **Ne:** `BKMaterials.gilt` (kapağın yaldız rengiyle metalik `foil`; bayrak `gilt` kapalıyken `o.plain` kâğıt kenarı) ve `BKMaterials.edgeHeight` (yaprak başına tohumlu çıta/oluk yükseklik alanı; `stage.js` `normalFromHeight` ile normal haritaya çevirir, `edgeNormal` önbellekli). Kayıt kitabında (`real`) ön kenar, baş ve kuyruk yaldızlı; başlık bandı 12 mm dışa bükülen `TubeGeometry` (ölçülen sapma ≈ 10 mm) ve bükümlü kumaş şeritli doku. Raf kitapları ve `gilt=0` eski görüntüyle aynı.
+- **Seviyeler:** seviye ≥1'de `lighter()` kenar normal haritasını düşürür (ölçüldü: seviye 2'de `normal:false`).
+- **Testler (önce yazıldı, kırıldı):** B5 `BKStage.book.edges()`, B12 `gilt`/`edgeHeight`, `materials_audit` (TubeGeometry, API).
+- **Bilinçli sapma:** yalnız kayıt kitabı görüntüleri (`book-closed`, `book-open-*`) değişebilir. Kapak kabartmasının yükseklik haritasından normal haritaya taşınması yapılmadı (raf kapakları da etkilenirdi). Alt adım 4–5 sonraki oturum.
+- **Doğrulanmayan:** gerçek GPU (kâğıt/yaldız görünümü, `?perf` açık kitap ≤ 6 ms). Kullanıcının canlı ekran görüntüsünde sağ sayfa yamuk göründü; kullanıcı "sorun yok" dedi, kapatıldı, kök neden araştırılmadı.
