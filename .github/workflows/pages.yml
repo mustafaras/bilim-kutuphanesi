@@ -73,6 +73,8 @@ jobs:
             cmd: python tools/feature_audit.py --only b13
           - name: GPGPU galaxy sim (B14)
             cmd: python tools/feature_audit.py --only b14
+          - name: Realistic galaxy (B15)
+            cmd: python tools/feature_audit.py --only b15
           - name: GPU budgets, hero + ground + shelf (A6)
             cmd: python tools/gpu_budget_audit.py --surfaces hero,ground,stage
           - name: GPU budgets, skyline + Nobel + constellation (A6)

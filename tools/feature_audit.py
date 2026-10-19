@@ -11,7 +11,7 @@ import json, argparse, os, socket, subprocess, sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
-ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11", "b12", "b13", "b14"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11", "b12", "b13", "b14", "b15"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
 srv = None
 if not a.url:
     s_ = socket.socket(); s_.bind(("127.0.0.1", 0)); port = s_.getsockname()[1]; s_.close()
@@ -322,6 +322,61 @@ def b14(b):
     ctx3.close()
     if errs14: problems.append(f"B14 page errors: {errs14[:3]}")
 
+def b15(b):
+    """B15 R7.c realistic galaxy (hero GPGPU sim path only): physically-coloured stars (temperature -> the black-body LUT baked by
+    BKShaders.bakeBlackbody), dark dust lanes (optical depth on the disc plane with a reddening colour shift), density-wave arm
+    brightness contrast, >100 HII emission sprites and a hotter core.
+    Checks: tier 0 still draws all 262144 sim particles; BKHero.simFx() exposes the baked LUT (blue-white at the hot end, near-neutral
+    at B-V 0.65, deep red at the cold end), a real dust range (tau >= .3), an arm-gain contrast (>= .45), the HII count and the
+    uSky/uLut uniforms actually bound on the sim material; flag bksim=0 leaves the CPU path untouched (sim 'cpu', 56000 stars, no
+    simFx object — the legacy look and its goldens stay byte-identical)."""
+    ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q = ctx.new_page()
+    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
+    errs15 = []; q.on("pageerror", lambda e: errs15.append(str(e)[:160]))
+    q.goto(a.url + "?b15=" + str(time.time()), wait_until="load")
+    try: q.wait_for_function("window.BKHero&&BKHero.info&&BKHero.info().sim!==undefined&&!!document.querySelector('#heroGL.on')", timeout=180000)
+    except Exception: problems.append("B15 the hero never reported a sim mode (BKHero.info().sim missing or hero GL off)"); ctx.close(); return
+    q.evaluate("BKHero.gov.pin(true)")
+    # software GL boots into the auto-sensing governor's tier before the pin lands; the tier-0 count is only meaningful for an explicitly pinned tier (B14 covers each tier explicitly)
+    q.evaluate("BKHero.gov.setLevel(0)")
+    probe = q.evaluate("window.BKGL?BKGL.probe():null") or {}
+    if not probe.get("floatRT"):
+        note(f"B15 this GL has no float render targets ({probe.get('gpu')}) — only the CPU-fallback branch applies here")
+    if probe.get("floatRT"):
+        i0 = q.evaluate("BKHero.info()"); note(f"B15 tier 0: {i0}")
+        if i0.get("sim") != "gpu": problems.append(f"B15 a float-RT GL must run the GPU sim: {i0}")
+        if i0.get("drawn") != 262144: problems.append(f"B15 tier 0 must draw all 262144 sim particles: {i0}")
+        m = q.evaluate("(()=>{const s=window.__bkSim;return !!(s&&s.material&&s.material.uniforms&&s.material.uniforms.uSky&&s.material.uniforms.uSky.value&&s.material.uniforms.uLut&&s.material.uniforms.uLut.value)})()")
+        if not m: problems.append("B15 the sim material must have uSky (dust/arm pattern) and uLut (black-body LUT) bound to live textures")
+        f = q.evaluate("BKHero.simFx?BKHero.simFx():null"); note(f"B15 simFx: {f}")
+        if not f: problems.append("B15 BKHero.simFx() missing — the R7.c realism layer is not wired into the test hooks")
+        else:
+            lut = f.get("lut") or {}; cb, cd, cr = lut.get("blue"), lut.get("mid"), lut.get("red")
+            if not cb or not cd or not cr: problems.append(f"B15 the black-body LUT report is incomplete: {lut}")
+            else:
+                if not (cb[2] > cb[0] + .04): problems.append(f"B15 the LUT hot end must be blue-white (b > r + .04): {cb}")
+                if max(cd) - min(cd) > .13 or min(cd) < .7: problems.append(f"B15 the LUT mid (B-V 0.65, sun-like) must be bright and near-neutral: {cd}")
+                if not (cr[0] > cr[2] + .15): problems.append(f"B15 the LUT cold end must be deep red (r > b + .15): {cr}")
+            if f.get("tau", 0) < .3: problems.append(f"B15 the dust optical-depth texture is too faint (tau peak {f.get('tau')}, expected >= .3)")
+            g = f.get("gain") or []; gg = g[1] - g[0] if len(g) == 2 else 0
+            if gg < .45: problems.append(f"B15 the arm-gain texture has no density-wave contrast (range {gg}, expected >= .45)")
+            if f.get("armA", 0) < .15: problems.append(f"B15 the uniform arm gain strength is too weak (armA {f.get('armA')}, expected >= .15)")
+            if f.get("hii", 0) < 100: problems.append(f"B15 the HII emission layer needs at least 100 sprites (got {f.get('hii')})")
+    ctx.close()
+    # kill switch: flag bksim=0 must show the untouched CPU path with no sim hooks (legacy goldens)
+    ctx3 = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q3 = ctx3.new_page()
+    q3.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark');localStorage.setItem('bk-flag-bksim','0')}catch(e){}")
+    q3.goto(a.url + "?b15c=" + str(time.time()), wait_until="load")
+    try:
+        q3.wait_for_function("window.BKHero&&BKHero.info&&BKHero.info().sim!==undefined&&!!document.querySelector('#heroGL.on')", timeout=180000)
+        i3 = q3.evaluate("BKHero.info()"); fx3 = q3.evaluate("BKHero.simFx?BKHero.simFx():null"); note(f"B15 flag bksim=0: {i3}, simFx {fx3}")
+        if i3.get("sim") != "cpu" or i3.get("particles") != 56000 or i3.get("drawn") != 56000:
+            problems.append(f"B15 flag bksim=0 must run the untouched CPU dust path with 56000 stars: {i3}")
+        if fx3 is not None: problems.append("B15 flag bksim=0 must not expose BKHero.simFx (the CPU path is excluded from the R7.c layer)")
+    except Exception as e: problems.append(f"B15 CPU fallback check failed: {str(e)[:160]}")
+    ctx3.close()
+    if errs15: problems.append(f"B15 page errors: {errs15[:3]}")
+
 def b9(b):
     """B9 broken GPU (own contexts, independent of the main page)."""
     # ---- B9 broken GPU: the shelf must never show a broken book. Inject a shader fault (fragment shaders containing the given text get a syntax error appended)
@@ -347,11 +402,11 @@ def b9(b):
     f_all = faulty(["gl_FragColor", "pc_fragColor"], lambda o: o["lvl"] == 4 and o["cards"] == 0); note(f"B9 nothing compiles -> {f_all}")
     if f_all["lvl"] != 4 or f_all["cards"] != 0: problems.append(f"B9 stage did not fall back to the CSS covers when nothing compiles: {f_all}")
 
-if a.only in ("b9", "b10", "b11", "b12", "b13", "b14"):
+if a.only in ("b9", "b10", "b11", "b12", "b13", "b14", "b15"):
     with sync_playwright() as p:
         kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]); exe = os.environ.get("BK_CHROMIUM")
         b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
-        {"b9": b9, "b10": b10, "b11": b11, "b12": b12, "b13": b13, "b14": b14}[a.only](b); b.close()
+        {"b9": b9, "b10": b10, "b11": b11, "b12": b12, "b13": b13, "b14": b14, "b15": b15}[a.only](b); b.close()
     if srv: srv.terminate()
     print("FAIL" if problems else f"OK: {a.only.upper()}", *problems, sep="\n - " if problems else "")
     sys.exit(1 if problems else 0)
@@ -573,6 +628,7 @@ with sync_playwright() as p:
     if a.only is None: b12(b)
     if a.only is None: b13(b)
     if a.only is None: b14(b)
+    if a.only is None: b15(b)
     b.close()
 if srv: srv.terminate()
 print("FAIL" if problems else "OK: Package A features behave as specified", *problems, sep="\n - " if problems else "")
