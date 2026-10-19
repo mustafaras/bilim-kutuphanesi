@@ -11,7 +11,7 @@ import json, argparse, os, socket, subprocess, sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
-ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11", "b12"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11", "b12", "b13"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
 srv = None
 if not a.url:
     s_ = socket.socket(); s_.bind(("127.0.0.1", 0)); port = s_.getsockname()[1]; s_.close()
@@ -204,6 +204,60 @@ def b12(b):
     if errs12: problems.append(f"B12 page errors: {errs12[:3]}")
     ctx.close()
 
+def b13(b):
+    """B13 BKFX (site/fx.js): the single uber post-processing chain. On a private 64x64 renderer: neutral settings reproduce the input (+-2/255), the LUT grade shifts colours subtly (and half
+    strength lies in between), the vignette darkens the corner, bloom lights pixels next to a bright quad (and nothing when off), a frame without bloom costs ONE full-screen draw and with
+    bloom 13 (1 bright + 10 blur + 1 composite + 1 uber) in at most 5 logical passes, the render-target pool reuses targets, and dispose() gives every texture back."""
+    ctx = b.new_context(viewport={"width": 1200, "height": 800}, service_workers="block"); q = ctx.new_page()
+    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
+    errs = []; q.on("pageerror", lambda e: errs.append(str(e)[:160]))
+    q.goto(a.url + "?b13=" + str(time.time()), wait_until="load")
+    try: q.wait_for_function("window.BKFX&&window.BKShaders&&window.BKGL", timeout=30000)
+    except Exception: problems.append("B13 window.BKFX does not exist (site/fx.js not loaded)"); ctx.close(); return
+    r = q.evaluate("""async()=>{const T=await import('./vendor/three.module.min.js'),F=window.BKFX,out={};
+      const cv=document.createElement('canvas');cv.width=64;cv.height=64;const rd=new T.WebGLRenderer({canvas:cv,antialias:false,alpha:false}),gl=rd.getContext();rd.setPixelRatio(1);rd.setSize(64,64,false);
+      const tex0=rd.info.memory.textures;
+      let fb=0;const cf=gl.createFramebuffer.bind(gl),df=gl.deleteFramebuffer.bind(gl);gl.createFramebuffer=()=>{fb++;return cf()};gl.deleteFramebuffer=f=>{fb--;return df(f)};   // live framebuffers = render targets, counted at GL level
+      const fx=F.create(rd,T,{theme:'dark'});fx.setSize(64,64);
+      const cam=new T.OrthographicCamera(-1,1,1,-1,-1,1);
+      const quad=(col,w,h,x,y)=>{const m=new T.Mesh(new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({color:col}));m.position.set(x||0,y||0,0);return m};
+      const px=(x,y)=>{const p=new Uint8Array(4);gl.readPixels(x,63-y,1,1,gl.RGBA,gl.UNSIGNED_BYTE,p);return Array.from(p).slice(0,3)};
+      const neutral=()=>{Object.assign(fx.u,{uCA:0,uLens:0,uBlur:0,uGrain:0,uVignette:0,uLut:0});fx.bloom.enabled=false};
+      const flat=new T.Scene();flat.add(quad(new T.Color(.25,.5,.75),2.2,2.2));      // mid colour, linear values written as they are
+      const want=[.25,.5,.75].map(v=>Math.round(v*255));
+      neutral();fx.render(flat,cam);out.neutral=px(32,32);out.want=want;out.drawsNeutral=fx.info().draws;
+      neutral();fx.u.uLut=1;fx.render(flat,cam);out.lut1=px(32,32);
+      neutral();fx.u.uLut=.5;fx.render(flat,cam);out.lut05=px(32,32);
+      neutral();fx.u.uVignette=1;fx.render(flat,cam);out.vigC=px(32,32);out.vigE=px(1,1);
+      const bright=new T.Scene();bright.add(quad(new T.Color(8,8,8),.12,.12,0,0));
+      neutral();fx.render(bright,cam);out.bloomOffNear=px(32+5,32);
+      neutral();fx.bloom.enabled=true;fx.render(bright,cam);out.bloomOnNear=px(32+5,32);out.bloomOnFar=px(60,60);out.drawsBloom=fx.info().draws;out.infoBloom=fx.info();
+      neutral();fx.u.uGrain=1;fx.u.uTime=1.25;fx.render(flat,cam);const g1=px(20,20).concat(px(40,11));fx.render(flat,cam);const g2=px(20,20).concat(px(40,11));out.grainStable=JSON.stringify(g1)===JSON.stringify(g2);
+      neutral();fx.render(flat,cam);out.infoNeutral=fx.info();
+      const t1=fx.info().targets;fx.bloom.enabled=true;fx.render(flat,cam);fx.setSize(96,96);fx.render(flat,cam);fx.setSize(64,64);fx.render(flat,cam);out.targetsAfterResize=fx.info().targets;out.pool=fx.info().pool;
+      const live=rd.info.memory.textures;out.fbLive=fb;fx.dispose();out.fbAfter=fb;out.texLive=live;out.texAfter=rd.info.memory.textures;out.tex0=tex0;out.targetsDisposed=fx.info().targets;
+      let thrown=false;try{fx.render(flat,cam)}catch(e){thrown=true}out.rendersAfterDispose=!thrown;
+      rd.dispose();return out}""")
+    note(f"B13 {r}")
+    d = lambda p, c: max(abs(x - y) for x, y in zip(p, c))
+    if d(r["neutral"], r["want"]) > 2: problems.append(f"B13 neutral uber settings must reproduce the input: got {r['neutral']} want {r['want']}")
+    if r["drawsNeutral"] != 1: problems.append(f"B13 a frame without bloom must cost exactly one full-screen draw (got {r['drawsNeutral']})")
+    lg = d(r["lut1"], r["neutral"]); lh = d(r["lut05"], r["neutral"])
+    if not (3 <= lg <= 40): problems.append(f"B13 dark LUT must shift mid colours subtly (3..40 levels), shifted {lg}: {r['neutral']} -> {r['lut1']}")
+    if not (0 < lh < lg): problems.append(f"B13 half LUT strength must lie between none and full ({lh} vs {lg})")
+    if not (sum(r["vigE"]) < sum(r["vigC"]) * 0.8): problems.append(f"B13 vignette must darken the corner: centre {r['vigC']} corner {r['vigE']}")
+    if max(r["bloomOffNear"]) > 3: problems.append(f"B13 bloom off must leave pixels beside the bright quad dark: {r['bloomOffNear']}")
+    if max(r["bloomOnNear"]) < 8 or max(r["bloomOnNear"]) <= max(r["bloomOnFar"]) + 4: problems.append(f"B13 bloom must light pixels beside the bright quad, more than far away: near {r['bloomOnNear']} far {r['bloomOnFar']}")
+    if r["drawsBloom"] != 13 or r["infoBloom"]["fullReads"] != 2 or r["infoBloom"]["passes"] > 5: problems.append(f"B13 bloom frame must be 13 full-screen draws / 2 full-resolution reads / <= 5 passes: {r['infoBloom']}")
+    if r["infoNeutral"]["draws"] != 1 or r["infoNeutral"]["fullReads"] != 1: problems.append(f"B13 neutral frame plan wrong: {r['infoNeutral']}")
+    if not r["grainStable"]: problems.append("B13 grain must be deterministic for a fixed time (visual gate)")
+    if r["targetsAfterResize"] != 12: problems.append(f"B13 chain must hold 12 render targets (scene + bright + 5 + 5), got {r['targetsAfterResize']} after resizing back")
+    if r["texAfter"] > r["tex0"]: problems.append(f"B13 dispose() leaked textures: before {r['tex0']}, with the chain {r['texLive']}, after {r['texAfter']}")
+    if r["fbLive"] < 12 or r["fbAfter"] != 0: problems.append(f"B13 GL-level render targets: {r['fbLive']} live with the chain (expected >= 12), {r['fbAfter']} left after dispose()")
+    if r["targetsDisposed"] != 0: problems.append(f"B13 dispose() must drop every render target ({r['targetsDisposed']} left)")
+    if errs: problems.append(f"B13 page errors: {errs[:3]}")
+    ctx.close()
+
 def b9(b):
     """B9 broken GPU (own contexts, independent of the main page)."""
     # ---- B9 broken GPU: the shelf must never show a broken book. Inject a shader fault (fragment shaders containing the given text get a syntax error appended)
@@ -229,11 +283,11 @@ def b9(b):
     f_all = faulty(["gl_FragColor", "pc_fragColor"], lambda o: o["lvl"] == 4 and o["cards"] == 0); note(f"B9 nothing compiles -> {f_all}")
     if f_all["lvl"] != 4 or f_all["cards"] != 0: problems.append(f"B9 stage did not fall back to the CSS covers when nothing compiles: {f_all}")
 
-if a.only in ("b9", "b10", "b11", "b12"):
+if a.only in ("b9", "b10", "b11", "b12", "b13"):
     with sync_playwright() as p:
         kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]); exe = os.environ.get("BK_CHROMIUM")
         b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
-        {"b9": b9, "b10": b10, "b11": b11, "b12": b12}[a.only](b); b.close()
+        {"b9": b9, "b10": b10, "b11": b11, "b12": b12, "b13": b13}[a.only](b); b.close()
     if srv: srv.terminate()
     print("FAIL" if problems else f"OK: {a.only.upper()}", *problems, sep="\n - " if problems else "")
     sys.exit(1 if problems else 0)
@@ -453,6 +507,7 @@ with sync_playwright() as p:
     if a.only is None: b10(b)
     if a.only is None: b11(b)
     if a.only is None: b12(b)
+    if a.only is None: b13(b)
     b.close()
 if srv: srv.terminate()
 print("FAIL" if problems else "OK: Package A features behave as specified", *problems, sep="\n - " if problems else "")

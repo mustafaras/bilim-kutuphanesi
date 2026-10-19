@@ -65,8 +65,12 @@ jobs:
             cmd: python tools/feature_audit.py --only b11
           - name: Material and light library (B12)
             cmd: python tools/feature_audit.py --only b12
-          - name: GPU budgets per surface (A6)
-            cmd: python tools/gpu_budget_audit.py
+          - name: Uber post-processing chain (B13)
+            cmd: python tools/feature_audit.py --only b13
+          - name: GPU budgets per surface (A6), hero chain legacy vs uber
+            cmd: |
+              python tools/gpu_budget_audit.py
+              python tools/gpu_budget_audit.py --fx-compare
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v6
@@ -120,6 +124,9 @@ jobs:
           python -m playwright install-deps chromium
       - name: Visual regression gate (R3)
         run: python tools/visual_audit.py --config ${{ matrix.config }}
+      - name: Hero kill switch (fxuber=0 restores the pre-BKFX picture)
+        if: contains(matrix.config, 'dark')
+        run: python tools/visual_audit.py --config ${{ matrix.config }} --legacy
       - name: Visual output (candidates and differences)
         if: always()
         uses: actions/upload-artifact@v4

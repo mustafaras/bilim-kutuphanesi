@@ -62,7 +62,8 @@ float bk_fbm2(vec2 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*bk_snoise2(p);p=
 float bk_fbm3(vec3 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*bk_snoise3(p);p=p*2.03+vec3(1.7,9.2,4.3);a*=.5;}return s;}`,
   'bk_snoise2(vec2(1.2,3.4))+bk_snoise3(vec3(1.2,3.4,5.6))+bk_curl(vec3(.3)).x+bk_fbm2(vec2(2.))+bk_fbm3(vec3(2.))');
 
- add('lut3d',1,[],`
+ add('lut3d',2,[],`
+precision highp sampler3D;   /* three r160 declares no default precision for sampler3D in a ShaderMaterial fragment shader */
 vec3 bk_lut3d(sampler3D lut,vec3 c,float size){return texture(lut,clamp(c,0.,1.)*((size-1.)/size)+.5/size).rgb;}`,'bk_lut3d(uLut,vec3(.5),32.).x');
 
  add('blackbody',1,[],`

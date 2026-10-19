@@ -185,10 +185,12 @@
     b.addEventListener('click',()=>flyField(i));labelBox.appendChild(b);labels.push({b,i,ang:i*(2*Math.PI/8)+.35+phase(RMAX*.62),x:0,y:0,vis:false})})}
 
   /* ---------- post-processing (bloom, dark theme) ---------- */
-  let bloomOff=false,composer=null,bloom=null,useBloom=false,grade=null,caSpike=0,well=0,wellT=0,lensS=0;
+  let bloomOff=false,composer=null,bloom=null,useBloom=false,grade=null,fx=null,pinned=false,caSpike=0,well=0,wellT=0,lensS=0;
   /* gravity lens / singularity is opt-in (default off): the toggle lives in the zoom dock and is remembered */
   let lensOn=false;try{lensOn=localStorage.getItem('bk-hero-lens')==='on'}catch{}
-  if(post){try{composer=new post.EffectComposer(renderer);composer.addPass(new post.RenderPass(scene,camera));
+  /* flag fxuber (default on): ONE BKFX chain (scene → half-resolution bloom → uber pass: guard, lens, CA, radial blur, 32³ LUT, vignette, grain, dithering). Off, or if it cannot be built: the old EffectComposer chain below, unchanged. */
+  if(window.BKFX&&window.BKShaders&&(!window.BKGL||BKGL.flags.get('fxuber'))){try{fx=BKFX.create(renderer,THREE,{theme:root.dataset.theme==='light'?'light':'dark'})}catch(e){fx=null}}
+  if(!fx&&post){try{composer=new post.EffectComposer(renderer);composer.addPass(new post.RenderPass(scene,camera));
    /* Guard against Inf/NaN before bloom: seen on edge-on / zoomed views, thousands of additive points pile into a few pixels, the half-float target overflows to Inf and the bloom blur turns it into NaN,
       which blanks the whole galaxy (dark theme only; the dome drawn afterwards survives). Clamp every pixel to a large finite value and zero NaN. */
    if(post.ShaderPass)composer.addPass(new post.ShaderPass({uniforms:{tDiffuse:{value:null}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
@@ -268,6 +270,7 @@
    const w=sceneEl.clientWidth||innerWidth,h=sceneEl.clientHeight||innerHeight;
    pr=Math.min(devicePixelRatio||1,quality);renderer.setPixelRatio(pr);renderer.setSize(w,h,false);
    if(composer){composer.setPixelRatio(pr);composer.setSize(w,h);if(grade)grade.uniforms.uAspect.value=w/h}
+   if(fx){fx.setSize(renderer.domElement.width,renderer.domElement.height);fx.u.uAspect=w/h}
    camera.aspect=w/h;camera.updateProjectionMatrix();
    H=2*CAMZ*Math.tan(FOV*Math.PI/360);W=H*camera.aspect;portrait=camera.aspect<1.05;
    uniforms.uScale.value=renderer.domElement.height/(2*Math.tan(FOV*Math.PI/360));
@@ -276,14 +279,14 @@
    rig.position.set(portrait?W*.08:(.68-.5)*W,portrait?-H*.2:(.5-.44)*H,-1);rig.scale.setScalar(sc);
    }
   function applyTheme(){
-   const light=root.dataset.theme==='light';uniforms.uLight.value=light?1:0;domeTheme(light);
+   const light=root.dataset.theme==='light';uniforms.uLight.value=light?1:0;domeTheme(light);if(fx)fx.setTheme(light?'light':'dark');
    mats.forEach(m=>{m.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;m.needsUpdate=true});
    lanes.visible=!light;glow.material.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;glow.material.color.set(light?0xffd9a0:0xffffff);glow.material.needsUpdate=true;
    meteors.forEach(m=>{if(light)m.l.visible=false});
    syncBloom()}
   /* bloom is used on the dark theme while the composer exists and the governor has not suspended it */
-  function syncBloom(){useBloom=root.dataset.theme!=='light'&&!!composer&&!bloomOff;canvas.classList.toggle('screen',useBloom);renderer.setClearColor(0x000000,useBloom?1:0)}
-  const draw=()=>{if(useBloom)composer.render();else renderer.render(scene,camera);domeDraw()};
+  function syncBloom(){useBloom=root.dataset.theme!=='light'&&!!(composer||fx)&&!bloomOff;canvas.classList.toggle('screen',useBloom);renderer.setClearColor(0x000000,useBloom?1:0)}
+  const draw=()=>{if(useBloom){if(fx){fx.bloom.enabled=uniforms.uFade.value>.02;fx.render(scene,camera)}else composer.render()}else renderer.render(scene,camera);domeDraw()};
 
   /* ---------- camera: zoom-to-cursor, pan, intro, scroll ---------- */
   let zoom=1,zoomT=1,pan=new THREE.Vector2(),panT=new THREE.Vector2(),scrollP=0,scrollS=NaN,blurK=0,blurT=0;const blurC=new THREE.Vector2(.5,.5);
@@ -368,7 +371,17 @@
     an.onfinish=()=>g.remove();setTimeout(()=>g.remove(),900);
     setTimeout(()=>{caSpike=Math.max(caSpike,1.4)},470)}catch{}});
   /* test hook: only exposed when localStorage bk-test=1 (the audit tools set it) */
-  if((()=>{try{return localStorage.getItem('bk-test')==='1'}catch{return false}})())window.BKHero={fly:i=>fly(i),count:()=>rec.n,gov:{level:()=>degrade,feed:(avg,now,gpu)=>govern(avg,now,gpu),lock:()=>recLock,reset:()=>{good=0;recLock=0;lastRec=-1e9;if(degrade!==0)setLevel(0,0);lastChange=-1e9;return degrade}}};/* test hook (tools/motion_audit.py) */
+  if((()=>{try{return localStorage.getItem('bk-test')==='1'}catch{return false}})())window.BKHero={fly:i=>fly(i),count:()=>rec.n,info:()=>heroInfo(),gov:{pin:v=>{pinned=!!v},level:()=>degrade,feed:(avg,now,gpu)=>govern(avg,now,gpu),lock:()=>recLock,reset:()=>{good=0;recLock=0;lastRec=-1e9;if(degrade!==0)setLevel(0,0);lastChange=-1e9;return degrade}}};/* test hook (tools/motion_audit.py) */
+  /* what the post chain costs, from the objects that run (tools/gpu_budget_audit.py --fx-compare): logical passes, full-screen draws, full-resolution reads, render targets */
+  function heroInfo(){const o={fx:fx?'uber':composer?'legacy':'none',bloom:useBloom,level:degrade};
+   if(fx){const i=fx.info();return{...o,passes:useBloom?i.passes:1,draws:useBloom?i.draws:0,fullReads:useBloom?i.fullReads:0,targets:i.targets}}
+   if(composer){let passes=0,draws=0,fullReads=0,targets=2;   // the composer's two full-resolution ping-pong targets
+    if(!useBloom)return{...o,passes:1,draws:0,fullReads:0,targets}
+    for(const p of composer.passes){if(p.enabled===false)continue;passes++;
+     if(p===bloom){draws+=1+2*bloom.nMips+1+1;fullReads+=1;targets+=1+2*bloom.nMips}   // bright pass reads the full image; blurs, composite and the additive blend work at half size or below
+     else if(p.fsQuad){draws++;fullReads++}}
+    return{...o,passes,draws,fullReads,targets}}
+   return{...o,passes:1,draws:0,fullReads:0,targets:0}}
   const rvEl=document.getElementById('recordView');if(rvEl&&typeof MutationObserver==='function')new MutationObserver(()=>{if(rvEl.hidden)zoomReset()}).observe(rvEl,{attributes:true,attributeFilter:['hidden']});
   hero.addEventListener('pointerleave',()=>{mouse.in=false;uniforms.uMouseOn.value=0;setHover(-1)});
 
@@ -393,9 +406,10 @@
    /* hold still on the galaxy = singularity: gravity well + lensing; release = shock + chromatic burst */
    wellT=lensOn&&drag&&!drag.moved&&performance.now()-drag.t0>320?1:0;if(wellT)uniforms.uMouseOn.value=Math.max(uniforms.uMouseOn.value,1);
    well+=(wellT-well)*Math.min(1,dt*(wellT?3.2:5));uniforms.uWell.value=well;hero.classList.toggle('hero-well',well>.15);
-   if(grade){caSpike=Math.max(0,caSpike-dt*2.2);const zv=Math.abs(zoomT-zoom)*2.2;const tgt=.28+zv+caSpike+well*.9;grade.uniforms.uCA.value+=(tgt-grade.uniforms.uCA.value)*Math.min(1,dt*10);
-    grade.uniforms.uTime.value=time;blurK=dmp(blurK,blurT,blurT?7:4.5,dt);grade.uniforms.uBlur.value=blurK;grade.uniforms.uBlurC.value.copy(blurC);lensS+=(((lensOn&&mouse.in?1:0)*(.22+well*1.1))-lensS)*Math.min(1,dt*6);grade.uniforms.uLens.value=lensS;
-    const b=canvas.getBoundingClientRect();grade.uniforms.uMouse.value.set((mouse.x-b.left)/Math.max(1,b.width),1-(mouse.y-b.top)/Math.max(1,b.height))}
+   if(grade||fx){const gv=n=>fx?fx.u[n]:grade.uniforms[n].value,gs=(n,v)=>{if(fx)fx.u[n]=v;else grade.uniforms[n].value=v};   // the uber chain and the legacy grade pass take the same uniforms
+    caSpike=Math.max(0,caSpike-dt*2.2);const zv=Math.abs(zoomT-zoom)*2.2;const tgt=.28+zv+caSpike+well*.9;gs('uCA',gv('uCA')+(tgt-gv('uCA'))*Math.min(1,dt*10));
+    gs('uTime',time);blurK=dmp(blurK,blurT,blurT?7:4.5,dt);gs('uBlur',blurK);gv('uBlurC').copy(blurC);lensS+=(((lensOn&&mouse.in?1:0)*(.22+well*1.1))-lensS)*Math.min(1,dt*6);gs('uLens',lensS);
+    const b=canvas.getBoundingClientRect();gv('uMouse').set((mouse.x-b.left)/Math.max(1,b.width),1-(mouse.y-b.top)/Math.max(1,b.height))}
    hint.classList.toggle('show',time>1.2&&time<10);
    if(focus!==lastFocus){lastFocus=focus;setReadout(focus)}
    placeMarkers();
@@ -418,7 +432,7 @@
   function setLevel(l,now){degrade=l;bloomOff=l>=1;quality=QPX[l];dust.geometry.setDrawRange(0,Math.floor(GN*QKEEP[l]));lanes.geometry.setDrawRange(0,Math.floor(LN*QKEEP[l]));lastChange=now;if(MO)MO.quality.set(l);syncBloom();layout()}
   /* GPU ms first (EXT_disjoint_timer_query_webgl2: the real cost of the frame, vsync and CPU noise excluded), rAF time only where the GPU has no timer.
      GPU thresholds: slow above 13 ms (20 ms from level 2), fast below 5 ms; rAF thresholds as before. */
-  function govern(avg,now,gpu){const G=gpu!=null,v=G?gpu:avg;
+  function govern(avg,now,gpu){if(pinned)return degrade;const G=gpu!=null,v=G?gpu:avg;
    if(degrade<4&&v>(G?(degrade<2?.013:.02):(degrade<2?.026:.04))){good=0;if(now-lastRec<15000)recLock=now+120000;setLevel(degrade+1,now);return degrade}
    if(degrade>0&&v<(G?.005:.0115)&&now>recLock&&now-lastChange>20000){if(++good>=4){good=0;lastRec=now;setLevel(degrade-1,now)}}else good=0;
    return degrade}

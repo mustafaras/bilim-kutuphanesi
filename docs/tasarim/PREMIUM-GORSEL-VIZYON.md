@@ -163,6 +163,8 @@ Orta sınıf entegre GPU'yu **taban** alan hedefler (1080p'ye eşdeğer piksel).
 
 Bütçe aşılırsa **kabul edilmez**, A4 merdiveni ya da özellik düşer; bütçeyi büyütmek ayrı gerekçeli karardır.
 
+**A1 (v123):** `BKFX` hero'da kodlandı: geçiş 4 → 3, tam çözünürlüklü okuma 3 → 2 (−%33), render hedefi 13 → 12, zincirin yazdığı alan −%48 (yazılımsal GL, yapısal sayım; ms ölçülmedi, DEVIR §66).
+
 **Ölçülen yapısal değerler (v121, yazılımsal GL, en kötü kare; `tools/gpu_budget_audit.py`, DEVIR §65):** hero 32 çizim / 13 render hedefi / 23 program (§6 hedefi ≤ 14 çizim R7 ile gelir); zemin 1; silüet 9; Nobel galaksi 19; raf (tüm kutular) 87–99; takımyıldızı 64. Kapı bugünkü sayıyı + ~%25 payı sınırlar; milisaniye ölçülmedi.
 
 ---

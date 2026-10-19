@@ -33,7 +33,7 @@ HOOK = r"""
   const quad=(s,f,m,n,inst)=>{if(m===4&&(n===6||n===3)&&inst===1){const W=s.canvas.width*s.canvas.height||1;f.q++;f.qa+=s.vp[0]*s.vp[1]/W}};
   wrap('viewport',function(a){st(this).vp=[a[2],a[3]]});
   wrap('drawElements',function(a){const s=st(this),f=fr(s);f.d++;f.t+=tri(a[0],a[1]);quad(s,f,a[0],a[1],1)});
-  wrap('drawArrays',function(a){const s=st(this),f=fr(s);f.d++;if(a[0]===0)f.p+=a[2];else f.t+=tri(a[0],a[2])});
+  wrap('drawArrays',function(a){const s=st(this),f=fr(s);f.d++;if(a[0]===0)f.p+=a[2];else f.t+=tri(a[0],a[2]);quad(s,f,a[0],a[2],1)});
   wrap('drawElementsInstanced',function(a){const f=fr(st(this));f.d++;f.t+=tri(a[0],a[1])*a[4]});
   wrap('drawArraysInstanced',function(a){const f=fr(st(this));f.d++;if(a[0]===0)f.p+=a[2]*a[3];else f.t+=tri(a[0],a[2])*a[3]});
   wrap('linkProgram',function(){st(this).prog++});wrap('deleteProgram',function(){st(this).prog--});
@@ -51,7 +51,7 @@ HOOK = r"""
 # Per surface: how to bring it on screen, and the limits (worst frame in the window; live programs / render targets / textures at its end).
 # Measured on software GL at 1440x900, dark theme, v121 plus ~25 % headroom, then tightened where a PR removes work (the comment says which).
 LIMITS = {
-    "hero":          dict(draws=40, tris=14800, points=82000, programs=29, targets=14, textures=24),
+    "hero":          dict(draws=38, tris=14800, points=82000, programs=24, targets=12, textures=24),   # BKFX (v123): 30 draws / 12 targets measured (v122: 32 / 13)
     "ground":        dict(draws=1, tris=70000, points=0, programs=2, targets=0, textures=5),
     "stage":         dict(draws=125, tris=44000, points=75, programs=19, targets=1, textures=66),
     "skyline":       dict(draws=12, tris=19200, points=330, programs=8, targets=1, textures=12),
@@ -107,17 +107,22 @@ try:
                 q.goto(a.url + f"?gb={time.time()}", wait_until="load")
                 q.wait_for_function('window.BKHero&&typeof records!=="undefined"&&records.length', timeout=180000)
                 q.wait_for_function("!!document.querySelector('#heroGL.on')", timeout=120000)
+                q.evaluate("BKHero.gov.reset();if(BKHero.gov.pin)BKHero.gov.pin(true)")   # software GL would drop the bloom chain at once; pin the governor so the chain is measured
                 r = measure(q, "hero"); info = q.evaluate("BKHero.info?BKHero.info():null"); res[mode] = (r, info); ctx.close()
                 note(f"hero fxuber={mode}: GL {r} | info {info}")
             (r0, i0), (r1, i1) = res["0"], res["1"]
             if not i0 or not i1: problems.append("BKHero.info() is missing: the hero must report its pass plan")
+            elif not (i0.get("bloom") and i1.get("bloom")): problems.append(f"the bloom chain was not running during the measurement: {i0} / {i1}")
             else:
                 if i0.get("fx") != "legacy" or i1.get("fx") != "uber": problems.append(f"fx modes wrong: fxuber=0 -> {i0.get('fx')}, fxuber=1 -> {i1.get('fx')}")
                 if i1["passes"] > 5: problems.append(f"uber hero chain uses {i1['passes']} passes (limit 5)")
                 if i1["fullReads"] > i0["fullReads"] * 0.7 + 1e-9: problems.append(f"full-resolution reads {i0['fullReads']} -> {i1['fullReads']}: less than 30 % fewer")
-                da = (r0["quadArea"] - r1["quadArea"]) / max(r0["quadArea"], 1e-9)
-                note(f"hero: passes {i0['passes']} -> {i1['passes']}, full-res reads {i0['fullReads']} -> {i1['fullReads']}, render targets {i0['targets']} -> {i1['targets']}, GL full-screen quad draws {r0['quads']} -> {r1['quads']}, quad area (screens) {r0['quadArea']} -> {r1['quadArea']} ({da:.0%} less), draws {r0['draws']} -> {r1['draws']}")
-                if da < 0.30: problems.append(f"GL-measured full-screen quad area only {da:.0%} lower (need >= 30 %)")
+                # the scene itself draws a few full-viewport quads (nebula plane, glow and lamp sprites): quads seen by GL minus the chain's declared draws; they must be equal in both modes and are taken out of the area
+                sc0, sc1 = r0["quads"] - i0["draws"], r1["quads"] - i1["draws"]
+                if sc0 != sc1: problems.append(f"the plan does not match GL: scene quads {sc0} (legacy) vs {sc1} (uber); the chain's declared draws {i0['draws']} / {i1['draws']} vs GL quads {r0['quads']} / {r1['quads']}")
+                a0, a1 = r0["quadArea"] - sc0, r1["quadArea"] - sc1; da = (a0 - a1) / max(a0, 1e-9)
+                note(f"hero: passes {i0['passes']} -> {i1['passes']}, full-res reads {i0['fullReads']} -> {i1['fullReads']}, render targets {i0['targets']} -> {i1['targets']} (GL {r0['targets']} -> {r1['targets']}), post-chain full-screen draws {i0['draws']} -> {i1['draws']} (GL quads {r0['quads']} -> {r1['quads']}), post-chain area written (screens) {a0:.2f} -> {a1:.2f} ({da:.0%} less), all draws {r0['draws']} -> {r1['draws']}")
+                if da < 0.30: problems.append(f"GL-measured post-chain area only {da:.0%} lower (need >= 30 %)")
                 if r1["draws"] > r0["draws"] or r1["targets"] > r0["targets"]: problems.append(f"uber must not add draws or render targets: draws {r0['draws']} -> {r1['draws']}, targets {r0['targets']} -> {r1['targets']}")
         else:
             ctx, q = open_page(b)
