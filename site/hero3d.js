@@ -149,7 +149,7 @@
      MEANING: the glow of each of the library's 8 fields takes that field's colour, scaled by how many records the field holds (fieldFW, 1 = average), and follows the record stars as they stream (same spin as the record layer).
      Hovering a field marker lights its arm and dims the rest (uFocus, the same uniform the record stars use).
      beacons: ~300 of the brightest stars as instanced quads with 4 diffraction spikes (+ faint 45 degree ones on the very brightest) and a PSF core/halo; slow gentle breathing only (photosensitivity: no fast flicker). */
-  let disc=null,beacons=null,beaconN=0;const BKEEP=[1,.5,0,0,0],fieldFC=Array.from({length:8},()=>new THREE.Vector3()),fieldFW=new Float32Array(8).fill(1);
+  let disc=null,beacons=null,beaconN=0,grain=null,deepField=null;const BKEEP=[1,.5,0,0,0],fieldFC=Array.from({length:8},()=>new THREE.Vector3()),fieldFW=new Float32Array(8).fill(1);
   const DISC_FRAG=`varying vec2 vUv;uniform float uTime,uR,uLight,uFade,uFocus,uBar;uniform sampler2D uSky;uniform vec3 uFC[8];uniform float uFW[8];
    float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
    float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1.,0.)),f.x),mix(h(i+vec2(0.,1.)),h(i+vec2(1.,1.)),f.x),f.y);}
@@ -180,20 +180,24 @@
     col=mix(col,vec3(1.,.5,.38),clamp(sky.r*.7,0.,1.)*.5);
     col+=vec3(1.,.38,.55)*knot*1.4;
     col+=tint*armG*.3*smoothstep(.8,2.,r)*(1.-smoothstep(5.2,6.3,r))*(uFocus>-.5?(.4+1.8*fb):1.);
-    vec3 outc=col*lum*.36;
+    vec3 outc=col*lum*.2;
     gl_FragColor=mix(vec4(outc*uFade,1.),vec4(vec3(.22,.17,.26),clamp(lum*.3*uFade,0.,.5)),uLight);}`;
   const BEACON_VERT=`attribute float aR,aA,aY,aM,aT;attribute vec3 aC;uniform float uTime,uScale,uFade;varying vec2 vP;varying vec3 vC;varying float vM,vPx;
    void main(){float ang=aA+uTime*.2/(.7+aR*.5);vec4 wp=modelMatrix*vec4(cos(ang)*aR,aY+.022*aR*aR*sin(ang-.6),sin(ang)*aR,1.);vec4 mv=viewMatrix*wp;
-    float tw=.92+.08*sin(uTime*(.35+aT*.9)+aT*60.);float s=(.22+1.05*aM)*tw;
+    float tw=.92+.08*sin(uTime*(.35+aT*.9)+aT*60.);float s=(.14+1.25*aM*aM)*tw;
     vPx=uScale*s/-mv.z;vP=position.xy;vC=aC;vM=aM;mv.xy+=position.xy*s;gl_Position=projectionMatrix*mv;}`;
-  const BEACON_FRAG=`varying vec2 vP;varying vec3 vC;varying float vM,vPx;uniform float uFade,uGain;
+  const BEACON_FRAG=`varying vec2 vP;varying vec3 vC;varying float vM,vPx;uniform float uFade,uGain,uLight;
    float sp(vec2 c,float k,float w){return exp(-abs(c.x)*k)*exp(-c.y*c.y/(w*w));}
    void main(){vec2 c=vP;float d=length(c);float w=clamp(1.15/vPx,.003,.08);
     float core=exp(-d*d*vPx*vPx*.35);float halo=exp(-d*vPx*.16)*.1+exp(-d*3.4)*.04;
-    float spk=sp(c,4.2,w)+sp(c.yx,4.2,w);vec2 e=vec2(c.x+c.y,c.y-c.x)*.7071;spk+=(sp(e,7.,w*1.3)+sp(e.yx,7.,w*1.3))*.4*smoothstep(.35,.7,vM);
+    float spk=sp(c,4.2,w)+sp(c.yx,4.2,w);vec2 e=vec2(c.x+c.y,c.y-c.x)*.7071;spk+=(sp(e,7.,w*1.3)+sp(e.yx,7.,w*1.3))*.4*smoothstep(.6,.9,vM);spk*=smoothstep(.4,.8,vM);
     float edge=1.-smoothstep(.75,1.,max(abs(c.x),abs(c.y)));
     vec3 col=vC*(core*2.4+halo)+mix(vC,vec3(1.),.4)*spk*(.3+.9*vM);
-    gl_FragColor=vec4(col*(.3+.9*vM)*edge*uGain*uFade,1.);}`;
+    vec3 dk=col*(.3+.9*vM)*edge*uGain*uFade;
+    /* light theme: an atlas star symbol — a small ink dot sized by magnitude and a fine cross on the brighter ones, no halo */
+    float dotc=exp(-d*d*vPx*vPx*1.1)*(.55+.45*vM);float crs=(sp(c,9.,w*.7)+sp(c.yx,9.,w*.7))*smoothstep(.4,.8,vM);
+    float al=clamp((dotc+crs*.8)*edge*uFade,0.,.92);
+    gl_FragColor=mix(vec4(dk,1.),vec4(.1,.09,.2,al),uLight);}`;
   const simVert=`attribute vec2 aRef;attribute float aS;attribute float aBv;attribute float aT;
    uniform float uTime,uScale,uMouseOn,uLight,uWell,uGain,uArmA,uDust;uniform vec3 uMouse,uPulse;uniform sampler2D tPos,uHome,uSky,uLut;varying vec3 vC;varying float vA;varying float vBig;
    void main(){
@@ -211,8 +215,53 @@
     col*=1.+(sky.g-.5)*2.*uArmA;            /* density wave: arms brighter, inter-arm dimmer */
     col*=exp(-max(0.,r-6.1)*.55)*(1.+.22*smoothstep(2.1,0.,r));
     vec4 mv=viewMatrix*wp;gl_Position=projectionMatrix*mv;
-    float sz=mix(1.,.95,uLight)*aS*uScale/-mv.z*tw*(1.+ring*2.2+g*.7);sz=sz<9.?sz:9.+(sz-9.)*.22;gl_PointSize=clamp(sz,1.,34.);
+    float sz=mix(1.,.95,uLight)*aS*.5*uScale/-mv.z*tw*(1.+ring*2.2+g*.7);sz=sz<9.?sz:9.+(sz-9.)*.22;gl_PointSize=clamp(sz,1.,34.);
     vC=mix(col,vec3(1.),clamp(ring*.5,0.,1.));vA=tw+ring*1.4+g*.4;vBig=smoothstep(.07,.12,aS);}`;
+  /* ---------- R7.d2 · the grain: ~600 000 extra faint stars generated PROCEDURALLY in the vertex shader (gl_VertexID → hashed population → the same arm/bulge/haze/halo laws as the sim layer).
+     No attribute data (a 1.8 MB dummy position buffer), no compute, no texture: the unresolved powder that makes a galaxy look like one. A power-law magnitude tail: most stars are one pixel, a few are bright.
+     Dark: additive black-body stars, dust-extinguished and arm-modulated exactly like the sim stars. Light: STIPPLE ENGRAVING — the same stars as indigo→sepia ink dots on the parchment; density alone draws the tones (dense arms dark, dust lanes paper-light). */
+  /* R7.d2 deep field: ~90 distant galaxies fixed behind the scene (one instanced draw). Dark: soft additive ellipses, warm ellipticals and blue spirals with a faint twist.
+     Light: the symbols of an engraved atlas — a fine ink ellipse with a faint wash. Pure decoration of depth: they never move with the galaxy, only with the camera parallax. */
+  const DF_N=small?40:90,DF_VERT=`attribute vec3 aP;attribute vec4 aQ;attribute vec3 aC;varying vec2 vP;varying vec4 vQ;varying vec3 vC;uniform float uTime;
+   void main(){vec4 mv=viewMatrix*modelMatrix*vec4(aP,1.);float sz=aQ.x;vP=position.xy;vQ=aQ;vC=aC;mv.xy+=position.xy*sz;gl_Position=projectionMatrix*mv;}`,
+  DF_FRAG=`varying vec2 vP;varying vec4 vQ;varying vec3 vC;uniform float uFade,uLight;
+   void main(){float cr=cos(vQ.z),sr=sin(vQ.z);vec2 q=vec2(cr*vP.x+sr*vP.y,-sr*vP.x+cr*vP.y);q.y/=vQ.y;float d=length(q);
+    float tw=vQ.w*d*5.;q=vec2(cos(tw)*q.x-sin(tw)*q.y,sin(tw)*q.x+cos(tw)*q.y);
+    float core=exp(-pow(d*3.4,.5)*2.1)*(.7+.3*cos(2.*atan(q.y,q.x)*step(.001,vQ.w)));float edge=1.-smoothstep(.8,1.,d);
+    float dk=core*edge;
+    float ring=exp(-pow((d-.42)/.045,2.))*.55+exp(-d*d*9.)*.28;float al=clamp((ring+dk*.18)*edge,0.,.7);
+    gl_FragColor=mix(vec4(vC*dk*1.7*uFade,1.),vec4(.14,.12,.24,al*uFade*.5),uLight);}`;
+  const GRAIN_N=small?150000:600000,GKEEP=[1,.5,.15,0,0];
+  const GRAIN_VERT=`
+   uniform float uTime,uScale,uLight,uFade,uDust,uArmA;uniform sampler2D uSky,uLut;varying vec3 vC;varying float vA;
+   uint grPcg(uint v){uint st=v*747796405u+2891336453u;uint w=((st>>((st>>28u)+4u))^st)*277803737u;return(w>>22u)^w;}
+   float grHash(float id,float s){return float(grPcg(grPcg(uint(id))+uint(s*10.+.5)*2246822519u))*(1./4294967296.);}   /* integer PCG hash: the float fract-hashes (bk_hash12/13) correlated their streams and lined stars up along a diagonal through the core */
+   float grGauss(float id,float s){return(grHash(id,s)+grHash(id,s+1.3)+grHash(id,s+2.6)+grHash(id,s+3.9)-2.)*1.7;}
+   float grPhase(float r){return r*(1.+.06*sin(r*1.7));}
+   void main(){
+    float id=float(gl_VertexID)+1.;
+    float u=grHash(id,.1),k=grHash(id,1.1),m=grHash(id,2.1),t=grHash(id,3.1);float r,a,y,bv;
+    if(u<.08){float rho=pow(k,1.6)*1.9,ct=2.*grHash(id,7.1)-1.;r=rho*sqrt(1.-ct*ct);a=6.2831853*m;y=rho*ct*.5;bv=.6+t*.25;}   /* a flattened SPHERE: the old cylindrical (r,y) pair piled stars into a needle along the disc normal */
+    else if(u<.2){r=1.+k*7.36;a=6.2831853*m;y=grGauss(id,5.)*.12*max(0.,1.-r/9.6);bv=.42+t*.28;}
+    else if(u<.225){r=6.4*(.9+k*1.7);a=6.2831853*m;y=grGauss(id,5.)*(1.4+r*.12);bv=.65+t*.3;}
+    else{float aw=grHash(id,4.1)*.87,b=0.,len=1.;
+     if(aw>=.36&&aw<.66){b=3.2615927;len=.82;}else if(aw>=.66&&aw<.78){b=2.0707963;len=.5;}else if(aw>=.78){b=4.512389;len=.44;}
+     r=(.8+pow(k,.7)*6.24)*len;float e=(.8+.2*sin(2.*(b+grPhase(r))+1.3)+.12*sin(3.*(b+grPhase(r))+.4))/.8;r*=e;
+     a=b+grPhase(r)+grGauss(id,9.)*(.13+.08*r);y=grGauss(id,13.)*.1*max(0.,1.-r/8.32);bv=.1+pow(t,2.2)*.42;}
+    float ang=a+uTime*.2/(.7+r*.5);
+    vec4 wp=modelMatrix*vec4(cos(ang)*r,y+.022*r*r*sin(ang-.6),sin(ang)*r,1.);
+    vec4 mv=viewMatrix*wp;gl_Position=projectionMatrix*mv;
+    vec4 sky=texture2D(uSky,clamp(vec2(cos(a)*r,sin(a)*r)*${SKUV}+.5,0.,1.));
+    float tau=sky.r*uDust;vec3 col=texture2D(uLut,vec2(clamp(bv,0.,1.),.5)).rgb;
+    col*=mix(vec3(1.),vec3(1.,.75,.53),smoothstep(.12,.6,sky.r))*exp(-tau*1.1);
+    col*=1.+(sky.g-.5)*2.*uArmA;col*=exp(-max(0.,r-6.1)*.55)*(1.+.22*smoothstep(2.1,0.,r));
+    float mg=pow(grHash(id,6.1),7.),tw=.86+.14*sin(uTime*(.5+t*2.)+t*60.);
+    gl_PointSize=clamp((1.+mg*2.4)*tw*uScale/1700.,1.,5.);
+    vec3 ink=mix(vec3(.08,.11,.26),vec3(.34,.19,.09),smoothstep(.32,.9,bv));
+    vC=mix(col,ink,uLight);
+    float dens=(.55+.9*sky.g)*exp(-tau*1.5);
+    vA=mix((.12+mg*.9)*tw,(.3+mg*.55)*dens,uLight);}`;
+  const GRAIN_FRAG=`varying vec3 vC;varying float vA;uniform float uGain,uFade;void main(){float d=length(gl_PointCoord-.5);float a=smoothstep(.5,0.,d);gl_FragColor=vec4(vC*uGain,clamp(a*vA*uFade,0.,1.));}`;
   async function buildSim(){
    if(!(window.BKSim&&window.BKShaders&&window.BKGL))return;
    if(!BKGL.flags.get('bksim'))return;
@@ -283,16 +332,28 @@
      for(let i=0;i<beaconN;i++){const u=srnd();let r,a,y,inner=false;
       if(u<.2){inner=true;r=Math.pow(srnd(),1.6)*1.8;a=srnd()*Math.PI*2;y=sgauss()*.25*Math.max(0,1-r/2.4)}
       else{const k=srnd(),arm=k<.55?0:k<.85?1:k<.93?2:3;r=(1.1+Math.pow(srnd(),.8)*RMAX*.95)*ARMS[arm].len;a=ARMS[arm].b+phase(r)+sgauss()*(.1+.05*r);y=sgauss()*.05}
-      B.r[i]=r;B.a[i]=a;B.y[i]=y;B.m[i]=Math.pow(srnd(),2.6);B.t[i]=srnd();
+      B.r[i]=r;B.a[i]=a;B.y[i]=y;B.m[i]=Math.pow(srnd(),3.2);B.t[i]=srnd();
       const k=srnd(),c=inner?(k<.7?ORANGE:WARM):(k<.45?ICE:k<.75?BLUE:k<.9?WARM:ORANGE);B.c[i*3]=c.r;B.c[i*3+1]=c.g;B.c[i*3+2]=c.b}
      const bg=new THREE.InstancedBufferGeometry(),pq=new THREE.PlaneGeometry(2,2);bg.index=pq.index;bg.setAttribute('position',pq.attributes.position);
      const ia=(n,a,sz)=>bg.setAttribute(n,new THREE.InstancedBufferAttribute(a,sz));ia('aR',B.r,1);ia('aA',B.a,1);ia('aY',B.y,1);ia('aM',B.m,1);ia('aT',B.t,1);ia('aC',B.c,3);bg.instanceCount=beaconN;
-     const bmat=new THREE.ShaderMaterial({vertexShader:BEACON_VERT,fragmentShader:BEACON_FRAG,uniforms:{uTime:uniforms.uTime,uScale:uniforms.uScale,uFade:uniforms.uFade,uGain:{value:.7}},transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+     const bmat=new THREE.ShaderMaterial({vertexShader:BEACON_VERT,fragmentShader:BEACON_FRAG,uniforms:{uTime:uniforms.uTime,uScale:uniforms.uScale,uFade:uniforms.uFade,uLight:uniforms.uLight,uGain:{value:.7}},transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
      beacons=new THREE.Mesh(bg,bmat);beacons.frustumCulled=false;beacons.renderOrder=3;tilt.add(beacons);mats.push(bmat);
-     simFxData={disc:true,beacons:beaconN,armA:.32,tau:+tauMax.toFixed(3),gain:[+gMin.toFixed(3),+gMax.toFixed(3)],hii:hiiN,lut:{blue:[raw[0]/255,raw[1]/255,raw[2]/255],mid:[raw[112*4]/255,raw[112*4+1]/255,raw[112*4+2]/255],red:[raw[255*4]/255,raw[255*4+1]/255,raw[255*4+2]/255]}};
+     /* deep field: instanced quads in the scene (not the tilt group) */
+     {const n=DF_N,P=new Float32Array(n*3),Q=new Float32Array(n*4),C=new Float32Array(n*3),WARMG=hex('#ffd9a0'),BLUEG=hex('#9fb8ff');
+      for(let i=0;i<n;i++){P[i*3]=(srnd()-.5)*58;P[i*3+1]=(srnd()-.5)*30;P[i*3+2]=-12-srnd()*14;
+       const spiral=srnd()<.55;Q[i*4]=.25+Math.pow(srnd(),2.2)*1.3;Q[i*4+1]=spiral?.35+srnd()*.6:.55+srnd()*.4;Q[i*4+2]=srnd()*Math.PI;Q[i*4+3]=spiral?(srnd()<.5?-1:1)*(1.2+srnd()*1.6):0;
+       const c=spiral?BLUEG:WARMG,m=.6+srnd()*.4;C[i*3]=c.r*m;C[i*3+1]=c.g*m;C[i*3+2]=c.b*m}
+      const dg2=new THREE.InstancedBufferGeometry(),pq2=new THREE.PlaneGeometry(2,2);dg2.index=pq2.index;dg2.setAttribute('position',pq2.attributes.position);
+      dg2.setAttribute('aP',new THREE.InstancedBufferAttribute(P,3));dg2.setAttribute('aQ',new THREE.InstancedBufferAttribute(Q,4));dg2.setAttribute('aC',new THREE.InstancedBufferAttribute(C,3));dg2.instanceCount=n;
+      const dmat=new THREE.ShaderMaterial({vertexShader:DF_VERT,fragmentShader:DF_FRAG,uniforms:{uTime:uniforms.uTime,uFade:uniforms.uFade,uLight:uniforms.uLight},transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+      deepField=new THREE.Mesh(dg2,dmat);deepField.frustumCulled=false;deepField.renderOrder=-2;scene.add(deepField);mats.push(dmat)}
+     const gg2=new THREE.BufferGeometry();gg2.setAttribute('position',new THREE.Int8BufferAttribute(new Int8Array(GRAIN_N*3),3));gg2.setDrawRange(0,GRAIN_N);
+     const gmat=new THREE.ShaderMaterial({vertexShader:GRAIN_VERT,fragmentShader:GRAIN_FRAG,uniforms:{uTime:uniforms.uTime,uScale:uniforms.uScale,uLight:uniforms.uLight,uFade:uniforms.uFade,uDust:{value:1.15},uArmA:{value:.4},uSky:{value:skyTex},uLut:{value:lutTex},uGain:{value:.8}},transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+     grain=new THREE.Points(gg2,gmat);grain.frustumCulled=false;tilt.add(grain);mats.push(gmat);
+     simFxData={disc:true,beacons:beaconN,grain:GRAIN_N,deepField:DF_N,armA:.32,tau:+tauMax.toFixed(3),gain:[+gMin.toFixed(3),+gMax.toFixed(3)],hii:hiiN,lut:{blue:[raw[0]/255,raw[1]/255,raw[2]/255],mid:[raw[112*4]/255,raw[112*4+1]/255,raw[112*4+2]/255],red:[raw[255*4]/255,raw[255*4+1]/255,raw[255*4+2]/255]}};
      /* software GL (CI, audit tools): the governor needs four 3-8 s frames to leave tier 0 — by then it has starved every other surface on the page. Start at tier 3 there (compute off, 14 000 points: the v123 frame cost). NOT in ?still (the visual goldens must show what a real GPU renders) and NOT for the B14 tier test (it sets levels explicitly). */
      if(!BKGL.still&&/swiftshader|llvmpipe|basic render|software/i.test((BKGL.probe(renderer).gpu||'')))setLevel(3,0);
-    }catch(e){console.warn('BKSim:',e);if(sim){try{sim.dispose()}catch{}}sim=null;window.__bkSim=null;try{lutTex&&lutTex.dispose();skyTex&&skyTex.dispose()}catch{}dust.visible=true;neb.visible=true;if(disc){tilt.remove(disc);disc=null}if(beacons){tilt.remove(beacons);beacons=null}}}
+    }catch(e){console.warn('BKSim:',e);if(sim){try{sim.dispose()}catch{}}sim=null;window.__bkSim=null;try{lutTex&&lutTex.dispose();skyTex&&skyTex.dispose()}catch{}dust.visible=true;neb.visible=true;if(grain){tilt.remove(grain);grain=null}if(deepField){scene.remove(deepField);deepField=null}if(disc){tilt.remove(disc);disc=null}if(beacons){tilt.remove(beacons);beacons=null}}}
 
   /* core glow */
   const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),r=g.createRadialGradient(64,64,0,64,64,64);r.addColorStop(0,'rgba(255,236,196,.95)');r.addColorStop(.25,'rgba(232,206,158,.35)');r.addColorStop(1,'rgba(232,206,158,0)');g.fillStyle=r;g.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})();
@@ -309,7 +370,7 @@
    rows.forEach((r,i)=>{let g=0;try{g=recordArtIndex(r)}catch{}
     const rr=.6+Math.pow(rnd(),.78)*(RMAX*1.02-.6);
     rec.r[i]=rr;rec.a[i]=g*sec+.35+phase(rr)+gauss()*(.12+.04*rr);rec.y[i]=gauss()*.08*(1-rr/(RMAX*1.3));rec.g[i]=g;
-    s[i]=(r.collection==='books'?.082:.064)+rnd()*.055;t[i]=rnd();idx[i]=i;
+    s[i]=((r.collection==='books'?.082:.064)+rnd()*.055)*(sim?.6:1);t[i]=rnd();idx[i]=i;
     const col=FIELD[g];c[i*3]=col.r;c[i*3+1]=col.g;c[i*3+2]=col.b});
    attr(rec.geo,'position',new Float32Array(n*3),3);attr(rec.geo,'aR',rec.r,1);attr(rec.geo,'aA',rec.a,1);attr(rec.geo,'aY',rec.y,1);attr(rec.geo,'aS',s,1);attr(rec.geo,'aC',c,3);attr(rec.geo,'aT',t,1);attr(rec.geo,'aG',rec.g,1);attr(rec.geo,'aI',idx,1);
    rec.geo.boundingSphere=new THREE.Sphere(new THREE.Vector3(),RMAX*6);
@@ -452,7 +513,7 @@
   function applyTheme(){
    const light=root.dataset.theme==='light';uniforms.uLight.value=light?1:0;domeTheme(light);if(fx)fx.setTheme(light?'light':'dark');
    mats.forEach(m=>{m.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;m.needsUpdate=true});
-   lanes.visible=!light;if(beacons)beacons.visible=!light&&beacons.geometry.instanceCount>0;glow.material.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;glow.material.color.set(light?0xffd9a0:0xffffff);glow.material.needsUpdate=true;
+   lanes.visible=!light;if(beacons)beacons.visible=beacons.geometry.instanceCount>0;glow.material.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;glow.material.color.set(light?0xffd9a0:0xffffff);glow.material.needsUpdate=true;
    if(hotGlow){hotGlow.material.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;hotGlow.material.color.set(light?0xffb86e:0xffffff);hotGlow.material.needsUpdate=true}
    meteors.forEach(m=>{if(light)m.l.visible=false});
    syncBloom()}
@@ -549,7 +610,7 @@
     an.onfinish=()=>g.remove();setTimeout(()=>g.remove(),900);
     setTimeout(()=>{caSpike=Math.max(caSpike,1.4)},470)}catch{}});
   /* test hook: only exposed when localStorage bk-test=1 (the audit tools set it) */
-  if((()=>{try{return localStorage.getItem('bk-test')==='1'}catch{return false}})())window.BKHero={fly:i=>fly(i),count:()=>rec.n,info:()=>heroInfo(),simSample:()=>sim?sim.sample():null,layer:(k,v)=>{const o={disc,beacons,hot:hotGlow,glow,hii,neb}[k];if(!o)return false;o.visible=!!v;draw();return true},simFx:()=>simFxData&&{...simFxData,fieldW:Array.from(fieldFW),beaconsShown:beacons?beacons.geometry.instanceCount:0,discShown:!!(disc&&disc.visible)},simKick:()=>{if(!sim)return false;tilt.updateMatrixWorld(true);const p=tilt.localToWorld(new THREE.Vector3(0,0,0));uniforms.uPulse.value.set(p.x,p.y,time);return true},gov:{pin:v=>{pinned=!!v},level:()=>degrade,setLevel:l=>{setLevel(l,performance.now());return degrade},feed:(avg,now,gpu)=>govern(avg,now,gpu),lock:()=>recLock,reset:()=>{good=0;recLock=0;lastRec=-1e9;if(degrade!==0)setLevel(0,0);lastChange=-1e9;return degrade}}};/* test hook (tools/motion_audit.py, tools/feature_audit.py B14) */
+  if((()=>{try{return localStorage.getItem('bk-test')==='1'}catch{return false}})())window.BKHero={fly:i=>fly(i),count:()=>rec.n,info:()=>heroInfo(),simSample:()=>sim?sim.sample():null,layer:(k,v)=>{const o={disc,beacons,hot:hotGlow,glow,hii,neb,grain,deep:deepField,sim:sim&&sim.points}[k];if(!o)return false;o.visible=!!v;draw();return true},simFx:()=>simFxData&&{...simFxData,grainShown:grain?grain.geometry.drawRange.count:0,deepShown:!!(deepField&&deepField.visible),fieldW:Array.from(fieldFW),beaconsShown:beacons?beacons.geometry.instanceCount:0,discShown:!!(disc&&disc.visible)},simKick:()=>{if(!sim)return false;tilt.updateMatrixWorld(true);const p=tilt.localToWorld(new THREE.Vector3(0,0,0));uniforms.uPulse.value.set(p.x,p.y,time);return true},gov:{pin:v=>{pinned=!!v},level:()=>degrade,setLevel:l=>{setLevel(l,performance.now());return degrade},feed:(avg,now,gpu)=>govern(avg,now,gpu),lock:()=>recLock,reset:()=>{good=0;recLock=0;lastRec=-1e9;if(degrade!==0)setLevel(0,0);lastChange=-1e9;return degrade}}};/* test hook (tools/motion_audit.py, tools/feature_audit.py B14) */
   /* what the post chain costs, from the objects that run (tools/gpu_budget_audit.py --fx-compare): logical passes, full-screen draws, full-resolution reads, render targets */
   function heroInfo(){const o={fx:fx?'uber':composer?'legacy':'none',bloom:useBloom,level:degrade,sim:sim?'gpu':'cpu',particles:sim?SIMN[Math.min(degrade,4)]:GN,drawn:sim?sim.drawn:Math.floor(GN*QKEEP[degrade])};
    if(fx){const i=fx.info();return{...o,passes:useBloom?i.passes:1,draws:useBloom?i.draws:0,fullReads:useBloom?i.fullReads:0,targets:i.targets,streak:!!(useBloom&&i.streak)}}
@@ -614,7 +675,7 @@
      Fast windows step back UP one level at a time, only after 4 consecutive fast windows and 20 s since the last change;
      a recovery that is undone within 15 s locks recovery for 2 minutes, so a borderline GPU never flip-flops. */
   const QPX=[1.6,1.6,1,.7,.55],QKEEP=[1,1,1,.55,.3];let lastChange=-1e9,lastRec=-1e9,recLock=0,good=0;
-  function setLevel(l,now){degrade=l;bloomOff=l>=1;quality=QPX[l];dust.geometry.setDrawRange(0,Math.floor(GN*QKEEP[l]));lanes.geometry.setDrawRange(0,Math.floor(LN*QKEEP[l]));  if(sim){sim.setDrawRange(SIMN[Math.min(l,4)]);sim.setActive(l<=0);hii&&hii.geometry.setDrawRange(0,Math.floor(hiiN*HKEEP[Math.min(l,4)]));if(beacons){beacons.geometry.instanceCount=Math.floor(beaconN*BKEEP[Math.min(l,4)]);beacons.visible=root.dataset.theme!=='light'&&beacons.geometry.instanceCount>0}if(disc)disc.visible=l<=2}
+  function setLevel(l,now){degrade=l;bloomOff=l>=1;quality=QPX[l];dust.geometry.setDrawRange(0,Math.floor(GN*QKEEP[l]));lanes.geometry.setDrawRange(0,Math.floor(LN*QKEEP[l]));  if(sim){sim.setDrawRange(SIMN[Math.min(l,4)]);sim.setActive(l<=0);hii&&hii.geometry.setDrawRange(0,Math.floor(hiiN*HKEEP[Math.min(l,4)]));if(beacons){beacons.geometry.instanceCount=Math.floor(beaconN*BKEEP[Math.min(l,4)]);beacons.visible=beacons.geometry.instanceCount>0}if(disc)disc.visible=l<=2;if(deepField)deepField.visible=l<=1;if(grain){const gn=Math.floor(GRAIN_N*GKEEP[Math.min(l,4)]);grain.geometry.setDrawRange(0,gn);grain.visible=gn>0}   /* hidden, not just empty: three compiles a visible Points program even for a zero draw range, and that compile is what B11's first-5-seconds long-task budget caught */}
    if(fx)fx.streak.enabled=l<=0;
 lastChange=now;if(MO)MO.quality.set(l);syncBloom();layout()}
   /* GPU ms first (EXT_disjoint_timer_query_webgl2: the real cost of the frame, vsync and CPU noise excluded), rAF time only where the GPU has no timer.

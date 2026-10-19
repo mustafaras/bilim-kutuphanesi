@@ -401,11 +401,13 @@ def b16(b):
         w = f.get("fieldW") or []
         if len(w) != 8 or any((not isinstance(v, (int, float))) or v < .4 or v > 1.7 for v in w): problems.append(f"B16 the 8 field weights must be finite numbers in [.4, 1.7]: {w}")
         elif max(w) - min(w) < .1: problems.append(f"B16 every field has the same glow weight — the record counts never reached the shader: {w}")
+        if f.get("grain", 0) < 150000 or f.get("grainShown") != f.get("grain"): problems.append(f"B16 tier 0 must draw the whole procedural grain layer (>= 150000 stars): {f}")
+        if f.get("deepField", 0) < 40 or not f.get("deepShown"): problems.append(f"B16 the deep-field galaxies must be present and shown at tier 0: {f}")
         if not i0.get("streak"): problems.append(f"B16 the anamorphic streak must run on the dark bloom chain at tier 0: {i0}")
         if i0.get("passes", 99) > 5: problems.append(f"B16 the chain with the streak must stay within 5 passes: {i0}")
         if i0.get("targets") != 12: problems.append(f"B16 the streak must reuse the bloom's quarter-resolution mips (12 render targets), got {i0.get('targets')}")
         q.evaluate("BKHero.gov.setLevel(3)"); f3 = q.evaluate("BKHero.simFx()"); i3 = q.evaluate("BKHero.info()")
-        if f3.get("beaconsShown") != 0 or f3.get("discShown"): problems.append(f"B16 tier 3 must hide the beacons and the diffuse layer: {f3}")
+        if f3.get("beaconsShown") != 0 or f3.get("discShown") or f3.get("grainShown") != 0 or f3.get("deepShown"): problems.append(f"B16 tier 3 must hide the beacons, the diffuse layer, the grain and the deep field: {f3}")
         if i3.get("streak"): problems.append(f"B16 tier 3 must switch the streak off: {i3}")
     else:
         note(f"B16 this GL has no float render targets ({probe.get('gpu')}) — only the CPU-fallback branch applies here")
