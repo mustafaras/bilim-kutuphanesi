@@ -8,6 +8,8 @@ Math.random, effects paused, tiles at dt 0) at 1440x900 and 1024x768 in dark and
  2 known defects break the gate: hidden atlas canvases and a shelf forced to the CSS fallback must differ by far more than the tolerance
  3 golden images (tools/golden/<config>__<surface>.png, half size): compared when they exist (per-channel tolerance 10, the open-book spreads 3; < 0.5 % changed pixels); --update rewrites them.
     Goldens come from CI (same software GL): download the 'visual-candidates' artifact of a green run and commit its files. Without goldens the gate says so and checks 1 + 2 only.
+The server port is fixed (--port, default 8613): the address shows up in the page text, a random port made captures differ by glyph pixels.
+Per-surface tolerance / limit table: SURFACES below.
 Captures go to tools/golden/_out/ (git-ignored), differences to tools/golden/_diff/."""
 import argparse, os, socket, subprocess, sys, time, shutil
 from pathlib import Path
@@ -15,23 +17,37 @@ import numpy as np
 from PIL import Image
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent; GOLD = ROOT / "tools" / "golden"; OUT = GOLD / "_out"; DIFF = GOLD / "_diff"
-ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--quick", action="store_true", help="1440x900 dark only"); ap.add_argument("--config", help="one configuration, e.g. 1440x900:dark (CI runs the four as parallel jobs)"); ap.add_argument("--update", action="store_true"); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--quick", action="store_true", help="1440x900 dark only"); ap.add_argument("--config", help="one configuration, e.g. 1440x900:dark (CI runs the four as parallel jobs)"); ap.add_argument("--update", action="store_true"); ap.add_argument("--port", type=int, default=8613, help="fixed server port (default 8613)"); a = ap.parse_args()
 srv = None
 if not a.url:
-    s_ = socket.socket(); s_.bind(("127.0.0.1", 0)); port = s_.getsockname()[1]; s_.close()
-    srv = subprocess.Popen([sys.executable, "-m", "http.server", str(port), "--directory", str(ROOT / "site")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    a.url = f"http://127.0.0.1:{port}/"; time.sleep(1)
+    # fixed port: the address is part of the page text (permalinks, share card), so a random port makes two captures differ by a few glyph pixels. Two local runs at once need different --port values.
+    s_ = socket.socket()
+    try: s_.bind(("127.0.0.1", a.port))
+    except OSError: sys.exit(f"port {a.port} is busy: stop the other server or pass --port (the port must stay the same between the captures you compare)")
+    finally: s_.close()
+    srv = subprocess.Popen([sys.executable, "-m", "http.server", str(a.port), "--directory", str(ROOT / "site")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    a.url = f"http://127.0.0.1:{a.port}/"; time.sleep(1)
 problems = []; note = lambda m: print(m, flush=True)
 TOL, STABLE, GOLDEN = 10, 0.001, 0.005
-# procedural particle / label layouts that are not seeded (constellation planets and caption picks, Nobel galaxy stray stars): looser limits, still far below any real defect (a hidden canvas changes > 4 %)
-LOOSE = {'constellation': (0.02, 0.03), 'nobel-galaxy': (0.01, 0.02)}
-def lim(name, k): return LOOSE.get(name.split('__')[1][:-4], (STABLE, GOLDEN))[k]
+# Per-surface limits (surface = the part after "__" in a file name; a key matches by prefix). tol = per-channel tolerance, stable = largest changed-pixel share between two captures of the same code,
+# golden = largest share against the committed golden. Defaults: tol 10, stable 0.1 %, golden 0.5 %. A surface appears here for one of two reasons:
+#  * loose: procedural particle / label layouts that are not seeded (constellation planets and caption picks, Nobel galaxy stray stars): looser limits, still far below any real defect (a hidden canvas changes > 4 %)
+#  * fine: the open book changes in fine detail (paper fibre, edge gilt, page thickness): measured v116 -> v119 on the same GL, only 0.1-0.3 % of its pixels differ by more than 10 levels (under the 0.5 % limit,
+#    so the gate was blind to it) but 3-11 % differ by more than 2-4, hence tolerance 3. Every other surface was identical across those versions (0.0000 at any tolerance).
+SURFACES = {
+    "constellation": dict(stable=0.02, golden=0.03),
+    "nobel-galaxy": dict(stable=0.01, golden=0.02),
+    "book-open": dict(tol=3),
+}
+def spec(name, key):
+    """limit `key` ('tol' | 'stable' | 'golden') for a file name like 1440x900-dark__hero.png"""
+    surf = name.split("__")[1][:-4]
+    for pre, o in SURFACES.items():
+        if surf.startswith(pre) and key in o: return o[key]
+    return {"tol": TOL, "stable": STABLE, "golden": GOLDEN}[key]
+def tol_for(name): return spec(name, "tol")
+def lim(name, k): return spec(name, ("stable", "golden")[k])
 CONFIGS = [(1440, 900, "dark"), (1440, 900, "light"), (1024, 768, "dark"), (1024, 768, "light")]
-
-# the open book changes in fine detail (paper fibre, edge gilt, page thickness): measured v116 -> v119 on the same GL, only 0.1-0.3 % of its pixels differ by more than 10 levels (under the 0.5 % limit,
-# so the gate was blind to it) but 3-11 % differ by more than 2-4. Its spreads therefore compare at a finer per-channel tolerance; every other surface was identical across those versions (0.0000 at any tolerance).
-FINE = 3
-def tol_for(name): return FINE if name.split('__')[1].startswith('book-open') else TOL
 
 def ratio(p1, p2, save=None, tol=None):
     """share of pixels whose largest channel difference exceeds the tolerance (0..1); sizes differing = 1"""

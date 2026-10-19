@@ -5,7 +5,7 @@
 A1 atlas objects dolly in as their tile arrives (camera z shrinks, opacity rises while scrolling down to the tiles);
 A2 a record opened from a hero star spawns a return ghost when it closes (and none when opened elsewhere);
 A3 the quality governor degrades at once, recovers one level at a time only after sustained fast windows, and locks recovery after a flip-flop;
-B8 context loss, B9 broken GPU, B10 quality tiers reach the stage (DPR cap, idle frame rate) and one ?diag panel; B11 GPU timing, ?perf panel and shader warm-up (Long Tasks, zero cost when ?perf is off); B12 shared material/light library (one studio bake per renderer and preset, ACES + exposure in one place and off by default, material levels, kill-switch flag); B5 the 3D book opens into a centred reading stage, pages turn and Escape closes it; B6 the medal uses a normal-map relief with a reeded rim; B7 the dome/telescope follows the pointer.
+B8 context loss, B9 broken GPU, B10 quality tiers reach the stage (DPR cap, idle frame rate) and one ?diag panel; B11 GPU timing, ?perf panel and shader warm-up (Long Tasks, zero cost when ?perf is off); B12 shared material/light library (one studio bake per renderer and preset, ACES + exposure in one place and off by default, material levels, kill-switch flag) and the BKShaders chunks compiling; B5 the 3D book opens into a centred reading stage, pages turn and Escape closes it; B6 the medal uses a normal-map relief with a reeded rim; B7 the dome/telescope follows the pointer.
 A4 clicking an atlas tile shows the dive (class .diving), delays the filter ~420 ms, then applies it exactly once."""
 import json, argparse, os, socket, subprocess, sys, time
 from pathlib import Path
@@ -171,6 +171,10 @@ def b12(b):
     q.wait_for_function('window.BKStage&&typeof records!=="undefined"&&records.length', timeout=120000)
     q.wait_for_function("window.BKMaterials&&document.querySelectorAll('.tile-3d.on').length>=6", timeout=120000)
     d = q.evaluate("BKMaterials.diag()"); note(f"B12 diag {d}")
+    # A3: every BKShaders chunk compiles in one fragment shader on a real WebGL2 context (nothing else uses the parts yet, so a typo would go unseen)
+    st = q.evaluate("window.BKShaders?BKShaders.selfTest():null"); note(f"B12 shaders {st}")
+    if not st or not st["ok"]: problems.append(f"B12 BKShaders chunks do not compile: {st}")
+    elif not {"hash", "noise", "lut3d", "blackbody"} <= set(st["chunks"]): problems.append(f"B12 BKShaders is missing chunks: {st['chunks']}")
     if not d["envs"] or not any(k.endswith("#book") for k in d["envs"]): problems.append(f"B12 the stage has no 'book' studio bake: {d}")
     if d["bakes"] != len(d["envs"]): problems.append(f"B12 duplicate studio bakes (bakes {d['bakes']} vs {len(d['envs'])} renderer/preset pairs): {d}")
     if any(t["mapping"] != 0 or t["exposure"] != 1 for t in d["tone"]): problems.append(f"B12 default tone mapping must stay NoToneMapping / exposure 1 (R3 goldens): {d['tone']}")

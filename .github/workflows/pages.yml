@@ -36,6 +36,8 @@ jobs:
         run: python tools/gl_audit.py
       - name: Shared material and light library (one studio bake routine, tone mapping in one place)
         run: python tools/materials_audit.py
+      - name: Shared shader library (no second copy of a part, program cache keys on every patched material)
+        run: python tools/shaders_audit.py
   # Browser gates run in parallel (each on software GL); the slowest slice now sets the time instead of the sum.
   browser:
     runs-on: ubuntu-latest
@@ -52,7 +54,7 @@ jobs:
             cmd: |
               python tools/text_fit_audit.py
               python tools/reduced_audit.py
-              python tools/leak_audit.py --rounds 8
+              python tools/leak_audit.py --rounds 40
           - name: Features (camera, governor, dive, book, medal, dome, context loss)
             cmd: python tools/feature_audit.py --only main
           - name: Broken GPU fallback (B9)
@@ -63,6 +65,8 @@ jobs:
             cmd: python tools/feature_audit.py --only b11
           - name: Material and light library (B12)
             cmd: python tools/feature_audit.py --only b12
+          - name: GPU budgets per surface (A6)
+            cmd: python tools/gpu_budget_audit.py
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v6
