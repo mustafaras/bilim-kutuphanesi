@@ -11,7 +11,7 @@ import json, argparse, os, socket, subprocess, sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
-ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11", "b12", "b13"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11", "b12", "b13", "b14"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
 srv = None
 if not a.url:
     s_ = socket.socket(); s_.bind(("127.0.0.1", 0)); port = s_.getsockname()[1]; s_.close()
@@ -258,6 +258,70 @@ def b13(b):
     if errs: problems.append(f"B13 page errors: {errs[:3]}")
     ctx.close()
 
+def b14(b):
+    """B14 R7.b GPGPU galaxy (site/sim.js, window.BKSim + vendored GPUComputationRenderer): the hero's star field is simulated in position/velocity float textures.
+    Checks: BKHero.info() reports sim 'gpu' with the tier particle counts (262144 / 131072 / 56000 / 14000, drawRange — drawn count must match); a shock-wave kick
+    actually moves particles on the GPU (float readback of the position texture, |offset| grows); flag bksim=0 falls back to the CPU dust layer (sim 'cpu', 56000);
+    in ?still=1 the simulation never steps and readback stays frozen (the visual gate's determinism)."""
+    ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q = ctx.new_page()
+    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
+    errs14 = []; q.on("pageerror", lambda e: errs14.append(str(e)[:160]))
+    q.goto(a.url + "?b14=" + str(time.time()), wait_until="load")
+    try: q.wait_for_function("window.BKHero&&BKHero.info&&BKHero.info().sim!==undefined&&!!document.querySelector('#heroGL.on')", timeout=180000)
+    except Exception: problems.append("B14 the hero never reported a sim mode (BKHero.info().sim missing or hero GL off)"); ctx.close(); return
+    q.evaluate("BKHero.gov.pin(true)")   # hold tier 0: the governor on software GL would drop to tier 3 in seconds
+    probe = q.evaluate("window.BKGL?BKGL.probe():null") or {}
+    if not probe.get("floatRT"):
+        note(f"B14 this GL has no float render targets ({probe.get('gpu')}) — the CPU fallback is the correct mode here")
+    i0 = q.evaluate("BKHero.info()"); note(f"B14 tier 0: {i0}")
+    if probe.get("floatRT"):
+        if i0.get("sim") != "gpu": problems.append(f"B14 a float-RT GL must run the GPU sim: {i0}")
+        for lvl, n in ((0, 262144), (1, 131072), (2, 56000), (3, 14000)):
+            info = q.evaluate(f"BKHero.gov.setLevel({lvl}),BKHero.info()")
+            note(f"B14 tier {lvl}: {info}")
+            if info.get("sim") != "gpu" or info.get("particles") != n or info.get("drawn") != n:
+                problems.append(f"B14 tier {lvl} must draw {n} GPU particles via drawRange: {info}")
+        q.evaluate("BKHero.gov.setLevel(0)")
+        s0 = q.evaluate("window.BKHero.simSample?BKHero.simSample():null")
+        if not s0: problems.append("B14 BKHero.simSample() missing or float readback of the position texture failed")
+        else:
+            note(f"B14 before kick: {s0}")
+            q.evaluate("BKHero.simKick()")
+            s1 = None
+            for _ in range(60):   # software GL: the ring takes many slow frames to sweep the disc
+                q.wait_for_timeout(2000); s1 = q.evaluate("BKHero.simSample()")
+                if s1 and s1.get("steps", 0) > s0.get("steps", 0) and s1.get("maxAbs", 0) > 0.1: break
+            note(f"B14 after kick: {s1}")
+            if not s1 or s1.get("steps", 0) <= s0.get("steps", 0): problems.append(f"B14 the GPGPU compute loop never advanced (steps {s0.get('steps')} -> {s1 and s1.get('steps')})")
+            elif s1.get("maxAbs", 0) <= 0.1: problems.append(f"B14 the shock kick did not move particles on the GPU (maxAbs {s1.get('maxAbs')})")
+    ctx.close()
+    # ?still=1 — the visual gate captures one frozen frame: the sim must never step there
+    ctx2 = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q2 = ctx2.new_page()
+    q2.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
+    q2.goto(a.url + "?still=1&b14s=" + str(time.time()), wait_until="load")
+    try:
+        q2.wait_for_function("window.BKHero&&BKHero.info&&BKHero.info().sim!==undefined&&!!document.querySelector('#heroGL.on')", timeout=180000)
+        a1 = q2.evaluate("BKHero.simSample?BKHero.simSample():null"); q2.wait_for_timeout(4000); a2 = q2.evaluate("BKHero.simSample?BKHero.simSample():null")
+        note(f"B14 still: steps {a1 and a1.get('steps')}->{a2 and a2.get('steps')}, maxAbs {a1 and round(a1.get('maxAbs', 0), 5)}->{a2 and round(a2.get('maxAbs', 0), 5)}")
+        if not a1: problems.append("B14 BKHero.simSample() missing in ?still")
+        else:
+            if a1.get("steps", 0) != 0 or a2.get("steps", 0) != 0: problems.append(f"B14 the sim must never step in ?still=1 (steps {a1.get('steps')} -> {a2.get('steps')})")
+            if json.dumps(a1) != json.dumps(a2): problems.append("B14 the position texture changed between two samples in ?still=1 (the visual gate would not be deterministic)")
+    except Exception as e: problems.append(f"B14 still check failed: {str(e)[:160]}")
+    ctx2.close()
+    # kill switch: flag bksim=0 restores the CPU dust layer
+    ctx3 = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q3 = ctx3.new_page()
+    q3.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark');localStorage.setItem('bk-flag-bksim','0')}catch(e){}")
+    q3.goto(a.url + "?b14c=" + str(time.time()), wait_until="load")
+    try:
+        q3.wait_for_function("window.BKHero&&BKHero.info&&BKHero.info().sim!==undefined&&!!document.querySelector('#heroGL.on')", timeout=180000)
+        i3 = q3.evaluate("BKHero.info()"); note(f"B14 flag bksim=0: {i3}")
+        if i3.get("sim") != "cpu" or i3.get("particles") != 56000 or i3.get("drawn") != 56000:
+            problems.append(f"B14 flag bksim=0 must run the CPU dust path with 56000 stars: {i3}")
+    except Exception as e: problems.append(f"B14 CPU fallback check failed: {str(e)[:160]}")
+    ctx3.close()
+    if errs14: problems.append(f"B14 page errors: {errs14[:3]}")
+
 def b9(b):
     """B9 broken GPU (own contexts, independent of the main page)."""
     # ---- B9 broken GPU: the shelf must never show a broken book. Inject a shader fault (fragment shaders containing the given text get a syntax error appended)
@@ -283,11 +347,11 @@ def b9(b):
     f_all = faulty(["gl_FragColor", "pc_fragColor"], lambda o: o["lvl"] == 4 and o["cards"] == 0); note(f"B9 nothing compiles -> {f_all}")
     if f_all["lvl"] != 4 or f_all["cards"] != 0: problems.append(f"B9 stage did not fall back to the CSS covers when nothing compiles: {f_all}")
 
-if a.only in ("b9", "b10", "b11", "b12", "b13"):
+if a.only in ("b9", "b10", "b11", "b12", "b13", "b14"):
     with sync_playwright() as p:
         kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]); exe = os.environ.get("BK_CHROMIUM")
         b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
-        {"b9": b9, "b10": b10, "b11": b11, "b12": b12, "b13": b13}[a.only](b); b.close()
+        {"b9": b9, "b10": b10, "b11": b11, "b12": b12, "b13": b13, "b14": b14}[a.only](b); b.close()
     if srv: srv.terminate()
     print("FAIL" if problems else f"OK: {a.only.upper()}", *problems, sep="\n - " if problems else "")
     sys.exit(1 if problems else 0)
@@ -508,6 +572,7 @@ with sync_playwright() as p:
     if a.only is None: b11(b)
     if a.only is None: b12(b)
     if a.only is None: b13(b)
+    if a.only is None: b14(b)
     b.close()
 if srv: srv.terminate()
 print("FAIL" if problems else "OK: Package A features behave as specified", *problems, sep="\n - " if problems else "")

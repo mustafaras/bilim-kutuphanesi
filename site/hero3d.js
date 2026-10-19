@@ -19,10 +19,10 @@
   try{
    const THREE=await import('./vendor/three.module.min.js');let post=null;
    try{const [ec,rp,ub,sp]=await Promise.all([import('./vendor/jsm/postprocessing/EffectComposer.js'),import('./vendor/jsm/postprocessing/RenderPass.js'),import('./vendor/jsm/postprocessing/UnrealBloomPass.js'),import('./vendor/jsm/postprocessing/ShaderPass.js')]);post={EffectComposer:ec.EffectComposer,RenderPass:rp.RenderPass,UnrealBloomPass:ub.UnrealBloomPass,ShaderPass:sp.ShaderPass}}catch{post=null}
-   init(THREE,post)}catch(e){console.error("hero3d",e)}}
+   await init(THREE,post)}catch(e){console.error("hero3d",e)}}
  if(document.readyState==='complete')idle(boot);else addEventListener('load',()=>idle(boot),{once:true});
 
- function init(THREE,post){
+ async function init(THREE,post){
   const canvas=document.createElement('canvas');canvas.id='heroGL';canvas.setAttribute('aria-hidden','true');
   sceneEl.insertBefore(canvas,sceneEl.firstChild);
   let renderer;
@@ -124,6 +124,56 @@
   const lg=new THREE.BufferGeometry();attr(lg,'position',new Float32Array(LN*3),3);attr(lg,'aR',L.r,1);attr(lg,'aA',L.a,1);attr(lg,'aY',L.y,1);attr(lg,'aS',L.s,1);attr(lg,'aC',L.c,3);attr(lg,'aT',L.t,1);attr(lg,'aG',new Float32Array(LN).fill(-1),1);attr(lg,'aI',new Float32Array(LN).fill(-1),1);
   const lanes=new THREE.Points(lg,new THREE.ShaderMaterial({vertexShader:vert(true),fragmentShader:`varying vec3 vC;varying float vA;varying float vBig;void main(){float d=length(gl_PointCoord-.5);float a=smoothstep(.5,0.,d);gl_FragColor=vec4(vC,a*.17);}`,uniforms,transparent:true,depthWrite:false,blending:THREE.NormalBlending}));
   lanes.frustumCulled=false;tilt.add(lanes);
+
+  /* ---------- A2 · R7.b GPGPU galaxy (BKSim): the star field lives in 512² position/velocity float textures ----------
+     262144 particles — four times the CPU dust layer — with real persistent physics (pointer gravity, click shock, turbulence): the offset from the analytic home is INTEGRATED on the GPU, so a kick deforms the galaxy and it springs back over seconds instead of the old one-frame vertex displacement.
+     The home (r, a0, y, twinkle) is a static texture; the vertex shader computes the same log-spiral home as the dust layer and adds the simulated offset — the galaxy can never drift apart and without a kick the picture matches the CPU dust.
+     Quality tiers are pure drawRange over the same texture (262144/131072/56000/14000 — no buffer rebuilds). Compute only runs at tiers 0-1; below that the offsets freeze (still a simulated field, just calm) and only the DPR drops.
+     The distribution uses its OWN seeded PRNG so the flag-bksim=0 picture (tools/golden/legacy) keeps consuming the exact same rnd() sequence as before. */
+  const SIMN=[262144,131072,56000,14000,14000];let sim=null;
+  const simVert=`attribute vec2 aRef;attribute float aS;attribute vec3 aC;attribute float aT;
+   uniform float uTime,uScale,uMouseOn,uLight,uWell;uniform vec3 uMouse,uPulse;uniform sampler2D tPos,uHome;varying vec3 vC;varying float vA;varying float vBig;
+   void main(){
+    float tw=.8+.2*sin(uTime*(.6+aT*2.4)+aT*60.);
+    vec4 hm=texture2D(uHome,aRef);float r=hm.x,a0=hm.y,hy=hm.z;
+    float ang=a0+uTime*.2/(.7+r*.5);vec3 off=texture2D(tPos,aRef).xyz;
+    vec4 wp=modelMatrix*vec4(cos(ang)*r+off.x,hy+.022*r*r*sin(ang-.6)+off.z,sin(ang)*r+off.y,1.);
+    vec2 dm=uMouse.xy-wp.xy;float g=uMouseOn*smoothstep(2.8+uWell*1.6,0.,length(dm));
+    float dt=uTime-uPulse.z;float ring=0.;if(dt>0.&&dt<1.7){vec2 dp=wp.xy-uPulse.xy;float rd=abs(length(dp)-dt*7.);ring=exp(-rd*rd*.8)*(1.-dt/1.7);}
+    vec4 mv=viewMatrix*wp;gl_Position=projectionMatrix*mv;
+    float sz=mix(1.,.95,uLight)*aS*uScale/-mv.z*tw*(1.+ring*2.2+g*.7);sz=sz<9.?sz:9.+(sz-9.)*.22;gl_PointSize=clamp(sz,1.,34.);
+    vC=mix(aC,vec3(1.),clamp(ring*.5,0.,1.));vA=tw+ring*1.4+g*.4;vBig=smoothstep(.07,.12,aS);}`;
+  async function buildSim(){
+   if(!(window.BKSim&&window.BKShaders&&window.BKGL))return;
+   if(!BKGL.flags.get('bksim'))return;
+   if(!BKGL.probe(renderer).floatRT)return;
+   try{
+    const S=512,N=S*S;
+    let s2=77142693;const srnd=()=>{s2|=0;s2=s2+0x6D2B79F5|0;let t=Math.imul(s2^s2>>>15,1|s2);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+    const sgauss=()=>{let u=0;for(let i=0;i<4;i++)u+=srnd();return(u-2)*1.7};
+    const home=new Float32Array(N*4),aS=new Float32Array(N),aC=new Float32Array(N*3),aT=new Float32Array(N),tc=new THREE.Color();
+    for(let i=0;i<N;i++){const u=srnd();let r,a,y,kind=0;
+     if(u<.085){kind=1;r=Math.pow(srnd(),1.9)*1.7;a=srnd()*Math.PI*2;y=sgauss()*.6*Math.max(0,1-r/2.6)}
+     else if(u<.2){kind=2;r=1+srnd()*RMAX*1.15;a=srnd()*Math.PI*2;y=sgauss()*.12*(1-r/(RMAX*1.5))}
+     else if(u<.225){kind=3;r=RMAX*(.9+srnd()*1.7);a=srnd()*Math.PI*2;y=sgauss()*(1.4+r*.12)}
+     else if(u<.25){kind=4;const x=Math.cos(DW.a)*DW.r+sgauss()*.5,z=Math.sin(DW.a)*DW.r+sgauss()*.4;[r,a]=toPolar(x,z);y=sgauss()*.25}
+     else if(u<.268){kind=5;const t=srnd(),ax=Math.cos(ARMS[0].b+phase(RMAX*.95))*RMAX*.95,az=Math.sin(ARMS[0].b+phase(RMAX*.95))*RMAX*.95,bx=Math.cos(DW.a)*DW.r,bz=Math.sin(DW.a)*DW.r;
+       const x=ax+(bx-ax)*t+sgauss()*.3*Math.sin(t*Math.PI),z=az+(bz-az)*t+sgauss()*.3*Math.sin(t*Math.PI)+Math.sin(t*3.1)*.7;[r,a]=toPolar(x,z);y=sgauss()*.1}
+     else if(u<.55){kind=6;const c=clumps[(srnd()*clumps.length)|0];r=Math.max(.5,c.r+sgauss()*c.s*.9);a=c.a+sgauss()*c.s*.35;y=sgauss()*.06}
+     else{let k=srnd(),arm=0,acc=0;for(let j=0;j<ARMS.length;j++){acc+=ARMS[j].w;if(k*1.0<=acc/.87){arm=j;break}}
+       r=(.8+Math.pow(srnd(),.7)*(RMAX*1.1-.8))*ARMS[arm].len;r*=edgeK(ARMS[arm].b+phase(r))/.8;a=ARMS[arm].b+phase(r)+sgauss()*(.13+.08*r);y=sgauss()*.1*(1-Math.min(1,r/(RMAX*1.3)))}
+     home[i*4]=r;home[i*4+1]=a;home[i*4+2]=y;home[i*4+3]=srnd();
+     aS[i]=(kind===1?.024:kind===3?.02:kind===6?.03:.026)+srnd()*.05*(srnd()<.03?3.2:1);aT[i]=srnd();
+     const k=Math.min(1.3,r/RMAX);tc.copy(WARM).lerp(BRASS,Math.min(1,k*1.8));if(k>.3)tc.lerp(BLUE,Math.min(.85,(k-.3)*1.6));if(k>.62)tc.lerp(VIOLET,Math.min(.7,(k-.62)*1.6));
+     if(kind===6){tc.lerp(BLUE,.55);if(srnd()<.2)tc.copy(PINK)}if(kind===0&&srnd()<.03)tc.copy(PINK);if(kind===3)tc.lerp(BRASS,.5);if(kind===4)tc.copy(BRASS).lerp(WARM,.4);if(kind===5)tc.copy(ICE);
+     const m=kind===3?.55:kind===5?.6:.8;aC[i*3]=tc.r*m;aC[i*3+1]=tc.g*m;aC[i*3+2]=tc.b*m}
+    sim=await BKSim.create(THREE,renderer,{size:S,home,radius:RMAX,attrs:{aS,aC,aT},attrSize:{aS:1,aC:3,aT:1},
+     uniforms:{...uniforms,uGain:{value:1.05}},material:{vertexShader:simVert,fragmentShader:frag(true),blending:THREE.AdditiveBlending}});
+    if(!sim)return;
+    window.__bkSim=sim;mats.push(sim.material);dust.visible=false;setLevel(degrade,0);
+    /* software GL (CI, audit tools): the governor needs four 3-8 s frames to leave tier 0 — by then it has starved every other surface on the page. Start at tier 3 there (compute off, 14 000 points: the v123 frame cost). NOT in ?still (the visual goldens must show what a real GPU renders) and NOT for the B14 tier test (it sets levels explicitly). */
+    if(!BKGL.still&&/swiftshader|llvmpipe|basic render|software/i.test((BKGL.probe(renderer).gpu||'')))setLevel(3,0);
+   }catch(e){console.warn('BKSim:',e);if(sim){try{sim.dispose()}catch{}}sim=null;window.__bkSim=null;dust.visible=true}}
 
   /* core glow */
   const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),r=g.createRadialGradient(64,64,0,64,64,64);r.addColorStop(0,'rgba(255,236,196,.95)');r.addColorStop(.25,'rgba(232,206,158,.35)');r.addColorStop(1,'rgba(232,206,158,0)');g.fillStyle=r;g.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})();
@@ -314,6 +364,12 @@
   const v3=new THREE.Vector3(),dir=new THREE.Vector3();
   const interactive=t=>!!(t&&t.closest&&t.closest('a,button,input,select,textarea,summary,.hero-description,.hero-foot,.eyebrow,.hero-spectrum,.hero-zoom,#paletteOverlay,#recordView'));
   function worldOnPlane(cx,cy,planeZ){const n=ndcOf(cx,cy);v3.set(n.x,n.y,.5).unproject(camera);dir.copy(v3).sub(camera.position).normalize();const t=(planeZ-camera.position.z)/dir.z;return v3.copy(camera.position).addScaledVector(dir,t).clone()}
+  /* pointer → the galaxy disc's OWN plane in tilt-local coords: BKSim integrates in the disc's frame, so the pointer's gravity must live there too */
+  const simP=new THREE.Vector3(),simO=new THREE.Vector3(),simQ=new THREE.Vector3();
+  function simPoint(cx,cy){tilt.updateMatrixWorld(true);const n=ndcOf(cx,cy);simP.set(n.x,n.y,.5).unproject(camera);
+   simO.copy(camera.position);tilt.worldToLocal(simO);tilt.worldToLocal(simP);simP.sub(simO);
+   if(Math.abs(simP.y)<1e-6)return null;const t=-simO.y/simP.y;if(t<0)return null;return simQ.copy(simO).addScaledVector(simP,t)}
+  const simPulse=new THREE.Vector3(0,0,-99);let simPulseT=-99;
   function pick(){
    if(!rec.n||!mouse.in){setHover(-1);return}
    const rect=canvas.getBoundingClientRect(),w=rect.width,h=rect.height;let best=-1,bd=18*18;
@@ -371,9 +427,9 @@
     an.onfinish=()=>g.remove();setTimeout(()=>g.remove(),900);
     setTimeout(()=>{caSpike=Math.max(caSpike,1.4)},470)}catch{}});
   /* test hook: only exposed when localStorage bk-test=1 (the audit tools set it) */
-  if((()=>{try{return localStorage.getItem('bk-test')==='1'}catch{return false}})())window.BKHero={fly:i=>fly(i),count:()=>rec.n,info:()=>heroInfo(),gov:{pin:v=>{pinned=!!v},level:()=>degrade,feed:(avg,now,gpu)=>govern(avg,now,gpu),lock:()=>recLock,reset:()=>{good=0;recLock=0;lastRec=-1e9;if(degrade!==0)setLevel(0,0);lastChange=-1e9;return degrade}}};/* test hook (tools/motion_audit.py) */
+  if((()=>{try{return localStorage.getItem('bk-test')==='1'}catch{return false}})())window.BKHero={fly:i=>fly(i),count:()=>rec.n,info:()=>heroInfo(),simSample:()=>sim?sim.sample():null,simKick:()=>{if(!sim)return false;tilt.updateMatrixWorld(true);const p=tilt.localToWorld(new THREE.Vector3(0,0,0));uniforms.uPulse.value.set(p.x,p.y,time);return true},gov:{pin:v=>{pinned=!!v},level:()=>degrade,setLevel:l=>{setLevel(l,performance.now());return degrade},feed:(avg,now,gpu)=>govern(avg,now,gpu),lock:()=>recLock,reset:()=>{good=0;recLock=0;lastRec=-1e9;if(degrade!==0)setLevel(0,0);lastChange=-1e9;return degrade}}};/* test hook (tools/motion_audit.py, tools/feature_audit.py B14) */
   /* what the post chain costs, from the objects that run (tools/gpu_budget_audit.py --fx-compare): logical passes, full-screen draws, full-resolution reads, render targets */
-  function heroInfo(){const o={fx:fx?'uber':composer?'legacy':'none',bloom:useBloom,level:degrade};
+  function heroInfo(){const o={fx:fx?'uber':composer?'legacy':'none',bloom:useBloom,level:degrade,sim:sim?'gpu':'cpu',particles:sim?SIMN[Math.min(degrade,4)]:GN,drawn:sim?sim.drawn:Math.floor(GN*QKEEP[degrade])};
    if(fx){const i=fx.info();return{...o,passes:useBloom?i.passes:1,draws:useBloom?i.draws:0,fullReads:useBloom?i.fullReads:0,targets:i.targets}}
    if(composer){let passes=0,draws=0,fullReads=0,targets=2;   // the composer's two full-resolution ping-pong targets
     if(!useBloom)return{...o,passes:1,draws:0,fullReads:0,targets}
@@ -406,6 +462,12 @@
    /* hold still on the galaxy = singularity: gravity well + lensing; release = shock + chromatic burst */
    wellT=lensOn&&drag&&!drag.moved&&performance.now()-drag.t0>320?1:0;if(wellT)uniforms.uMouseOn.value=Math.max(uniforms.uMouseOn.value,1);
    well+=(wellT-well)*Math.min(1,dt*(wellT?3.2:5));uniforms.uWell.value=well;hero.classList.toggle('hero-well',well>.15);
+   /* the GPGPU galaxy: one compute pass per animation frame (tier 0 only — the GPU work is what the governor exists to shed; dt<=0.01 = still() → the sim never moves in a captured frame) */
+   if(sim&&dt>.01&&degrade<=0){
+    if(uniforms.uPulse.value.z!==simPulseT){simPulseT=uniforms.uPulse.value.z;simPulse.set(0,0,simPulseT);
+     if(simPulseT>0){simQ.set(uniforms.uPulse.value.x,uniforms.uPulse.value.y,-1);tilt.updateMatrixWorld(true);tilt.worldToLocal(simQ);simPulse.set(simQ.x,simQ.z,simPulseT)}}
+    const mp=mouse.in?simPoint(mouse.x,mouse.y):null;
+    sim.step(dt,{time,mouse:mp&&[mp.x,mp.z],mouseOn:uniforms.uMouseOn.value,pulse:[simPulse.x,simPulse.z,simPulseT],well})}
    if(grade||fx){const gv=n=>fx?fx.u[n]:grade.uniforms[n].value,gs=(n,v)=>{if(fx)fx.u[n]=v;else grade.uniforms[n].value=v};   // the uber chain and the legacy grade pass take the same uniforms
     caSpike=Math.max(0,caSpike-dt*2.2);const zv=Math.abs(zoomT-zoom)*2.2;const tgt=.28+zv+caSpike+well*.9;gs('uCA',gv('uCA')+(tgt-gv('uCA'))*Math.min(1,dt*10));
     gs('uTime',time);blurK=dmp(blurK,blurT,blurT?7:4.5,dt);gs('uBlur',blurK);gv('uBlurC').copy(blurC);lensS+=(((lensOn&&mouse.in?1:0)*(.22+well*1.1))-lensS)*Math.min(1,dt*6);gs('uLens',lensS);
@@ -429,7 +491,7 @@
      Fast windows step back UP one level at a time, only after 4 consecutive fast windows and 20 s since the last change;
      a recovery that is undone within 15 s locks recovery for 2 minutes, so a borderline GPU never flip-flops. */
   const QPX=[1.6,1.6,1,.7,.55],QKEEP=[1,1,1,.55,.3];let lastChange=-1e9,lastRec=-1e9,recLock=0,good=0;
-  function setLevel(l,now){degrade=l;bloomOff=l>=1;quality=QPX[l];dust.geometry.setDrawRange(0,Math.floor(GN*QKEEP[l]));lanes.geometry.setDrawRange(0,Math.floor(LN*QKEEP[l]));lastChange=now;if(MO)MO.quality.set(l);syncBloom();layout()}
+  function setLevel(l,now){degrade=l;bloomOff=l>=1;quality=QPX[l];dust.geometry.setDrawRange(0,Math.floor(GN*QKEEP[l]));lanes.geometry.setDrawRange(0,Math.floor(LN*QKEEP[l]));if(sim){sim.setDrawRange(SIMN[Math.min(l,4)]);sim.setActive(l<=0)}lastChange=now;if(MO)MO.quality.set(l);syncBloom();layout()}
   /* GPU ms first (EXT_disjoint_timer_query_webgl2: the real cost of the frame, vsync and CPU noise excluded), rAF time only where the GPU has no timer.
      GPU thresholds: slow above 13 ms (20 ms from level 2), fast below 5 ms; rAF thresholds as before. */
   function govern(avg,now,gpu){if(pinned)return degrade;const G=gpu!=null,v=G?gpu:avg;
@@ -439,9 +501,10 @@
   function still(){introDone=true;time=3.6;scrollS=scrollP;update(0.001);draw()}
 
   /* ---------- wiring ---------- */
+  await buildSim();
   layout();applyTheme();buildRecords();
   sceneEl.classList.add('hero-gl');canvas.classList.add('on');
-  if(reduced.matches){still()}
+  if(reduced.matches||paused())still();
   requestAnimationFrame(t0=>{tPrev=t0;requestAnimationFrame(frame)});
   if(typeof ResizeObserver==='function')new ResizeObserver(()=>{layout();if(reduced.matches||paused())still()}).observe(sceneEl);else addEventListener('resize',()=>layout());
   if(typeof IntersectionObserver==='function')new IntersectionObserver(es=>{visible=es[0].isIntersecting}).observe(sceneEl);

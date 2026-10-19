@@ -18,7 +18,7 @@ float bk_hash13(vec3 q){q=fract(q*.1031);q+=dot(q,q.zyx+31.32);return fract((q.x
 vec3 bk_hash33(vec3 q){q=fract(q*vec3(.1031,.1030,.0973));q+=dot(q,q.yxz+33.33);return fract((q.xxy+q.yxx)*q.zyx);}
 float bk_ign(vec2 px){return fract(52.9829189*fract(dot(px,vec2(.06711056,.00583715))));}`,'bk_hash12(vec2(1.5))+bk_hash11(2.)+bk_hash13(vec3(1.))+bk_hash33(vec3(2.)).x+bk_ign(vec2(3.))');
 
- add('noise',1,[],`
+ add('noise',2,[],`
 vec2 bk_m289v2(vec2 x){return x-floor(x*(1./289.))*289.;}
 vec3 bk_m289v3(vec3 x){return x-floor(x*(1./289.))*289.;}
 vec4 bk_m289v4(vec4 x){return x-floor(x*(1./289.))*289.;}
@@ -59,8 +59,9 @@ vec3 bk_curl(vec3 p){const float e=.1;vec3 dx=vec3(e,0.,0.),dy=vec3(0.,e,0.),dz=
  vec3 x0=bk_snoiseVec3(p-dx),x1=bk_snoiseVec3(p+dx),y0=bk_snoiseVec3(p-dy),y1=bk_snoiseVec3(p+dy),z0=bk_snoiseVec3(p-dz),z1=bk_snoiseVec3(p+dz);
  return vec3(y1.z-y0.z-z1.y+z0.y,z1.x-z0.x-x1.z+x0.z,x1.y-x0.y-y1.x+y0.x)/(2.*e);}
 float bk_fbm2(vec2 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*bk_snoise2(p);p=p*2.03+vec2(1.7,9.2);a*=.5;}return s;}
-float bk_fbm3(vec3 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*bk_snoise3(p);p=p*2.03+vec3(1.7,9.2,4.3);a*=.5;}return s;}`,
-  'bk_snoise2(vec2(1.2,3.4))+bk_snoise3(vec3(1.2,3.4,5.6))+bk_curl(vec3(.3)).x+bk_fbm2(vec2(2.))+bk_fbm3(vec3(2.))');
+float bk_fbm3(vec3 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*bk_snoise3(p);p=p*2.03+vec3(1.7,9.2,4.3);a*=.5;}return s;}
+vec2 bk_curl2d(vec2 p){float e=.08;float px1=bk_snoise2(p+vec2(e,0.)),px0=bk_snoise2(p-vec2(e,0.)),py1=bk_snoise2(p+vec2(0.,e)),py0=bk_snoise2(p-vec2(0.,e));return vec2(py1-py0,-(px1-px0))/(2.*e);}`,
+  'bk_snoise2(vec2(1.2,3.4))+bk_snoise3(vec3(1.2,3.4,5.6))+bk_curl(vec3(.3)).x+bk_curl2d(vec2(2.)).y+bk_fbm2(vec2(2.))+bk_fbm3(vec3(2.))');
 
  add('lut3d',2,[],`
 precision highp sampler3D;   /* three r160 declares no default precision for sampler3D in a ShaderMaterial fragment shader */

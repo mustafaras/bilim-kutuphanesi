@@ -132,7 +132,7 @@ Hedef izlenim: "bilimsel belgesel açılışı", 10⁵–10⁶ yıldız.
 | Film grenı / CA | evet | CA | yok | yok |
 
 ## Alt adımlar (her biri ayrı PR)
-1. **R7.a** A1 `BKFX` uber geçişi + 32³ LUT + sinematik derecelendirme (hero altını bilinçli günceller). 2. **R7.b** A2 simülasyon + 262 144 parçacık + spiral kollar. 3. **R7.c** toz dokusu + HII + kara cisim LUT. 4. **R7.d** kırınım ışınları + anamorfik flare + `Lensflare`. 5. **R7.e** kubbe: yay-sönüm yönelme + hacimsel koni + giriş uçuşu. 6. **R7.f** 1 048 576 seviyesi (yalnız bellek sinyaliyle) ve A4 ayarı.
+1. **R7.a** A1 `BKFX` uber geçişi + 32³ LUT + sinematik derecelendirme (hero altını bilinçli günceller). ✅ **tamam (v123)** 2. **R7.b** A2 simülasyon + 262 144 parçacık + spiral kollar. ✅ **tamam (v124** — `BKSim` + B14; `rt` bugün 16, ≤ 6 hedefi A4/`BKFX` havuzu paylaştıkça gelecek; `particles`/`sim`/seviye sayımları ve `?still` donması B14'te)**. 3. **R7.c** toz dokusu + HII + kara cisim LUT. 4. **R7.d** kırınım ışınları + anamorfik flare + `Lensflare`. 5. **R7.e** kubbe: yay-sönüm yönelme + hacimsel koni + giriş uçuşu. 6. **R7.f** 1 048 576 seviyesi (yalnız bellek sinyaliyle) ve A4 ayarı.
 
 ## Kabul testleri (sayısal)
 - **B9** (bozuk-GPU) geçer; seviye 3'te parçacık, LUT, flare, koni **kapalı** (`BKHero.info()`).

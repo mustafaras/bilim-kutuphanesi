@@ -47,7 +47,7 @@ def spec(name, key):
     return {"tol": TOL, "stable": STABLE, "golden": GOLDEN}[key]
 def tol_for(name): return spec(name, "tol")
 def lim(name, k): return spec(name, ("stable", "golden")[k])
-FLAGJS = ";localStorage.setItem('bk-flag-fxuber','0')" if a.legacy else ""
+FLAGJS = ";localStorage.setItem('bk-flag-fxuber','0');localStorage.setItem('bk-flag-bksim','0')" if a.legacy else ""   # the legacy images predate BKFX AND the GPGPU galaxy: the kill-switch proof needs both old paths
 CONFIGS = [(1440, 900, "dark"), (1440, 900, "light"), (1024, 768, "dark"), (1024, 768, "light")]
 
 def ratio(p1, p2, save=None, tol=None):
