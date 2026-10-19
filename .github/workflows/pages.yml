@@ -65,6 +65,8 @@ jobs:
             cmd: python tools/feature_audit.py --only b11
           - name: Material and light library (B12)
             cmd: python tools/feature_audit.py --only b12
+          - name: GPU budgets per surface (A6)
+            cmd: python tools/gpu_budget_audit.py
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v6
