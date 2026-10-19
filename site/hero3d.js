@@ -143,6 +143,57 @@
      the pattern itself must not shear away from the drawn arms. */
   const SKYR=RMAX*1.15,SKUV=+((.5/SKYR).toFixed(8)),HKEEP=[1,1,.75,.5,.3];
   let hotGlow=null,hii=null,hiiN=0,simFxData=null;
+  /* ---------- R7.d · the diffuse starlight layer, diffraction beacons and the data-driven field tint (sim path only) ----------
+     disc: one plane in the disc frame, shaded analytically — exponential disc, Sersic-2 bulge, a bar, the density-wave arms (uSky.g, the SAME pattern that modulates the stars), fine fbm granularity, star-forming knots, and
+     the dust lanes (uSky.r with fbm filaments) absorbing the light beside the ridges. Real galaxy photographs are mostly unresolved light with the resolved stars on top of it; before R7.d only the stars existed.
+     MEANING: the glow of each of the library's 8 fields takes that field's colour, scaled by how many records the field holds (fieldFW, 1 = average), and follows the record stars as they stream (same spin as the record layer).
+     Hovering a field marker lights its arm and dims the rest (uFocus, the same uniform the record stars use).
+     beacons: ~300 of the brightest stars as instanced quads with 4 diffraction spikes (+ faint 45 degree ones on the very brightest) and a PSF core/halo; slow gentle breathing only (photosensitivity: no fast flicker). */
+  let disc=null,beacons=null,beaconN=0;const BKEEP=[1,.5,0,0,0],fieldFC=Array.from({length:8},()=>new THREE.Vector3()),fieldFW=new Float32Array(8).fill(1);
+  const DISC_FRAG=`varying vec2 vUv;uniform float uTime,uR,uLight,uFade,uFocus,uBar;uniform sampler2D uSky;uniform vec3 uFC[8];uniform float uFW[8];
+   float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+   float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1.,0.)),f.x),mix(h(i+vec2(0.,1.)),h(i+vec2(1.,1.)),f.x),f.y);}
+   float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*n(p);p=p*2.03+vec2(1.7,9.2);a*=.5;}return v;}
+   void main(){
+    vec2 p=(vUv-.5)*2.*uR;vec2 q=vec2(p.x,-p.y);float r=length(q);float a=atan(q.y,q.x);
+    vec2 wq=vec2(fbm(q*1.5+2.),fbm(q*1.5+9.))-.5;   /* domain warp: the ridge wobbles and feathers instead of a clean ribbon */
+    vec4 sky=texture2D(uSky,clamp((q+wq*.6)*(.5/uR)+.5,0.,1.));
+    float armG=clamp((sky.g-.3)/.7,0.,1.);
+    float edge=smoothstep(6.3,4.3,r);
+    float disc=exp(-r/3.)*edge;
+    float bulge=exp(-3.67*sqrt(sqrt(r*r+.012)/.8));
+    float cs=cos(uBar),sn=sin(uBar);float al=dot(q,vec2(cs,sn)),ac=dot(q,vec2(-sn,cs));
+    float bar=exp(-pow(abs(al)/1.6,3.)-pow(abs(ac)/.36,2.));
+    float g1=fbm(q*2.1+vec2(3.,1.)),g2=fbm(q*5.7+7.);
+    float cloud=.62+.7*g1;
+    float knot=smoothstep(.6,.86,g2)*armG*smoothstep(1.4,2.4,r)*edge;
+    float tauF=sky.r*(.35+1.35*fbm(q*5.2+vec2(1.,4.)));
+    float spin=uTime*.2/(.7+r*.5),ph=r*(1.+.06*sin(r*1.7)),sec=.7853982;
+    vec3 tint=vec3(0.);float fb=0.;
+    for(int j=0;j<8;j++){float d=a-spin-(float(j)*sec+.35+ph);d=atan(sin(d),cos(d));float w=exp(-pow(d/(sec*.45),2.));
+     tint+=uFC[j]*w*uFW[j];if(uFocus>-.5&&abs(float(j)-uFocus)<.5)fb=w;}
+    float lum=(disc*(.16+1.7*armG)*cloud*(.75+.5*g2)+bulge*.22+bar*.07)*exp(-tauF*4.6);
+    lum=1.-exp(-lum*1.15);   /* soft shoulder: the core and bar roll off instead of clipping to white */
+    if(uFocus>-.5)lum*=mix(.78,1.,fb)*(1.+1.4*fb*armG);
+    vec3 col=mix(vec3(1.,.8,.52),vec3(1.,.9,.72),smoothstep(.2,1.2,r));
+    col=mix(col,vec3(.46,.64,1.),smoothstep(.15,2.2,r)*(.3+.7*armG));
+    col=mix(col,vec3(1.,.5,.38),clamp(sky.r*.7,0.,1.)*.5);
+    col+=vec3(1.,.38,.55)*knot*1.4;
+    col+=tint*armG*.3*smoothstep(.8,2.,r)*(1.-smoothstep(5.2,6.3,r))*(uFocus>-.5?(.4+1.8*fb):1.);
+    vec3 outc=col*lum*.36;
+    gl_FragColor=mix(vec4(outc*uFade,1.),vec4(vec3(.22,.17,.26),clamp(lum*.3*uFade,0.,.5)),uLight);}`;
+  const BEACON_VERT=`attribute float aR,aA,aY,aM,aT;attribute vec3 aC;uniform float uTime,uScale,uFade;varying vec2 vP;varying vec3 vC;varying float vM,vPx;
+   void main(){float ang=aA+uTime*.2/(.7+aR*.5);vec4 wp=modelMatrix*vec4(cos(ang)*aR,aY+.022*aR*aR*sin(ang-.6),sin(ang)*aR,1.);vec4 mv=viewMatrix*wp;
+    float tw=.92+.08*sin(uTime*(.35+aT*.9)+aT*60.);float s=(.22+1.05*aM)*tw;
+    vPx=uScale*s/-mv.z;vP=position.xy;vC=aC;vM=aM;mv.xy+=position.xy*s;gl_Position=projectionMatrix*mv;}`;
+  const BEACON_FRAG=`varying vec2 vP;varying vec3 vC;varying float vM,vPx;uniform float uFade,uGain;
+   float sp(vec2 c,float k,float w){return exp(-abs(c.x)*k)*exp(-c.y*c.y/(w*w));}
+   void main(){vec2 c=vP;float d=length(c);float w=clamp(1.15/vPx,.003,.08);
+    float core=exp(-d*d*vPx*vPx*.35);float halo=exp(-d*vPx*.16)*.1+exp(-d*3.4)*.04;
+    float spk=sp(c,4.2,w)+sp(c.yx,4.2,w);vec2 e=vec2(c.x+c.y,c.y-c.x)*.7071;spk+=(sp(e,7.,w*1.3)+sp(e.yx,7.,w*1.3))*.4*smoothstep(.35,.7,vM);
+    float edge=1.-smoothstep(.75,1.,max(abs(c.x),abs(c.y)));
+    vec3 col=vC*(core*2.4+halo)+mix(vC,vec3(1.),.4)*spk*(.3+.9*vM);
+    gl_FragColor=vec4(col*(.3+.9*vM)*edge*uGain*uFade,1.);}`;
   const simVert=`attribute vec2 aRef;attribute float aS;attribute float aBv;attribute float aT;
    uniform float uTime,uScale,uMouseOn,uLight,uWell,uGain,uArmA,uDust;uniform vec3 uMouse,uPulse;uniform sampler2D tPos,uHome,uSky,uLut;varying vec3 vC;varying float vA;varying float vBig;
    void main(){
@@ -201,7 +252,8 @@
       for(let j=0;j<ARMS.length;j++){const d=Math.atan2(Math.sin(a-(ARMS[j].b+phase(r))),Math.cos(a-(ARMS[j].b+phase(r))));
        const off=.24+.07*Math.sin(r*2.6+a*1.3),ld=(d+off)/(.09+.05*n1);lane=Math.max(lane,Math.exp(-ld*ld));
        const gd=d/(.19+.05*Math.sin(r*1.3));gain=Math.max(gain,Math.exp(-gd*gd))}
-      const wD=smm(1.15,1.9,r)*(1-smm(5.4,6.05,r)),wG=smm(1.,1.5,r)*(1-smm(5.8,6.35,r));
+      {const al=x*Math.cos(.95)+z*Math.sin(.95),ac=-x*Math.sin(.95)+z*Math.cos(.95);gain=Math.max(gain,.9*Math.exp(-Math.pow(Math.abs(al)/1.6,3)-Math.pow(ac/.36,2)))}   // R7.d the bar: the stars are brighter along it (the glow layer draws the same bar)
+      const wD=smm(.7,1.5,r)*(1-smm(5.4,6.05,r)),wG=smm(.25,.9,r)*(1-smm(5.8,6.35,r));
       const tau=lane*wD*(.55+.45*n2)*.95,g=wG*(.35+.65*gain);
       const o=(py*SK+px)*4;skyData[o]=Math.max(0,Math.min(255,Math.round(tau*255)));skyData[o+1]=Math.round(g*255);skyData[o+3]=255;
       if(r>1.5&&r<5.5){if(tau>tauMax)tauMax=tau;if(g<gMin)gMin=g;if(g>gMax)gMax=g}}
@@ -220,10 +272,27 @@
      hii.frustumCulled=false;mats.push(hii.material);tilt.add(hii);hii.geometry.setDrawRange(0,hiiN);
      const hotTex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const g2=c.getContext('2d'),r0=g2.createRadialGradient(64,64,0,64,64,64);r0.addColorStop(0,'rgba(255,246,224,1)');r0.addColorStop(.18,'rgba(255,224,170,.5)');r0.addColorStop(1,'rgba(255,200,140,0)');g2.fillStyle=r0;g2.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})();
      hotGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:hotTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.5}));hotGlow.scale.set(3.4,3.4,1);rig.add(hotGlow);
-     simFxData={armA:.32,tau:+tauMax.toFixed(3),gain:[+gMin.toFixed(3),+gMax.toFixed(3)],hii:hiiN,lut:{blue:[raw[0]/255,raw[1]/255,raw[2]/255],mid:[raw[112*4]/255,raw[112*4+1]/255,raw[112*4+2]/255],red:[raw[255*4]/255,raw[255*4+1]/255,raw[255*4+2]/255]}};
+     /* R7.d: glow plane + diffraction beacons + field tint colours */
+     FIELD.forEach((c,j)=>fieldFC[j].set(c.r,c.g,c.b));
+     const discMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,
+      uniforms:{uTime:uniforms.uTime,uFade:uniforms.uFade,uLight:uniforms.uLight,uFocus:uniforms.uFocus,uSky:{value:skyTex},uR:{value:SKYR},uFC:{value:fieldFC},uFW:{value:fieldFW},uBar:{value:.95}},
+      vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:DISC_FRAG});
+     const dg=new THREE.PlaneGeometry(SKYR*2,SKYR*2,1,1);dg.rotateX(-Math.PI/2);
+     disc=new THREE.Mesh(dg,discMat);disc.renderOrder=-1;disc.frustumCulled=false;tilt.add(disc);neb.visible=false;mats.push(discMat);
+     beaconN=small?120:300;const B={r:new Float32Array(beaconN),a:new Float32Array(beaconN),y:new Float32Array(beaconN),m:new Float32Array(beaconN),t:new Float32Array(beaconN),c:new Float32Array(beaconN*3)},ORANGE=hex('#ffb070');
+     for(let i=0;i<beaconN;i++){const u=srnd();let r,a,y,inner=false;
+      if(u<.2){inner=true;r=Math.pow(srnd(),1.6)*1.8;a=srnd()*Math.PI*2;y=sgauss()*.25*Math.max(0,1-r/2.4)}
+      else{const k=srnd(),arm=k<.55?0:k<.85?1:k<.93?2:3;r=(1.1+Math.pow(srnd(),.8)*RMAX*.95)*ARMS[arm].len;a=ARMS[arm].b+phase(r)+sgauss()*(.1+.05*r);y=sgauss()*.05}
+      B.r[i]=r;B.a[i]=a;B.y[i]=y;B.m[i]=Math.pow(srnd(),2.6);B.t[i]=srnd();
+      const k=srnd(),c=inner?(k<.7?ORANGE:WARM):(k<.45?ICE:k<.75?BLUE:k<.9?WARM:ORANGE);B.c[i*3]=c.r;B.c[i*3+1]=c.g;B.c[i*3+2]=c.b}
+     const bg=new THREE.InstancedBufferGeometry(),pq=new THREE.PlaneGeometry(2,2);bg.index=pq.index;bg.setAttribute('position',pq.attributes.position);
+     const ia=(n,a,sz)=>bg.setAttribute(n,new THREE.InstancedBufferAttribute(a,sz));ia('aR',B.r,1);ia('aA',B.a,1);ia('aY',B.y,1);ia('aM',B.m,1);ia('aT',B.t,1);ia('aC',B.c,3);bg.instanceCount=beaconN;
+     const bmat=new THREE.ShaderMaterial({vertexShader:BEACON_VERT,fragmentShader:BEACON_FRAG,uniforms:{uTime:uniforms.uTime,uScale:uniforms.uScale,uFade:uniforms.uFade,uGain:{value:.7}},transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+     beacons=new THREE.Mesh(bg,bmat);beacons.frustumCulled=false;beacons.renderOrder=3;tilt.add(beacons);mats.push(bmat);
+     simFxData={disc:true,beacons:beaconN,armA:.32,tau:+tauMax.toFixed(3),gain:[+gMin.toFixed(3),+gMax.toFixed(3)],hii:hiiN,lut:{blue:[raw[0]/255,raw[1]/255,raw[2]/255],mid:[raw[112*4]/255,raw[112*4+1]/255,raw[112*4+2]/255],red:[raw[255*4]/255,raw[255*4+1]/255,raw[255*4+2]/255]}};
      /* software GL (CI, audit tools): the governor needs four 3-8 s frames to leave tier 0 — by then it has starved every other surface on the page. Start at tier 3 there (compute off, 14 000 points: the v123 frame cost). NOT in ?still (the visual goldens must show what a real GPU renders) and NOT for the B14 tier test (it sets levels explicitly). */
      if(!BKGL.still&&/swiftshader|llvmpipe|basic render|software/i.test((BKGL.probe(renderer).gpu||'')))setLevel(3,0);
-    }catch(e){console.warn('BKSim:',e);if(sim){try{sim.dispose()}catch{}}sim=null;window.__bkSim=null;try{lutTex&&lutTex.dispose();skyTex&&skyTex.dispose()}catch{}dust.visible=true}}
+    }catch(e){console.warn('BKSim:',e);if(sim){try{sim.dispose()}catch{}}sim=null;window.__bkSim=null;try{lutTex&&lutTex.dispose();skyTex&&skyTex.dispose()}catch{}dust.visible=true;neb.visible=true;if(disc){tilt.remove(disc);disc=null}if(beacons){tilt.remove(beacons);beacons=null}}}
 
   /* core glow */
   const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),r=g.createRadialGradient(64,64,0,64,64,64);r.addColorStop(0,'rgba(255,236,196,.95)');r.addColorStop(.25,'rgba(232,206,158,.35)');r.addColorStop(1,'rgba(232,206,158,0)');g.fillStyle=r;g.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})();
@@ -244,7 +313,9 @@
     const col=FIELD[g];c[i*3]=col.r;c[i*3+1]=col.g;c[i*3+2]=col.b});
    attr(rec.geo,'position',new Float32Array(n*3),3);attr(rec.geo,'aR',rec.r,1);attr(rec.geo,'aA',rec.a,1);attr(rec.geo,'aY',rec.y,1);attr(rec.geo,'aS',s,1);attr(rec.geo,'aC',c,3);attr(rec.geo,'aT',t,1);attr(rec.geo,'aG',rec.g,1);attr(rec.geo,'aI',idx,1);
    rec.geo.boundingSphere=new THREE.Sphere(new THREE.Vector3(),RMAX*6);
-   recStars=new THREE.Points(rec.geo,pointMat(true,1.5));recStars.frustumCulled=false;tilt.add(recStars);applyTheme();buildLabels()}
+   recStars=new THREE.Points(rec.geo,pointMat(true,1.5));recStars.frustumCulled=false;tilt.add(recStars);/* R7.d meaning: each field's glow strength = its share of the library (1 = an average field, square-root compressed: the library is lopsided and a linear map would paint one colour) */
+   const cnt=new Float32Array(8);for(let i=0;i<n;i++)cnt[rec.g[i]]++;for(let j=0;j<8;j++)fieldFW[j]=Math.max(.45,Math.min(1.6,Math.sqrt(cnt[j]/(n/8))));
+   applyTheme();buildLabels()}
 
   /* ---------- meteors (dark theme) ---------- */
   const meteors=[0,1].map(()=>{const g=new THREE.BufferGeometry(),n=22;g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(n*3),3));g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(n*3),3));
@@ -381,7 +452,7 @@
   function applyTheme(){
    const light=root.dataset.theme==='light';uniforms.uLight.value=light?1:0;domeTheme(light);if(fx)fx.setTheme(light?'light':'dark');
    mats.forEach(m=>{m.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;m.needsUpdate=true});
-   lanes.visible=!light;glow.material.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;glow.material.color.set(light?0xffd9a0:0xffffff);glow.material.needsUpdate=true;
+   lanes.visible=!light;if(beacons)beacons.visible=!light&&beacons.geometry.instanceCount>0;glow.material.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;glow.material.color.set(light?0xffd9a0:0xffffff);glow.material.needsUpdate=true;
    if(hotGlow){hotGlow.material.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;hotGlow.material.color.set(light?0xffb86e:0xffffff);hotGlow.material.needsUpdate=true}
    meteors.forEach(m=>{if(light)m.l.visible=false});
    syncBloom()}
@@ -478,10 +549,10 @@
     an.onfinish=()=>g.remove();setTimeout(()=>g.remove(),900);
     setTimeout(()=>{caSpike=Math.max(caSpike,1.4)},470)}catch{}});
   /* test hook: only exposed when localStorage bk-test=1 (the audit tools set it) */
-  if((()=>{try{return localStorage.getItem('bk-test')==='1'}catch{return false}})())window.BKHero={fly:i=>fly(i),count:()=>rec.n,info:()=>heroInfo(),simSample:()=>sim?sim.sample():null,simFx:()=>simFxData,simKick:()=>{if(!sim)return false;tilt.updateMatrixWorld(true);const p=tilt.localToWorld(new THREE.Vector3(0,0,0));uniforms.uPulse.value.set(p.x,p.y,time);return true},gov:{pin:v=>{pinned=!!v},level:()=>degrade,setLevel:l=>{setLevel(l,performance.now());return degrade},feed:(avg,now,gpu)=>govern(avg,now,gpu),lock:()=>recLock,reset:()=>{good=0;recLock=0;lastRec=-1e9;if(degrade!==0)setLevel(0,0);lastChange=-1e9;return degrade}}};/* test hook (tools/motion_audit.py, tools/feature_audit.py B14) */
+  if((()=>{try{return localStorage.getItem('bk-test')==='1'}catch{return false}})())window.BKHero={fly:i=>fly(i),count:()=>rec.n,info:()=>heroInfo(),simSample:()=>sim?sim.sample():null,layer:(k,v)=>{const o={disc,beacons,hot:hotGlow,glow,hii,neb}[k];if(!o)return false;o.visible=!!v;draw();return true},simFx:()=>simFxData&&{...simFxData,fieldW:Array.from(fieldFW),beaconsShown:beacons?beacons.geometry.instanceCount:0,discShown:!!(disc&&disc.visible)},simKick:()=>{if(!sim)return false;tilt.updateMatrixWorld(true);const p=tilt.localToWorld(new THREE.Vector3(0,0,0));uniforms.uPulse.value.set(p.x,p.y,time);return true},gov:{pin:v=>{pinned=!!v},level:()=>degrade,setLevel:l=>{setLevel(l,performance.now());return degrade},feed:(avg,now,gpu)=>govern(avg,now,gpu),lock:()=>recLock,reset:()=>{good=0;recLock=0;lastRec=-1e9;if(degrade!==0)setLevel(0,0);lastChange=-1e9;return degrade}}};/* test hook (tools/motion_audit.py, tools/feature_audit.py B14) */
   /* what the post chain costs, from the objects that run (tools/gpu_budget_audit.py --fx-compare): logical passes, full-screen draws, full-resolution reads, render targets */
   function heroInfo(){const o={fx:fx?'uber':composer?'legacy':'none',bloom:useBloom,level:degrade,sim:sim?'gpu':'cpu',particles:sim?SIMN[Math.min(degrade,4)]:GN,drawn:sim?sim.drawn:Math.floor(GN*QKEEP[degrade])};
-   if(fx){const i=fx.info();return{...o,passes:useBloom?i.passes:1,draws:useBloom?i.draws:0,fullReads:useBloom?i.fullReads:0,targets:i.targets}}
+   if(fx){const i=fx.info();return{...o,passes:useBloom?i.passes:1,draws:useBloom?i.draws:0,fullReads:useBloom?i.fullReads:0,targets:i.targets,streak:!!(useBloom&&i.streak)}}
    if(composer){let passes=0,draws=0,fullReads=0,targets=2;   // the composer's two full-resolution ping-pong targets
     if(!useBloom)return{...o,passes:1,draws:0,fullReads:0,targets}
     for(const p of composer.passes){if(p.enabled===false)continue;passes++;
@@ -509,7 +580,7 @@
    rig.rotation.y=yaw+Math.sin(time*.07)*.12-(1-intro)*.9+sp*.45;rig.rotation.x=pitch;
    uniforms.uFade.value=intro*(1-sp*.75);
    glow.material.opacity=(root.dataset.theme==='light'?.3:.1)*uniforms.uFade.value+.03*Math.sin(time*.9);
-   if(hotGlow)hotGlow.material.opacity=(root.dataset.theme==='light'?.14:.5)*uniforms.uFade.value+.02*Math.sin(time*1.3);
+   if(hotGlow)hotGlow.material.opacity=(root.dataset.theme==='light'?.14:(disc?.2:.5))*uniforms.uFade.value+.02*Math.sin(time*1.3);
    uniforms.uMouseOn.value+=((mouse.in&&!drag?1:0)-uniforms.uMouseOn.value)*Math.min(1,dt*5);
    /* hold still on the galaxy = singularity: gravity well + lensing; release = shock + chromatic burst */
    wellT=lensOn&&drag&&!drag.moved&&performance.now()-drag.t0>320?1:0;if(wellT)uniforms.uMouseOn.value=Math.max(uniforms.uMouseOn.value,1);
@@ -543,7 +614,9 @@
      Fast windows step back UP one level at a time, only after 4 consecutive fast windows and 20 s since the last change;
      a recovery that is undone within 15 s locks recovery for 2 minutes, so a borderline GPU never flip-flops. */
   const QPX=[1.6,1.6,1,.7,.55],QKEEP=[1,1,1,.55,.3];let lastChange=-1e9,lastRec=-1e9,recLock=0,good=0;
-  function setLevel(l,now){degrade=l;bloomOff=l>=1;quality=QPX[l];dust.geometry.setDrawRange(0,Math.floor(GN*QKEEP[l]));lanes.geometry.setDrawRange(0,Math.floor(LN*QKEEP[l]));  if(sim){sim.setDrawRange(SIMN[Math.min(l,4)]);sim.setActive(l<=0);hii&&hii.geometry.setDrawRange(0,Math.floor(hiiN*HKEEP[Math.min(l,4)]))}lastChange=now;if(MO)MO.quality.set(l);syncBloom();layout()}
+  function setLevel(l,now){degrade=l;bloomOff=l>=1;quality=QPX[l];dust.geometry.setDrawRange(0,Math.floor(GN*QKEEP[l]));lanes.geometry.setDrawRange(0,Math.floor(LN*QKEEP[l]));  if(sim){sim.setDrawRange(SIMN[Math.min(l,4)]);sim.setActive(l<=0);hii&&hii.geometry.setDrawRange(0,Math.floor(hiiN*HKEEP[Math.min(l,4)]));if(beacons){beacons.geometry.instanceCount=Math.floor(beaconN*BKEEP[Math.min(l,4)]);beacons.visible=root.dataset.theme!=='light'&&beacons.geometry.instanceCount>0}if(disc)disc.visible=l<=2}
+   if(fx)fx.streak.enabled=l<=0;
+lastChange=now;if(MO)MO.quality.set(l);syncBloom();layout()}
   /* GPU ms first (EXT_disjoint_timer_query_webgl2: the real cost of the frame, vsync and CPU noise excluded), rAF time only where the GPU has no timer.
      GPU thresholds: slow above 13 ms (20 ms from level 2), fast below 5 ms; rAF thresholds as before. */
   function govern(avg,now,gpu){if(pinned)return degrade;const G=gpu!=null,v=G?gpu:avg;
