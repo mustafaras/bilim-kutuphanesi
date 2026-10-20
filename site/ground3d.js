@@ -21,14 +21,14 @@
  const GCR_PATH='./vendor/jsm/misc/GPUComputationRenderer.js';
  /* one wave variable reads its own texel: r = h(t), g = h(t-dt); explicit Euler on the 2-D wave equation with a per-step damping.
     uC2 = (c·dt/dx)² ≈ 0.098 — CFL ≤ 0.5 per axis holds at both 256² and 128². Splashes live in a small uniform ring, applied
-    on the first step after their stamp time (age < 1.6·dt), so the compute stays stateless and resumes cleanly after the sleep. */
+    on the first step at or after their stamp time, and the CPU clears the ring right after that compute, so the compute stays stateless and every stamp lands exactly once at any frame rate (the CI software GL runs the page at ~1 fps). */
  const WAVE_FRAG=`uniform float uC2,uDamp,uTime,uDT;uniform vec4 uS[8];
   void main(){vec2 uv=gl_FragCoord.xy/resolution.xy;vec2 e=1./resolution.xy;
    vec4 s=texture2D(textureWave,uv);
    float l=texture2D(textureWave,uv+vec2(e.x,0.)).r+texture2D(textureWave,uv-vec2(e.x,0.)).r+texture2D(textureWave,uv+vec2(0.,e.y)).r+texture2D(textureWave,uv-vec2(0.,e.y)).r;
    float nh=(s.r*2.-s.g+uC2*(l-4.*s.r))*uDamp;
    for(int i=0;i<8;i++){vec4 st=uS[i];float age=uTime-st.z;
-    if(age>=0.&&age<uDT*1.6){vec2 d=uv-st.xy;nh+=st.w*exp(-dot(d,d)*2200.)*.012;}}   // a one-step kick rings the (low-frequency) bump at ~8x — measured on SwiftShader; keep the raw impulse that far below the wanted ripple height
+    if(age>=0.){vec2 d=uv-st.xy;nh+=st.w*exp(-dot(d,d)*2200.)*.012;}}   // a one-step kick rings the (low-frequency) bump at ~8x — measured on SwiftShader; keep the raw impulse that far below the wanted ripple height. Stamps stay active until the CPU clears them right after the compute that applied them — frame-rate independent exactly-once on slow GPUs
    gl_FragColor=vec4(clamp(nh,-1.,1.),s.r,0.,1.);}`;
  const WS=30;                                    // the wave grid covers the world square [-15,15]² under the viewer
  async function boot(){
@@ -149,7 +149,8 @@
 
   /* ---------- R8.2 wave-equation GPGPU (one variable → two ping-pong targets) ---------- */
   let wave=null,wt=0,si=0,awakeUntil=0,stamps=null;
-  const asleep=()=>performance.now()/1000>awakeUntil;
+  const pending=()=>{if(!stamps)return 0;let n=0;for(const s of stamps)if(s.z>=0)n++;return n};
+  const asleep=()=>performance.now()/1000>awakeUntil&&!pending();
   async function ensureWave(size){
    if(wave&&wave.size===size)return;
    if(wave){try{wave.gl.dispose()}catch{}wave=null;uniforms.uWave.value=null;uniforms.uWaveOn.value=0}
@@ -175,6 +176,7 @@
     uniforms.uWaveOn.value=uniforms.uWaveOn.value>.002?uniforms.uWaveOn.value*.88:0;info.simActive=false;return}
    wt+=1/60;const u=wave.uniforms;u.uTime.value=wt;u.uDT.value=1/60;
    wave.gl.compute();renderer.setRenderTarget(null);info.simSteps++;
+   for(const s of u.uS.value)if(s.z>=0&&wt>=s.z){s.z=-99;s.w=0}   // the compute that just ran was the one that saw this stamp — clear it (exactly-once, any fps); w=0 keeps the inactive ring harmless under age>=0
    uniforms.uWave.value=wave.gl.getCurrentRenderTarget(wave.varr).texture;uniforms.uWaveOn.value=1;info.simActive=true}
   function splash(x,y,amp){if(level()>1||!wave)return false;
    const u=(x+WS/2)/WS,v=(y+WS/2)/WS;if(!(u>=0&&u<=1&&v>=0&&v<=1))return false;
@@ -208,6 +210,7 @@
   let visible=true,raf=0,t0=performance.now(),ri=0,lastRip=0,energy=0;
   const info={built:true,lvl:0,simSize:0,simSteps:0,simActive:false,targets:0,refl:false,reflSize:0,cards:0,frames:0};
   function syncInfo(){info.lvl=level();info.simSize=wave?wave.size:0;info.simActive=!!wave&&!asleep()&&level()<=1;
+   info.si=si;info.pending=pending();info.awake=Math.max(0,Math.round((awakeUntil-performance.now()/1000)*10)/10);
    info.targets=(wave?2:0)+(reflRT?1:0);info.refl=!!reflRT&&uniforms.uReflOn.value>.5;info.reflSize=reflRT?reflRT.width:0;
    info.cards=cards.filter(c=>c.visible).length}
   window.BKGround={info(){syncInfo();return{...info}},splash(x,y,a){return splash(x,y,a==null?1:a)},
