@@ -415,10 +415,13 @@ def b18(b):
     r1 = q.evaluate("BKHero.info().intro")
     if r1.get("cut"): problems.append(f"B18 pointer movement must NOT cancel the entrance: {r1}")
     q.mouse.down(); q.mouse.up()
+    # On a loaded runner the page can lag seconds behind the input dispatch and a single evaluate can land before the press handler has run:
+    # wait for the STATE (the press cut the entrance, or it finished on its own) instead of racing it, then wait for the blend to finish by state too (v132, §77).
+    try: q.wait_for_function("(()=>{const i=BKHero.info().intro;return i.cut||i.done})()", timeout=60000)
+    except Exception: pass
     cut = q.evaluate("BKHero.info().intro"); ok = False
-    for _ in range(40):
-        q.wait_for_timeout(500)
-        if q.evaluate("BKHero.info().intro.done"): ok = True; break
+    try: q.wait_for_function("BKHero.info().intro.done", timeout=120000); ok = True
+    except Exception: pass
     note(f"B18 entrance: running {r0}, after move {r1}, after press {cut}, finished {ok}")
     if not cut.get("cut") and not ok: problems.append(f"B18 a deliberate press must cancel the entrance: {cut}")
     if not ok: problems.append("B18 the cancelled entrance never finished (the 350 ms blend)")

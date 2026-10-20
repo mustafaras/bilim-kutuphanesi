@@ -64,7 +64,12 @@ PREP = {
     "stage": "document.getElementById('spotlightGrid').scrollIntoView({block:'center'})",
     "skyline": "document.querySelector('.timeline-section').scrollIntoView({block:'center'})",
     "nobel": "(()=>{const b=document.querySelector('[data-v=galaxy]');if(b)b.click()})()",
-    "constellation": "(()=>{openRecord(records[5].id);let k=0;const iv=setInterval(()=>{const c=document.querySelector('.rv-gl');if(c)c.scrollIntoView({block:'center'});if(++k>4)clearInterval(iv)},300)})()",   # the canvas is built async; the box must be in view or its IntersectionObserver parks the render loop and the window sees zero frames (v124)
+    "constellation": "openRecord(records[5].id)",
+}
+# Surfaces whose render loop parks while the canvas is out of view (IntersectionObserver): the window then sees zero frames.
+# A single early centering loses the race against the async canvas build (v124–v131 flakes, reproduced on v131 locally): measure() re-asserts visibility before every read.
+ENSURE = {
+    "constellation": "(()=>{const c=document.querySelector('.rv-gl');if(c)c.scrollIntoView({block:'center'})})()",
 }
 names = [n for n in (a.surfaces.split(",") if a.surfaces else LIMITS)]
 flags = "".join(f"localStorage.setItem('bk-flag-{k}','{v}');" for k, v in (f.split("=") for f in a.flag))
@@ -84,6 +89,7 @@ def measure(q, name, need=6, timeout=90):
     q.evaluate(PREP[name]); q.wait_for_timeout(2500)
     t0 = q.evaluate("window.__tick"); r = None; end = time.time() + timeout
     while time.time() < end:
+        if name in ENSURE: q.evaluate(ENSURE[name])   # parked loop: center the (async built) canvas again before reading; a no-op once it stays in view
         q.wait_for_timeout(2000); r = q.evaluate(f"window.__gbRead(window.__gbMatch.{name},{t0})")
         if r and r["frames"] >= need: break
     return r
