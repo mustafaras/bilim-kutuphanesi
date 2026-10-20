@@ -16,6 +16,8 @@
   smooth:x=>{x=clamp01(x);return x*x*(3-2*x)}
  };
  const damp=(cur,target,lambda,dt)=>target+(cur-target)*Math.exp(-lambda*dt);
+ /* springZ(x0,wn,zeta): a second-order spring in the engineer's terms — natural frequency wn (rad/s) and damping ratio zeta (zeta .8 overshoots ~1.5 %, 1 is critical). Sub-stepped (<= 8 ms) so it stays stable and accurate at the 50 ms frame cap. step(dt) returns x. */
+ function springZ(x0,wn,zeta){wn=wn||8;zeta=zeta==null?.8:zeta;const s={x:x0||0,v:0,to:x0||0,wn,zeta,step(dt){dt=Math.min(Math.max(dt,0),.05);const n=Math.max(1,Math.ceil(dt/.008)),h=dt/n;for(let i=0;i<n;i++){s.v+=(s.wn*s.wn*(s.to-s.x)-2*s.zeta*s.wn*s.v)*h;s.x+=s.v*h}return s.x}};return s}
  function spring(x0,k,c){k=k||90;c=c==null?2*Math.sqrt(k):c;const s={x:x0||0,v:0,to:x0||0,step(dt){dt=Math.min(dt,.05);const a=-k*(s.x-s.to)-c*s.v;s.v+=a*dt;s.x+=s.v*dt;return s.x}};return s}
  const quality={level:0,
   set(l){l=Math.max(0,Math.min(4,l|0));if(l===quality.level)return;quality.level=l;try{document.dispatchEvent(new CustomEvent('bk:quality',{detail:l}))}catch{}}};
@@ -41,6 +43,6 @@
   if(!pq.raf)pq.raf=requestAnimationFrame(()=>{const q=pq;if(!q)return;q.raf=0;const r=q.el.getBoundingClientRect();q.el.style.setProperty('--mx',(((q.x-r.left)/Math.max(1,r.width)-.5)*2).toFixed(3));q.el.style.setProperty('--my',(((q.y-r.top)/Math.max(1,r.height)-.5)*2).toFixed(3))})},{passive:true});
  /* A1: how far an element has "arrived" while scrolling (0 = still below the fold, 1 = settled around the middle of the viewport); scenes use it to dolly in as their section approaches, continuing the hero's camera path */
  const arrival=(el,from=1.05,to=.46)=>{if(!el||rm.matches||document.documentElement.classList.contains('effects-paused'))return 1;const r=el.getBoundingClientRect(),c=(r.top+r.height/2)/Math.max(1,innerHeight||800);return ease.smooth((from-c)/(from-to))};
- window.BKMotion={ease,damp,spring,quality,tick,clamp01,arrival};
+ window.BKMotion={ease,damp,spring,springZ,quality,tick,clamp01,arrival};
  try{if(localStorage.getItem('bk-test')==='1')window.__bkPerf=perf}catch{}
 })();

@@ -7,11 +7,11 @@ A2 a record opened from a hero star spawns a return ghost when it closes (and no
 A3 the quality governor degrades at once, recovers one level at a time only after sustained fast windows, and locks recovery after a flip-flop;
 B8 context loss, B9 broken GPU, B10 quality tiers reach the stage (DPR cap, idle frame rate) and one ?diag panel; B11 GPU timing, ?perf panel and shader warm-up (Long Tasks, zero cost when ?perf is off); B12 shared material/light library (one studio bake per renderer and preset, ACES + exposure in one place and off by default, material levels, kill-switch flag) and the BKShaders chunks compiling; B5 the 3D book opens into a centred reading stage, pages turn and Escape closes it; B6 the medal uses a normal-map relief with a reeded rim; B7 the dome/telescope follows the pointer.
 A4 clicking an atlas tile shows the dive (class .diving), delays the filter ~420 ms, then applies it exactly once."""
-import json, argparse, os, socket, subprocess, sys, time
+import json, argparse, os, re, socket, subprocess, sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
-ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11", "b12", "b13", "b14", "b15", "b16"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11", "b12", "b13", "b14", "b15", "b16", "b17", "b18"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
 srv = None
 if not a.url:
     s_ = socket.socket(); s_.bind(("127.0.0.1", 0)); port = s_.getsockname()[1]; s_.close()
@@ -232,7 +232,8 @@ def b13(b):
       const bright=new T.Scene();bright.add(quad(new T.Color(8,8,8),.12,.12,0,0));
       neutral();fx.render(bright,cam);out.bloomOffNear=px(32+5,32);
       neutral();fx.bloom.enabled=true;fx.streak.enabled=false;fx.render(bright,cam);out.bloomOnNear=px(32+5,32);out.bloomOnFar=px(60,60);out.drawsBloom=fx.info().draws;out.infoBloom=fx.info();
-      fx.streak.enabled=true;fx.render(bright,cam);out.infoStreak=fx.info();fx.streak.enabled=false;   /* R7.d: the anamorphic streak adds exactly 2 draws and 1 pass, no render target */
+      fx.streak.enabled=true;fx.render(bright,cam);out.infoStreak=fx.info();
+      fx.cone.enabled=true;fx.render(bright,cam);out.infoCone=fx.info();fx.cone.enabled=false;fx.streak.enabled=false;   /* R7.e: the volumetric light cone adds exactly 1 draw and 1 pass on top of the streak */   /* R7.d: the anamorphic streak adds exactly 2 draws and 1 pass, no render target */
       neutral();fx.u.uGrain=1;fx.u.uTime=1.25;fx.render(flat,cam);const g1=px(20,20).concat(px(40,11));fx.render(flat,cam);const g2=px(20,20).concat(px(40,11));out.grainStable=JSON.stringify(g1)===JSON.stringify(g2);
       neutral();fx.render(flat,cam);out.infoNeutral=fx.info();
       const t1=fx.info().targets;fx.bloom.enabled=true;fx.render(flat,cam);fx.setSize(96,96);fx.render(flat,cam);fx.setSize(64,64);fx.render(flat,cam);out.targetsAfterResize=fx.info().targets;out.pool=fx.info().pool;
@@ -250,6 +251,8 @@ def b13(b):
     if max(r["bloomOffNear"]) > 3: problems.append(f"B13 bloom off must leave pixels beside the bright quad dark: {r['bloomOffNear']}")
     if max(r["bloomOnNear"]) < 8 or max(r["bloomOnNear"]) <= max(r["bloomOnFar"]) + 4: problems.append(f"B13 bloom must light pixels beside the bright quad, more than far away: near {r['bloomOnNear']} far {r['bloomOnFar']}")
     if r["drawsBloom"] != 13 or r["infoBloom"]["fullReads"] != 2 or r["infoBloom"]["passes"] > 5: problems.append(f"B13 bloom frame must be 13 full-screen draws / 2 full-resolution reads / <= 5 passes: {r['infoBloom']}")
+    cn = r.get("infoCone") or {}
+    if cn.get("draws") != 16 or cn.get("passes") != 5 or cn.get("fullReads") != 2 or cn.get("targets") != r["infoBloom"]["targets"] or not cn.get("cone"): problems.append(f"B13 the light cone must add exactly 1 draw and 1 pass on top of the streak (16 / 5 passes), 0 render targets, no extra full-resolution read: {cn} vs {r['infoBloom']}")
     sk = r.get("infoStreak") or {}
     if sk.get("draws") != 15 or sk.get("passes") != 4 or sk.get("fullReads") != 2 or sk.get("targets") != r["infoBloom"]["targets"] or not sk.get("streak"): problems.append(f"B13 the anamorphic streak must add exactly 2 draws and 1 pass (15 / 4 passes), 0 render targets, no extra full-resolution read: {sk} vs {r['infoBloom']}")
     if r["infoNeutral"]["draws"] != 1 or r["infoNeutral"]["fullReads"] != 1: problems.append(f"B13 neutral frame plan wrong: {r['infoNeutral']}")
@@ -261,13 +264,14 @@ def b13(b):
     if errs: problems.append(f"B13 page errors: {errs[:3]}")
     ctx.close()
 
-def b14(b):
+def b14(b, extra="", want=512, only_main=False):
     """B14 R7.b GPGPU galaxy (site/sim.js, window.BKSim + vendored GPUComputationRenderer): the hero's star field is simulated in position/velocity float textures.
     Checks: BKHero.info() reports sim 'gpu' with the tier particle counts (262144 / 131072 / 56000 / 14000, drawRange — drawn count must match); a shock-wave kick
     actually moves particles on the GPU (float readback of the position texture, |offset| grows); flag bksim=0 falls back to the CPU dust layer (sim 'cpu', 56000);
-    in ?still=1 the simulation never steps and readback stays frozen (the visual gate's determinism)."""
+    in ?still=1 the simulation never steps and readback stays frozen (the visual gate's determinism).
+    R7.f: the default run pins the 512² set (flag sim1m=0, so a real GPU with the memory signal cannot change what this gate measures); B17 runs the same tier/kick checks on the 1024² set (sim1mforce, only_main)."""
     ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q = ctx.new_page()
-    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
+    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark');" + (extra or "localStorage.setItem('bk-flag-sim1m','0');") + "}catch(e){}")
     errs14 = []; q.on("pageerror", lambda e: errs14.append(str(e)[:160]))
     q.goto(a.url + "?b14=" + str(time.time()), wait_until="load")
     try: q.wait_for_function("window.BKHero&&BKHero.info&&BKHero.info().sim!==undefined&&!!document.querySelector('#heroGL.on')", timeout=180000)
@@ -279,7 +283,9 @@ def b14(b):
     i0 = q.evaluate("BKHero.info()"); note(f"B14 tier 0: {i0}")
     if probe.get("floatRT"):
         if i0.get("sim") != "gpu": problems.append(f"B14 a float-RT GL must run the GPU sim: {i0}")
-        for lvl, n in ((0, 262144), (1, 131072), (2, 56000), (3, 14000)):
+        if i0.get("simSize") != want: problems.append(f"B14 the sim must run on the {want}x{want} texture set: {i0}")
+        tiers = {512: (262144, 131072, 56000, 14000), 1024: (1048576, 262144, 131072, 56000)}[want]
+        for lvl, n in enumerate(tiers):
             info = q.evaluate(f"BKHero.gov.setLevel({lvl}),BKHero.info()")
             note(f"B14 tier {lvl}: {info}")
             if info.get("sim") != "gpu" or info.get("particles") != n or info.get("drawn") != n:
@@ -298,6 +304,7 @@ def b14(b):
             if not s1 or s1.get("steps", 0) <= s0.get("steps", 0): problems.append(f"B14 the GPGPU compute loop never advanced (steps {s0.get('steps')} -> {s1 and s1.get('steps')})")
             elif s1.get("maxAbs", 0) <= 0.1: problems.append(f"B14 the shock kick did not move particles on the GPU (maxAbs {s1.get('maxAbs')})")
     ctx.close()
+    if only_main: return
     # ?still=1 — the visual gate captures one frozen frame: the sim must never step there
     ctx2 = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q2 = ctx2.new_page()
     q2.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
@@ -325,6 +332,107 @@ def b14(b):
     ctx3.close()
     if errs14: problems.append(f"B14 page errors: {errs14[:3]}")
 
+def b17(b):
+    """B17 R7.f: the 1 048 576-star level. With the test flag sim1mforce the sim runs on the 1024x1024 float textures: simSize 1024, tier 0 draws every one of the 1 048 576 stars via drawRange,
+    tier 1 draws 262 144, 2 draws 131 072, 3 draws 56 000 (same checks as B14 on the bigger set), a shock kick moves particles through a float readback of the 1024² position texture; the memory signal itself is
+    checked by a second page WITHOUT the force flag on this (software) GL: it must stay on 512² — the 1M level never opens on SwiftShader/llvmpipe."""
+    b14(b, "localStorage.setItem('bk-flag-sim1mforce','1');", 1024, True)
+    ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q = ctx.new_page()
+    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
+    q.goto(a.url + "?b17s=" + str(time.time()), wait_until="load")
+    try:
+        q.wait_for_function("window.BKHero&&BKHero.info&&BKHero.info().sim!==undefined&&!!document.querySelector('#heroGL.on')", timeout=180000)
+        i = q.evaluate("BKHero.info()"); probe = q.evaluate("window.BKGL?BKGL.probe():null") or {}
+        note(f"B17 default flags on this GL ({probe.get('gpu')}): {i}")
+        if probe.get("floatRT") and i.get("sim") == "gpu" and i.get("simSize") != 512 and re.search(r"swiftshader|llvmpipe|basic render|software", probe.get("gpu", ""), re.I):
+            problems.append(f"B17 a software GL must never open the 1M level (memory signal): {i}")
+    except Exception as e: problems.append(f"B17 memory-signal check failed: {str(e)[:160]}")
+    ctx.close()
+
+def b18(b):
+    """B18 R7.e dome cinematics: (1) the damped spring maths (BKMotion.springZ): zeta .8 overshoots 0.3-4 % (theory 1.5 %), settles inside 1 s, is frame-step independent (50 ms vs 1/60 s agree), critical damping does not overshoot;
+    (2) tier 0, dark: the 24-step light cone and the Lensflare run (info(): cone, flare, passes == 5, draws == 16, 12 render targets); tiers 1-2: the cone becomes the gradient sprite and the Lensflare stays only at tier 1;
+    tier 3: none of them; (3) a clicked star aims the dome (BKHero.aim): the azimuth spring moves toward the target and converges; (4) the entrance: running 2.4 s, a deliberate press cancels it (a 350 ms blend, never a jump),
+    pointer movement does NOT cancel it, and reduced-motion never starts it."""
+    # 1 the spring maths
+    ctx = b.new_context(viewport={"width": 1000, "height": 700}, service_workers="block"); q = ctx.new_page(); q.goto(a.url + "?b18m=" + str(time.time()), wait_until="load")
+    try: q.wait_for_function("window.BKMotion&&BKMotion.springZ", timeout=60000)
+    except Exception: problems.append("B18 BKMotion.springZ is missing"); ctx.close(); return
+    sp = q.evaluate("""(()=>{const run=(wn,z,dt,T)=>{const s=BKMotion.springZ(0,wn,z);s.to=1;let mx=0,settle=-1;for(let t=0;t<T;t+=dt){s.step(dt);if(s.x>mx)mx=s.x;if(settle<0&&Math.abs(s.x-1)<.01&&Math.abs(s.v)<.05)settle=t}return{final:s.x,over:mx-1,settle}};
+      return{a:run(9.5,.8,1/60,3),c:run(9.5,.8,.05,3),crit:run(9.5,1,1/60,3),slow:run(6,.8,1/60,3)}})()""")
+    note(f"B18 spring maths: {sp}")
+    A, C, K, SL = sp["a"], sp["c"], sp["crit"], sp["slow"]
+    if abs(A["final"] - 1) > .002 or not (.003 < A["over"] < .04): problems.append(f"B18 zeta .8 must settle at the target with a 0.3-4 % overshoot: {A}")
+    if not (0 <= A["settle"] < 1.0) or not (0 <= SL["settle"] < 1.4): problems.append(f"B18 the dome spring must settle inside 1 s (aim) / 1.4 s (follow): {A} {SL}")
+    if abs(C["over"] - A["over"]) > .01 or abs(C["final"] - 1) > .002: problems.append(f"B18 the spring must not depend on the frame step (1/60 s vs 50 ms): {A} vs {C}")
+    if K["over"] > .001: problems.append(f"B18 critical damping must not overshoot: {K}")
+    ctx.close()
+    # 2-3 the hero
+    ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q = ctx.new_page()
+    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark');localStorage.setItem('bk-flag-sim1m','0')}catch(e){}")
+    errs = []; q.on("pageerror", lambda e: errs.append(str(e)[:160]))
+    q.goto(a.url + "?b18=" + str(time.time()), wait_until="load")
+    try: q.wait_for_function("window.BKHero&&BKHero.dome&&BKHero.info&&!!document.querySelector('#heroGL.on')", timeout=180000)
+    except Exception: problems.append("B18 the hero never came up"); ctx.close(); return
+    q.evaluate("BKHero.gov.pin(true)"); q.evaluate("BKHero.gov.setLevel(0)")
+    try: q.wait_for_function("(()=>{const d=BKHero.dome(),i=BKHero.info();return !!(d&&d.flareReady&&d.cone&&d.flare&&i.cone&&i.passes===5)})()", timeout=180000)   # info() reports the LAST rendered chain: it shows the cone one frame after dome().cone turned on
+    except Exception: problems.append(f"B18 the cone and the Lensflare never started at tier 0: {q.evaluate('BKHero.dome()')} {q.evaluate('BKHero.info()')}")
+    i0 = q.evaluate("BKHero.info()"); d0 = q.evaluate("BKHero.dome()"); note(f"B18 tier 0: {i0} | {d0}")
+    if not (i0.get("cone") and i0.get("flare") and i0.get("streak")) : problems.append(f"B18 tier 0 must run the cone, the streak and the Lensflare: {i0}")
+    if i0.get("passes") != 5 or i0.get("draws") != 16 or i0.get("targets") != 12: problems.append(f"B18 the full chain must be 5 passes / 16 draws / 12 render targets: {i0}")
+    if d0.get("coneSteps") != 24 or d0.get("coneStrength", 0) <= 0: problems.append(f"B18 the tier-0 cone is a 24-step march with a positive strength: {d0}")
+    for lvl, want_cone, want_sprite, want_flare in ((1, False, True, True), (2, False, True, False), (3, False, False, False)):
+        q.evaluate(f"BKHero.gov.setLevel({lvl})")
+        cond = "(()=>{const d=BKHero.dome();return d&&d.cone===false&&d.coneSprite===" + ("true" if want_sprite else "false") + "})()"
+        try: q.wait_for_function(cond, timeout=120000)
+        except Exception: pass
+        d = q.evaluate("BKHero.dome()"); note(f"B18 tier {lvl}: {d}")
+        if d["cone"] != want_cone or d["coneSprite"] != want_sprite or d["flare"] != want_flare: problems.append(f"B18 tier {lvl} must show cone {want_cone}, gradient sprite {want_sprite}, Lensflare {want_flare}: {d}")
+    # 3 aim at tier 3 (cheap frames): the azimuth spring moves toward the aimed star and converges
+    q.evaluate("BKHero.gov.setLevel(3)")
+    f0 = q.evaluate("BKHero.dome().fa"); hz = q.evaluate("(()=>{const r=document.querySelector('.hero-scene').getBoundingClientRect(),h=window.BKHorizon;return h&&h.w?{left:r.left,ox:h.ox,w:h.w}:null})()")
+    if not hz: problems.append("B18 BKHorizon is missing"); ctx.close(); return
+    ax = 1300; tx = max(-1, min(1, (ax - hz["left"] - hz["ox"]) / (hz["w"] * .5))); tgt = tx * .42
+    q.evaluate(f"BKHero.aim({ax}, 300)"); moved = False; vmax = 0; conv = None
+    for _ in range(90):
+        q.wait_for_timeout(1000); d = q.evaluate("BKHero.dome()"); vmax = max(vmax, abs(d["va"]))
+        if abs(d["fa"] - f0) > .03: moved = True
+        if abs(d["fa"] - tgt) < .03 and abs(d["va"]) < .05: conv = d; break
+    note(f"B18 aim: start {f0}, target {round(tgt, 3)}, peak |velocity| {round(vmax, 3)}, converged {conv}")
+    if abs(tgt - f0) > .06 and not moved: problems.append(f"B18 the aimed dome never turned toward the star (start {f0}, target {tgt})")
+    if abs(tgt - f0) > .06 and conv is None: problems.append(f"B18 the dome azimuth never converged on the aimed star (target {tgt}): {q.evaluate('BKHero.dome()')}")
+    ctx.close()
+    # 4 the entrance
+    ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q = ctx.new_page()
+    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark');localStorage.setItem('bk-flag-sim1m','0')}catch(e){}")
+    q.goto(a.url + "?b18i=" + str(time.time()), wait_until="load")
+    try: q.wait_for_function("window.BKHero&&BKHero.introRestart&&!!document.querySelector('#heroGL.on')", timeout=180000)
+    except Exception: problems.append("B18 the hero never came up (entrance)"); ctx.close(); return
+    q.evaluate("BKHero.gov.pin(true)"); q.evaluate("BKHero.gov.setLevel(3)")
+    q.evaluate("BKHero.introRestart()"); r0 = q.evaluate("BKHero.info().intro")
+    if r0.get("done") or r0.get("cut"): problems.append(f"B18 a restarted entrance must be running: {r0}")
+    q.mouse.move(700, 400); q.mouse.move(760, 430); q.wait_for_timeout(300)
+    r1 = q.evaluate("BKHero.info().intro")
+    if r1.get("cut"): problems.append(f"B18 pointer movement must NOT cancel the entrance: {r1}")
+    q.mouse.down(); q.mouse.up()
+    cut = q.evaluate("BKHero.info().intro"); ok = False
+    for _ in range(40):
+        q.wait_for_timeout(500)
+        if q.evaluate("BKHero.info().intro.done"): ok = True; break
+    note(f"B18 entrance: running {r0}, after move {r1}, after press {cut}, finished {ok}")
+    if not cut.get("cut") and not ok: problems.append(f"B18 a deliberate press must cancel the entrance: {cut}")
+    if not ok: problems.append("B18 the cancelled entrance never finished (the 350 ms blend)")
+    ctx.close()
+    ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block", reduced_motion="reduce"); q = ctx.new_page()
+    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
+    q.goto(a.url + "?b18r=" + str(time.time()), wait_until="load")
+    try:
+        q.wait_for_function("window.BKHero&&BKHero.info&&!!document.querySelector('#heroGL.on')", timeout=180000)
+        rr = q.evaluate("BKHero.info().intro"); note(f"B18 reduced motion: {rr}")
+        if not rr.get("done"): problems.append(f"B18 reduced-motion must never start the entrance (a cut): {rr}")
+    except Exception as e: problems.append(f"B18 reduced-motion check failed: {str(e)[:160]}")
+    ctx.close()
+
 def b15(b):
     """B15 R7.c realistic galaxy (hero GPGPU sim path only): physically-coloured stars (temperature -> the black-body LUT baked by
     BKShaders.bakeBlackbody), dark dust lanes (optical depth on the disc plane with a reddening colour shift), density-wave arm
@@ -334,7 +442,7 @@ def b15(b):
     uSky/uLut uniforms actually bound on the sim material; flag bksim=0 leaves the CPU path untouched (sim 'cpu', 56000 stars, no
     simFx object — the legacy look and its goldens stay byte-identical)."""
     ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q = ctx.new_page()
-    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
+    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark');localStorage.setItem('bk-flag-sim1m','0')}catch(e){}")
     errs15 = []; q.on("pageerror", lambda e: errs15.append(str(e)[:160]))
     q.goto(a.url + "?b15=" + str(time.time()), wait_until="load")
     try: q.wait_for_function("window.BKHero&&BKHero.info&&BKHero.info().sim!==undefined&&!!document.querySelector('#heroGL.on')", timeout=180000)
@@ -387,7 +495,7 @@ def b16(b):
     never reached the shader); info() reports streak true with passes <= 5 and the render-target count unchanged (the streak reuses the bloom's idle quarter-resolution mips); tier 3 hides the beacons and the disc and switches
     the streak off; bksim=0 leaves the legacy path untouched (no simFx object)."""
     ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q = ctx.new_page()
-    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
+    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark');localStorage.setItem('bk-flag-sim1m','0')}catch(e){}")
     q.goto(a.url + "?b16=" + str(time.time()), wait_until="load")
     try: q.wait_for_function("window.BKHero&&BKHero.info&&BKHero.info().sim!==undefined&&!!document.querySelector('#heroGL.on')", timeout=180000)
     except Exception: problems.append("B16 the hero never reported a sim mode"); ctx.close(); return
@@ -446,11 +554,11 @@ def b9(b):
     f_all = faulty(["gl_FragColor", "pc_fragColor"], lambda o: o["lvl"] == 4 and o["cards"] == 0); note(f"B9 nothing compiles -> {f_all}")
     if f_all["lvl"] != 4 or f_all["cards"] != 0: problems.append(f"B9 stage did not fall back to the CSS covers when nothing compiles: {f_all}")
 
-if a.only in ("b9", "b10", "b11", "b12", "b13", "b14", "b15", "b16"):
+if a.only in ("b9", "b10", "b11", "b12", "b13", "b14", "b15", "b16", "b17", "b18"):
     with sync_playwright() as p:
         kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]); exe = os.environ.get("BK_CHROMIUM")
         b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
-        {"b9": b9, "b10": b10, "b11": b11, "b12": b12, "b13": b13, "b14": b14, "b15": b15, "b16": b16}[a.only](b); b.close()
+        {"b9": b9, "b10": b10, "b11": b11, "b12": b12, "b13": b13, "b14": b14, "b15": b15, "b16": b16, "b17": b17, "b18": b18}[a.only](b); b.close()
     if srv: srv.terminate()
     print("FAIL" if problems else f"OK: {a.only.upper()}", *problems, sep="\n - " if problems else "")
     sys.exit(1 if problems else 0)
@@ -672,7 +780,7 @@ with sync_playwright() as p:
     if a.only is None: b12(b)
     if a.only is None: b13(b)
     if a.only is None: b14(b)
-    if a.only is None: b15(b); b16(b)
+    if a.only is None: b15(b); b16(b); b17(b); b18(b)
     b.close()
 if srv: srv.terminate()
 print("FAIL" if problems else "OK: Package A features behave as specified", *problems, sep="\n - " if problems else "")

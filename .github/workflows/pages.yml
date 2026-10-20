@@ -77,6 +77,10 @@ jobs:
             cmd: python tools/feature_audit.py --only b15
           - name: Galaxy light, beacons, streak, field tint (B16)
             cmd: python tools/feature_audit.py --only b16
+          - name: 1M star level and memory signal (B17)
+            cmd: python tools/feature_audit.py --only b17
+          - name: Dome cinematics, cone, Lensflare, intro (B18)
+            cmd: python tools/feature_audit.py --only b18
           - name: GPU budgets, hero + ground + shelf (A6)
             cmd: python tools/gpu_budget_audit.py --surfaces hero,ground,stage
           - name: GPU budgets, skyline + Nobel + constellation (A6)

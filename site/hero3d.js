@@ -19,10 +19,11 @@
   try{
    const THREE=await import('./vendor/three.module.min.js');let post=null;
    try{const [ec,rp,ub,sp]=await Promise.all([import('./vendor/jsm/postprocessing/EffectComposer.js'),import('./vendor/jsm/postprocessing/RenderPass.js'),import('./vendor/jsm/postprocessing/UnrealBloomPass.js'),import('./vendor/jsm/postprocessing/ShaderPass.js')]);post={EffectComposer:ec.EffectComposer,RenderPass:rp.RenderPass,UnrealBloomPass:ub.UnrealBloomPass,ShaderPass:sp.ShaderPass}}catch{post=null}
-   await init(THREE,post)}catch(e){console.error("hero3d",e)}}
+   let lf=null;try{const lm=await import('./vendor/jsm/objects/Lensflare.js');lf={Lensflare:lm.Lensflare,LensflareElement:lm.LensflareElement}}catch{lf=null}   // R7.e: three's own examples/jsm/objects/Lensflare.js (MIT), vendored
+   await init(THREE,post,lf)}catch(e){console.error("hero3d",e)}}
  if(document.readyState==='complete')idle(boot);else addEventListener('load',()=>idle(boot),{once:true});
 
- async function init(THREE,post){
+ async function init(THREE,post,lf){
   const canvas=document.createElement('canvas');canvas.id='heroGL';canvas.setAttribute('aria-hidden','true');
   sceneEl.insertBefore(canvas,sceneEl.firstChild);
   let renderer;
@@ -130,7 +131,18 @@
      The home (r, a0, y, twinkle) is a static texture; the vertex shader computes the same log-spiral home as the dust layer and adds the simulated offset — the galaxy can never drift apart and without a kick the picture matches the CPU dust.
      Quality tiers are pure drawRange over the same texture (262144/131072/56000/14000 — no buffer rebuilds). Compute only runs at tiers 0-1; below that the offsets freeze (still a simulated field, just calm) and only the DPR drops.
      The distribution uses its OWN seeded PRNG so the flag-bksim=0 picture (tools/golden/legacy) keeps consuming the exact same rnd() sequence as before. */
-  const SIMN=[262144,131072,56000,14000,14000];let sim=null;
+  /* R7.f: the 1 048 576-star level. SIMN512 is the classic 512² texture set; SIMN1M the 1024² set (tier 0 = every star, tier 1 = 262 144 with the compute off, then the old counts). The 1024² level opens ONLY with the
+     memory signal — a real GPU (not SwiftShader/llvmpipe), navigator.deviceMemory >= 8, a texture limit of 16384+, a desktop pointer and 8+ cores — or when the test flag sim1mforce is set (B17). Unknown signals (Firefox/Safari expose no deviceMemory) stay on 512². */
+  const SIMN512=[262144,131072,56000,14000,14000],SIMN1M=[1048576,262144,131072,56000,14000];let SIMN=SIMN512,sim=null;
+  function pickSimSize(){
+   try{if(!BKGL.flags.get('sim1m'))return 512;
+    if(BKGL.flags.get('sim1mforce'))return 1024;
+    const p=BKGL.probe(renderer)||{};
+    if(/swiftshader|llvmpipe|basic render|software|mesa offscreen/i.test(p.gpu||''))return 512;
+    const coarse=typeof matchMedia==='function'&&matchMedia('(pointer: coarse)').matches;
+    if(small||coarse)return 512;
+    if(!((navigator.deviceMemory||0)>=8&&(p.size||0)>=16384&&(navigator.hardwareConcurrency||0)>=8))return 512;
+    return 1024}catch{return 512}}
   /* ---------- R7.c · realistic look, sim path only (the legacy dust layer and its goldens keep the old palette) ----------
      Black-body colour: BKShaders.bakeBlackbody bakes 256 texels of B-V (-.4..2) into a colour ramp; a per-star temperature index aBv
      (an approximate initial mass function per population) picks the texel: hot blue-white O/B stars on the arm ridges and star-forming
@@ -267,11 +279,12 @@
    if(!BKGL.flags.get('bksim'))return;
    if(!BKGL.probe(renderer).floatRT)return;
    try{
-    const S=512,N=S*S;
+    const S=pickSimSize(),N=S*S;SIMN=S===1024?SIMN1M:SIMN512;
     let s2=77142693;const srnd=()=>{s2|=0;s2=s2+0x6D2B79F5|0;let t=Math.imul(s2^s2>>>15,1|s2);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
     const sgauss=()=>{let u=0;for(let i=0;i<4;i++)u+=srnd();return(u-2)*1.7};
     const home=new Float32Array(N*4),aS=new Float32Array(N),aBv=new Float32Array(N),aT=new Float32Array(N);
-    for(let i=0;i<N;i++){const u=srnd();let r,a,y,kind=0;
+    for(let i=0;i<N;i++){if(S>512&&(i&65535)===0&&i)await new Promise(ok=>setTimeout(ok,0));   /* 1024²: the seeded distribution is generated in 65 536-star slices so the main thread never stalls for the ~1 s it takes (the canvas is not shown until buildSim returns) */
+     const u=srnd();let r,a,y,kind=0;
      if(u<.085){kind=1;r=Math.pow(srnd(),1.9)*1.7;a=srnd()*Math.PI*2;y=sgauss()*.6*Math.max(0,1-r/2.6)}
      else if(u<.2){kind=2;r=1+srnd()*RMAX*1.15;a=srnd()*Math.PI*2;y=sgauss()*.12*(1-r/(RMAX*1.5))}
      else if(u<.225){kind=3;r=RMAX*(.9+srnd()*1.7);a=srnd()*Math.PI*2;y=sgauss()*(1.4+r*.12)}
@@ -446,7 +459,7 @@
      Lit hemisphere shell with a slit that tracks the sky, a warm interior, a brass rim; the lamp pulse is published back for the ground reflection. */
   const dome=(()=>{
    try{
-    const sc=new THREE.Scene(),cam=new THREE.OrthographicCamera(0,2,2,0,-600,600),g=new THREE.Group();sc.add(g);
+    const sc=new THREE.Scene(),cam=new THREE.OrthographicCamera(0,2,2,0,0,1400),g=new THREE.Group();cam.position.set(0,0,700);sc.add(g);   /* the camera sits at z=+700 (frustum z -700..+700, the same scene): Lensflare culls anything with view-space z>0, which is where the lamp is when the slit faces the viewer */
     const body=new THREE.MeshStandardMaterial({color:0x0a1220,roughness:.58,metalness:.4}),brass=new THREE.MeshStandardMaterial({color:0xceac76,roughness:.3,metalness:.92,emissive:0x4a3410,emissiveIntensity:.5});
     const inner=new THREE.MeshBasicMaterial({color:0x8a6228,side:THREE.BackSide}),GAP=.36;
     const base=new THREE.Mesh(new THREE.CylinderGeometry(.74,.9,.95,48,1),body);base.position.y=.475;
@@ -465,18 +478,38 @@
     const lamp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(lc),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:.7}));lamp.scale.setScalar(1.1);g.add(lamp);
     sc.add(new THREE.AmbientLight(0x6f84ad,.55));const key=new THREE.DirectionalLight(0xcfe0ff,1.5);key.position.set(-1.2,1.4,1.6);sc.add(key);
     const warm=new THREE.PointLight(0xffc27a,0,0,2);sc.add(warm);
-    return{sc,cam,g,dom,tel,body,brass,inner,lamp,warm,light:false,ready:false,lampK:.7,ry:2.62,fa:0,fe:.95}
+    /* R7.e Lensflare (three's own): ONE source — the dome lamp. Glare + a ring, two hexagonal ghosts and a violet dot along the line through the frame centre; its occlusion query makes the dome body hide it when the slit turns away. Intensity follows the lamp's breathing and the slit's facing (domeFrame). */
+    let flare=null;const fEls=[];
+    if(lf&&(!window.BKGL||BKGL.flags.get('flare'))){try{
+     const tex=draw=>{const c=document.createElement('canvas');c.width=c.height=128;draw(c.getContext('2d'));return new THREE.CanvasTexture(c)};
+     const rad=(x,stops)=>{const r=x.createRadialGradient(64,64,0,64,64,64);stops.forEach(t=>r.addColorStop(t[0],t[1]));x.fillStyle=r;x.fillRect(0,0,128,128)};
+     const glowT=tex(x=>rad(x,[[0,'rgba(255,240,210,1)'],[.18,'rgba(255,205,140,.55)'],[1,'rgba(255,190,120,0)']]));
+     const ringT=tex(x=>{const r=x.createRadialGradient(64,64,34,64,64,62);r.addColorStop(0,'rgba(140,200,255,0)');r.addColorStop(.55,'rgba(140,200,255,.6)');r.addColorStop(1,'rgba(140,200,255,0)');x.fillStyle=r;x.fillRect(0,0,128,128)});
+     const hexT=tex(x=>{x.beginPath();for(let i=0;i<6;i++){const t=i/6*Math.PI*2+Math.PI/6;x.lineTo(64+Math.cos(t)*52,64+Math.sin(t)*52)}x.closePath();const r=x.createRadialGradient(64,64,8,64,64,58);r.addColorStop(0,'rgba(255,200,120,.08)');r.addColorStop(1,'rgba(255,180,100,.36)');x.fillStyle=r;x.fill()});
+     const dotT=tex(x=>rad(x,[[0,'rgba(190,160,255,.95)'],[1,'rgba(190,160,255,0)']]));
+     flare=new lf.Lensflare();
+     [[glowT,420,0,[1,.82,.58]],[ringT,150,.38,[.55,.78,1]],[hexT,80,.62,[1,.78,.5]],[dotT,60,.8,[.75,.62,1]],[hexT,170,1.05,[.5,.85,.8]]].forEach(([t,sz,d,c])=>{const col=new THREE.Color(c[0],c[1],c[2]).multiplyScalar(.36),el=new lf.LensflareElement(t,sz,d,col.clone());el.base=col;el.sz=sz;fEls.push(el);flare.addElement(el)});
+     g.add(flare)}catch{flare=null}}
+    /* tiers 1-2: the volumetric cone becomes ONE static gradient sprite, in the dome scene behind the dome body */
+    let coneS=null;
+    try{const c=document.createElement('canvas');c.width=64;c.height=128;const x=c.getContext('2d'),gr=x.createLinearGradient(0,128,0,0);gr.addColorStop(0,'rgba(255,220,160,.55)');gr.addColorStop(.5,'rgba(255,210,150,.18)');gr.addColorStop(1,'rgba(255,200,140,0)');
+     x.fillStyle=gr;x.beginPath();x.moveTo(32,128);x.lineTo(2,0);x.lineTo(62,0);x.closePath();x.fill();
+     const pg=new THREE.PlaneGeometry(1,1);pg.translate(0,.5,0);coneS=new THREE.Mesh(pg,new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));coneS.visible=false;coneS.position.z=-200;sc.add(coneS)}catch{coneS=null}
+    return{sc,cam,g,dom,tel,body,brass,inner,lamp,warm,flare,fEls,coneS,light:false,ready:false,lampK:.7,ry:2.62,fa:0,fe:.95,va:0,ve:0}
    }catch{return null}})();
-  function domeTheme(light){if(!dome)return;dome.body.color.set(light?0x2a4054:0x0a1220);dome.brass.color.set(light?0x9a6a3a:0xceac76);dome.inner.color.set(light?0xc78a3c:0x8a6228);dome.light=light}
-  let domeDt=0;
+  function domeTheme(light){if(!dome)return;dome.body.color.set(light?0x2a4054:0x0a1220);dome.brass.color.set(light?0x9a6a3a:0xceac76);dome.inner.color.set(light?0xc78a3c:0x8a6228);dome.light=light;if(dome.flare)dome.flare.visible=!light&&degrade<=1;if(dome.coneS&&light)dome.coneS.visible=false}
+  let domeDt=0,domeAim=null,aimDolly=0,introCutT=0,introP=0;const domeCone={u:.5,v:.4},vLamp=new THREE.Vector3(),INTRO_MS=2400,flag=n=>!window.BKGL||BKGL.flags.get(n);
+  /* R7.e: the dome is a second-order spring (natural frequency wn, damping ratio .8 → ~1.5 % overshoot, a real telescope drive settling), not exponential smoothing; sub-stepped so it is exact at the 50 ms frame cap */
+  function domeSpring(d,ta,te,dt,wn){const z=.8,n=Math.max(1,Math.ceil(dt/.008)),h=dt/n;for(let i=0;i<n;i++){d.va+=(wn*wn*(ta-d.fa)-2*z*wn*d.va)*h;d.fa+=d.va*h;d.ve+=(wn*wn*(te-d.fe)-2*z*wn*d.ve)*h;d.fe+=d.ve*h}}
   function domeFrame(dt,cw,ch){
    if(!dome)return false;const hz=window.BKHorizon;if(!hz||!hz.w||!cw)return false;
    dome.cam.right=cw;dome.cam.top=ch;dome.cam.updateProjectionMatrix();
    const s=clamp(hz.w/1440,.8,1.35)*56;dome.g.scale.setScalar(s);dome.g.position.set(hz.ox,ch-hz.oy-s*.12,0);
    /* the slit slowly tracks across the sky (a real dome follows its target), the lamp breathes */
    /* B7: the dome follows the pointer (slit turns toward it) and the telescope lifts or lowers with it; idle, it tracks the sky slowly */
-   const sr=sceneEl.getBoundingClientRect(),inHero=mouse&&mouse.x>=0&&mouse.in,tx=inHero?clamp((mouse.x-sr.left-hz.ox)/(hz.w*.5),-1,1):0,ty=inHero?clamp((mouse.y-sr.top-hz.oy)/(sr.height*.8),-1,1):0,kf=1-Math.exp(-3*Math.min(.05,domeDt||.016));
-   dome.fa+=(tx*.42-dome.fa)*kf;dome.fe+=((.95-ty*.4)-dome.fe)*kf;
+   /* the aim: a clicked star (fly) overrides the pointer for ~1.8 s — the telescope slews onto it with the snappier drive (wn 9.5 vs 6) */
+   const sr=sceneEl.getBoundingClientRect(),aim=domeAim&&time<domeAim.until?domeAim:null,px0=aim?aim.x:mouse.x,py0=aim?aim.y:mouse.y,inHero=aim?true:(mouse&&mouse.x>=0&&mouse.in),tx=inHero?clamp((px0-sr.left-hz.ox)/(hz.w*.5),-1,1):0,ty=inHero?clamp((py0-sr.top-hz.oy)/(sr.height*.8),-1,1):0;
+   domeSpring(dome,tx*.42,.95-ty*.4,Math.min(.05,domeDt||.016),aim?9.5:6);
    dome.dom.rotation.y=dome.ry+dome.fa+Math.sin(time*.045)*(inHero?.05:.3);
    dome.tel.rotation.z=Math.PI/2-clamp(dome.fe,.45,1.5);if(window.BKDome)window.BKDome.state={ry:+dome.dom.rotation.y.toFixed(3),el:+dome.fe.toFixed(3)};
    const breathe=.62+.38*Math.sin(time*1.4+1.2);dome.lampK=breathe;
@@ -484,6 +517,13 @@
    dome.lamp.position.set(-Math.cos(a)*.93*.84,.95+.62,Math.sin(a)*.93*.84);dome.lamp.material.opacity=(dome.light?.85:.7)*(.55+.45*breathe)*(Math.cos(a)<0?1:.25);
    dome.warm.position.set(hz.ox-Math.cos(a)*s*.9,ch-hz.oy+s*1.5,Math.sin(a)*s*.9+s*.8);dome.warm.intensity=(dome.light?1.1:1.6)*s*s*(.6+.4*breathe);
    hz.lamp=breathe*(Math.cos(a)<0?1:.35);hz.live=true;
+   /* R7.e: the lamp in screen space drives the light cone (apex, axis = the telescope's line of sight: (-cos el·cos az, sin el)), the Lensflare and the slew blur */
+   const facing=Math.cos(a)<0?1:.35,fe=clamp(dome.fe,.45,1.5),fade=uniforms.uFade.value;
+   dome.g.updateMatrixWorld(true);dome.lamp.getWorldPosition(vLamp);domeCone.u=vLamp.x/cw;domeCone.v=vLamp.y/ch;
+   if(fx){const c=fx.cone;c.apex.set(domeCone.u,domeCone.v);c.dir.set(-Math.cos(fe)*Math.cos(a),Math.sin(fe));c.strength=.3*(.6+.4*breathe)*facing*fade;c.steps=24;c.enabled=!dome.light&&degrade<=0&&flag('cone')&&fade>.04}   /* the governor switches the whole post chain off at tier >= 1, so the 24-step cone lives at tier 0 only; tiers 1-2 get the gradient sprite below */
+   if(dome.flare){dome.flare.position.copy(dome.lamp.position);const f=(.6+.4*breathe)*facing*fade;for(const e of dome.fEls){e.color.copy(e.base).multiplyScalar(f);e.size=e.sz*pr}}
+   if(dome.coneS){const on=!dome.light&&degrade>=1&&degrade<=2&&flag('cone')&&fade>.04;dome.coneS.visible=on;
+    if(on){const L=ch*.8,W=L*Math.tan(.15)*2;dome.coneS.position.set(vLamp.x,vLamp.y,-200);dome.coneS.scale.set(W,L,1);dome.coneS.rotation.z=Math.atan2(Math.sin(fe),-Math.cos(fe)*Math.cos(a))-Math.PI/2;dome.coneS.material.opacity=.7*(.6+.4*breathe)*facing*fade}}
    return true}
   function domeDraw(){
    if(!dome)return;const cw=renderer.domElement.clientWidth||sceneEl.clientWidth,ch=renderer.domElement.clientHeight||sceneEl.clientHeight;
@@ -591,6 +631,7 @@
    if(reduced.matches||paused()){window.openRecord(r.id);return}
    const ang=rec.a[i]+time*.2/(.7+rec.r[i]*.5);tilt.updateMatrixWorld(true);v3.set(Math.cos(ang)*rec.r[i],rec.y[i]+.022*rec.r[i]*rec.r[i]*Math.sin(ang-.6),Math.sin(ang)*rec.r[i]);tilt.localToWorld(v3);v3.project(camera);
    const b=canvas.getBoundingClientRect(),sx=b.left+(v3.x*.5+.5)*b.width,sy=b.top+(-v3.y*.5+.5)*b.height;
+   domeAim={x:sx,y:sy,until:time+1.8};   // R7.e: the telescope slews onto the star (spring), the camera pushes in 3 %
    zoomAt(3.4,sx,sy);uniforms.uPulse.value.set(uniforms.uMouse.value.x,uniforms.uMouse.value.y,time);caSpike=3;
    blurC.set(v3.x*.5+.5,v3.y*.5+.5);blurT=1;
    /* ghost cover: the star becomes a book that grows toward the reader; the record then morphs out of it (view transition 'bk-cover') */
@@ -610,10 +651,10 @@
     an.onfinish=()=>g.remove();setTimeout(()=>g.remove(),900);
     setTimeout(()=>{caSpike=Math.max(caSpike,1.4)},470)}catch{}});
   /* test hook: only exposed when localStorage bk-test=1 (the audit tools set it) */
-  if((()=>{try{return localStorage.getItem('bk-test')==='1'}catch{return false}})())window.BKHero={fly:i=>fly(i),count:()=>rec.n,info:()=>heroInfo(),simSample:()=>sim?sim.sample():null,layer:(k,v)=>{const o={disc,beacons,hot:hotGlow,glow,hii,neb,grain,deep:deepField,sim:sim&&sim.points}[k];if(!o)return false;o.visible=!!v;draw();return true},simFx:()=>simFxData&&{...simFxData,grainShown:grain?grain.geometry.drawRange.count:0,deepShown:!!(deepField&&deepField.visible),fieldW:Array.from(fieldFW),beaconsShown:beacons?beacons.geometry.instanceCount:0,discShown:!!(disc&&disc.visible)},simKick:()=>{if(!sim)return false;tilt.updateMatrixWorld(true);const p=tilt.localToWorld(new THREE.Vector3(0,0,0));uniforms.uPulse.value.set(p.x,p.y,time);return true},gov:{pin:v=>{pinned=!!v},level:()=>degrade,setLevel:l=>{setLevel(l,performance.now());return degrade},feed:(avg,now,gpu)=>govern(avg,now,gpu),lock:()=>recLock,reset:()=>{good=0;recLock=0;lastRec=-1e9;if(degrade!==0)setLevel(0,0);lastChange=-1e9;return degrade}}};/* test hook (tools/motion_audit.py, tools/feature_audit.py B14) */
+  if((()=>{try{return localStorage.getItem('bk-test')==='1'}catch{return false}})())window.BKHero={aim:(x,y)=>{domeAim={x,y,until:time+4};return true},introRestart:()=>{introDone=false;introCutT=0;introT0=performance.now();return true},dome:()=>dome?{fa:+dome.fa.toFixed(4),fe:+dome.fe.toFixed(4),va:+dome.va.toFixed(4),ve:+dome.ve.toFixed(4),aiming:!!(domeAim&&time<domeAim.until),cone:!!(fx&&fx.cone.enabled),coneSteps:fx?fx.cone.steps:0,coneStrength:fx?+fx.cone.strength.toFixed(3):0,flare:!!(dome.flare&&dome.flare.visible),flareReady:!!dome.flare,coneSprite:!!(dome.coneS&&dome.coneS.visible)}:null,fly:i=>fly(i),count:()=>rec.n,info:()=>heroInfo(),simSample:()=>sim?sim.sample():null,layer:(k,v)=>{const o={disc,beacons,hot:hotGlow,glow,hii,neb,grain,deep:deepField,flare:dome&&dome.flare,sim:sim&&sim.points}[k];if(!o)return false;o.visible=!!v;draw();return true},simFx:()=>simFxData&&{...simFxData,grainShown:grain?grain.geometry.drawRange.count:0,deepShown:!!(deepField&&deepField.visible),fieldW:Array.from(fieldFW),beaconsShown:beacons?beacons.geometry.instanceCount:0,discShown:!!(disc&&disc.visible)},simKick:()=>{if(!sim)return false;tilt.updateMatrixWorld(true);const p=tilt.localToWorld(new THREE.Vector3(0,0,0));uniforms.uPulse.value.set(p.x,p.y,time);return true},gov:{pin:v=>{pinned=!!v},level:()=>degrade,setLevel:l=>{setLevel(l,performance.now());return degrade},feed:(avg,now,gpu)=>govern(avg,now,gpu),lock:()=>recLock,reset:()=>{good=0;recLock=0;lastRec=-1e9;if(degrade!==0)setLevel(0,0);lastChange=-1e9;return degrade}}};/* test hook (tools/motion_audit.py, tools/feature_audit.py B14) */
   /* what the post chain costs, from the objects that run (tools/gpu_budget_audit.py --fx-compare): logical passes, full-screen draws, full-resolution reads, render targets */
-  function heroInfo(){const o={fx:fx?'uber':composer?'legacy':'none',bloom:useBloom,level:degrade,sim:sim?'gpu':'cpu',particles:sim?SIMN[Math.min(degrade,4)]:GN,drawn:sim?sim.drawn:Math.floor(GN*QKEEP[degrade])};
-   if(fx){const i=fx.info();return{...o,passes:useBloom?i.passes:1,draws:useBloom?i.draws:0,fullReads:useBloom?i.fullReads:0,targets:i.targets,streak:!!(useBloom&&i.streak)}}
+  function heroInfo(){const o={fx:fx?'uber':composer?'legacy':'none',bloom:useBloom,level:degrade,flare:!!(dome&&dome.flare&&dome.flare.visible),intro:{p:+introP.toFixed(3),done:introDone,cut:!!introCutT},sim:sim?'gpu':'cpu',simSize:sim?sim.size:0,particles:sim?SIMN[Math.min(degrade,4)]:GN,drawn:sim?sim.drawn:Math.floor(GN*QKEEP[degrade])};
+   if(fx){const i=fx.info();return{...o,passes:useBloom?i.passes:1,draws:useBloom?i.draws:0,fullReads:useBloom?i.fullReads:0,targets:i.targets,streak:!!(useBloom&&i.streak),cone:!!(useBloom&&i.cone)}}
    if(composer){let passes=0,draws=0,fullReads=0,targets=2;   // the composer's two full-resolution ping-pong targets
     if(!useBloom)return{...o,passes:1,draws:0,fullReads:0,targets}
     for(const p of composer.passes){if(p.enabled===false)continue;passes++;
@@ -625,7 +666,7 @@
   hero.addEventListener('pointerleave',()=>{mouse.in=false;uniforms.uMouseOn.value=0;setHover(-1)});
 
   /* ---------- loop ---------- */
-  let running=true,visible=true,tPrev=0,frames=0,acc=0,degrade=0,introDone=false;const introT0=performance.now();
+  let running=true,visible=true,tPrev=0,frames=0,acc=0,degrade=0,introDone=false,introT0=performance.now();
   const paused=()=>root.classList.contains('effects-paused');
   const wake=()=>{};
   function update(dt){
@@ -634,10 +675,14 @@
    zoom=dmp(zoom,zoomT,6.5,dt);pan.x=dmp(pan.x,panT.x,6.5,dt);pan.y=dmp(pan.y,panT.y,6.5,dt);
    tx=dmp(tx,px,2.4,dt);ty=dmp(ty,py,2.4,dt);
    if(scrollS!==scrollS)scrollS=scrollP;scrollS=dt>0.002?dmp(scrollS,scrollP,4.2,dt):scrollS;const sp=MO?MO.ease.smooth(scrollS):scrollS;
-   const prog=introDone?1:Math.min(1,(performance.now()-introT0)/3200);if(prog>=1)introDone=true;const intro=1-Math.pow(1-prog,3);
-   const zEff=zoom*(.62+.38*intro);
+   /* R7.e cinematic entrance: 2.4 s dolly-in from 6 units back along a slight spiral (the yaw swing and the fade ride the same eased progress); ANY deliberate input (press, wheel, key, touch, scroll) cancels it — the remainder is blended out over 350 ms, never a jump; reduced-motion never starts it (still()) */
+   const nowI=performance.now();let prog=introDone?1:Math.min(1,(nowI-introT0)/INTRO_MS);
+   if(introCutT&&prog<1){const k=Math.min(1,(nowI-introCutT)/350);prog+=(1-prog)*k*k*(3-2*k);if(k>=1)prog=1}
+   if(prog>=1)introDone=true;introP=prog;const intro=1-Math.pow(1-prog,3),ip=1-intro;
+   aimDolly=dmp(aimDolly,(domeAim&&time<domeAim.until)?1:0,5,dt);
+   const zEff=zoom*(1+.03*aimDolly);
    camPath.getPoint(sp,cp);lookPath.getPoint(sp,cl);
-   camera.position.set(pan.x+cp.x+tx*.8/zoom,pan.y+cp.y-ty*.45/zoom,cp.z/zEff);camera.lookAt(pan.x+cl.x,pan.y+cl.y,0);
+   camera.position.set(pan.x+cp.x+tx*.8/zoom+Math.sin(ip*2.6)*ip*1.6,pan.y+cp.y-ty*.45/zoom+(1-Math.cos(ip*2.6))*ip*.7,cp.z/zEff+ip*6);camera.lookAt(pan.x+cl.x,pan.y+cl.y,0);
    rig.rotation.y=yaw+Math.sin(time*.07)*.12-(1-intro)*.9+sp*.45;rig.rotation.x=pitch;
    uniforms.uFade.value=intro*(1-sp*.75);
    glow.material.opacity=(root.dataset.theme==='light'?.3:.1)*uniforms.uFade.value+.03*Math.sin(time*.9);
@@ -654,7 +699,8 @@
     sim.step(dt,{time,mouse:mp&&[mp.x,mp.z],mouseOn:uniforms.uMouseOn.value,pulse:[simPulse.x,simPulse.z,simPulseT],well})}
    if(grade||fx){const gv=n=>fx?fx.u[n]:grade.uniforms[n].value,gs=(n,v)=>{if(fx)fx.u[n]=v;else grade.uniforms[n].value=v};   // the uber chain and the legacy grade pass take the same uniforms
     caSpike=Math.max(0,caSpike-dt*2.2);const zv=Math.abs(zoomT-zoom)*2.2;const tgt=.28+zv+caSpike+well*.9;gs('uCA',gv('uCA')+(tgt-gv('uCA'))*Math.min(1,dt*10));
-    gs('uTime',time);blurK=dmp(blurK,blurT,blurT?7:4.5,dt);gs('uBlur',blurK);gv('uBlurC').copy(blurC);lensS+=(((lensOn&&mouse.in?1:0)*(.22+well*1.1))-lensS)*Math.min(1,dt*6);gs('uLens',lensS);
+    gs('uTime',time);const slewB=dome?Math.min(.3,Math.max(0,Math.hypot(dome.va,dome.ve)*.8-.14)*.5):0;if(!blurT&&slewB>.002)blurC.set(domeCone.u,domeCone.v);   // R7.e speed-based radial blur while the telescope slews
+    blurK=dmp(blurK,Math.max(blurT,slewB),blurT?7:4.5,dt);gs('uBlur',blurK);gv('uBlurC').copy(blurC);lensS+=(((lensOn&&mouse.in?1:0)*(.22+well*1.1))-lensS)*Math.min(1,dt*6);gs('uLens',lensS);
     const b=canvas.getBoundingClientRect();gv('uMouse').set((mouse.x-b.left)/Math.max(1,b.width),1-(mouse.y-b.top)/Math.max(1,b.height))}
    hint.classList.toggle('show',time>1.2&&time<10);
    if(focus!==lastFocus){lastFocus=focus;setReadout(focus)}
@@ -676,7 +722,7 @@
      a recovery that is undone within 15 s locks recovery for 2 minutes, so a borderline GPU never flip-flops. */
   const QPX=[1.6,1.6,1,.7,.55],QKEEP=[1,1,1,.55,.3];let lastChange=-1e9,lastRec=-1e9,recLock=0,good=0;
   function setLevel(l,now){degrade=l;bloomOff=l>=1;quality=QPX[l];dust.geometry.setDrawRange(0,Math.floor(GN*QKEEP[l]));lanes.geometry.setDrawRange(0,Math.floor(LN*QKEEP[l]));  if(sim){sim.setDrawRange(SIMN[Math.min(l,4)]);sim.setActive(l<=0);hii&&hii.geometry.setDrawRange(0,Math.floor(hiiN*HKEEP[Math.min(l,4)]));if(beacons){beacons.geometry.instanceCount=Math.floor(beaconN*BKEEP[Math.min(l,4)]);beacons.visible=beacons.geometry.instanceCount>0}if(disc)disc.visible=l<=2;if(deepField)deepField.visible=l<=1;if(grain){const gn=Math.floor(GRAIN_N*GKEEP[Math.min(l,4)]);grain.geometry.setDrawRange(0,gn);grain.visible=gn>0}   /* hidden, not just empty: three compiles a visible Points program even for a zero draw range, and that compile is what B11's first-5-seconds long-task budget caught */}
-   if(fx)fx.streak.enabled=l<=0;
+   if(fx)fx.streak.enabled=l<=0&&flag('streak');if(dome&&dome.flare)dome.flare.visible=!dome.light&&l<=1;
 lastChange=now;if(MO)MO.quality.set(l);syncBloom();layout()}
   /* GPU ms first (EXT_disjoint_timer_query_webgl2: the real cost of the frame, vsync and CPU noise excluded), rAF time only where the GPU has no timer.
      GPU thresholds: slow above 13 ms (20 ms from level 2), fast below 5 ms; rAF thresholds as before. */
@@ -688,6 +734,8 @@ lastChange=now;if(MO)MO.quality.set(l);syncBloom();layout()}
 
   /* ---------- wiring ---------- */
   await buildSim();
+  introT0=performance.now();   // the entrance starts when the canvas does (the 1024² build can take ~1 s)
+  {const cancel=()=>{if(!introDone&&!introCutT)introCutT=performance.now()};for(const ev of['pointerdown','wheel','keydown','touchstart'])addEventListener(ev,cancel,{passive:true,capture:true});addEventListener('scroll',()=>{if(scrollY>4)cancel()},{passive:true})}
   layout();applyTheme();buildRecords();
   sceneEl.classList.add('hero-gl');canvas.classList.add('on');
   if(reduced.matches||paused())still();
