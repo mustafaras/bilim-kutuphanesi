@@ -614,3 +614,15 @@ Her aşama: önce ölçülebilir kabul testi (kırıldığını göster) → yer
 - **Düzeltme:** kareler `x*x`/`abs()`; `atan(q.y,q.x+1e-5)`. Kural: **GLSL'de taban negatif olabilecek `pow` yok; `mix(a,b,t)` ile bir kolon NaN üretebiliyorsa `t` sabit olsa da korunmaz.**
 - **Doğrulanmayan:** gerçek GPU (yazılımsal GL'de bu NaN davranışı üretilemez; gerekçe kod ve belirtiden çıkarıldı).
 
+## §75 — v131: opak siyah levha ve kareler (şeffaf tuvalde alfa = 1)
+- **Belirti:** galaksi bir levha gibi: arka planla keskin renk geçişi, siyah dikdörtgenler (özellikle dar/mobil ekranda ve kalite kademesi ≥ 1'de).
+- **Neden:** kademe ≥ 1'de `bloomOff` → hero tuvali `mix-blend-mode:screen` olmaktan çıkar ve `setClearColor(0,0)` ile **şeffaf** kalır (sayfanın CSS gradyanı görünür). Üç dark-tema parçası (yaygın ışık düzlemi `DISC_FRAG`, işaret yıldızları `BEACON_FRAG`, derin uzay `DF_FRAG`) çıktıyı `vec4(renk, 1.)` yazıyordu: toplamalı karışımda renk 0 olsa da **alfa 1** birikir, yani her dörtgen tuvale opak siyah dikdörtgen basar. Kademe 0'da tuval `screen` olduğu için siyah görünmez, bu yüzden CI ve yerelde (kademe 0) yakalanmadı.
+- **Düzeltme:** `hAdd(c)`: alfa = en parlak kanal, renk = c / alfa; `SRC_ALPHA × renk` hâlâ tam `c` ekler, alfa yalnız parlaklık kadar dolar. **Kural: toplamalı karışımlı gölgelendirici şeffaf tuvale `vec4(renk,1.)` yazmaz.** Doğrulama: tuvalin CSS arka planı macenta, kademe 1 → önce siyah levha + kareler, sonra temiz.
+- **Not:** v130'daki `pow(negatif)` düzeltmesi (§74) ayrı ve geçerli bir GLSL tanımsızlığıydı; bu belirtinin asıl nedeni burada.
+
+## §76 — CI düzeltmesi: ilgisiz dilimleri atla, bir kez otomatik yeniden dene
+- **Sorun:** her PR 26 tarayıcı işi koşuyordu (hero-galaksi denetimleri stage-only değişikliklerde de); yazılımsal GL zamanlama sapmaları (B18 giriş, A6 takımyıldızı 0 kare, görsel kararlılık 0.0011/0.001) PR'ı kırmızıya çeviriyordu.
+- **`tools/ci_scope.py` + `changes` işi:** `git diff base...HEAD` ile hangi dilimlerin değişikliği görebildiğine bakar: `hero` (hero3d, fx, sim, effects, ground3d), `stage` (stage, textfit, record), `extras` (skyline/nobel/constellation/empty3d); `tools/`, `.github/`, `site/vendor/` ve ortak motor (gl, shaders, materials, motion) **her şeyi** koşturur. UI, yazı sığma, özellikler (main) ve dört görsel yapılandırma her zaman koşar. Her matris girdisinin `scope:` alanı vardır; `gate` adımı gerekmiyorsa kurulum ve test adımlarını atlar (iş yeşil kalır, `deploy` kapısı değişmez). Bilinmeyen durumda (diff alınamazsa) her şey koşar.
+- **Bir kez otomatik yeniden deneme:** tarayıcı ve görsel işleri komutu başarısızsa **bir kez** yeniden koşar (`::warning::` ile görünür); gerçek hata iki kez düşer ve PR'ı yine bloklar. Kapı gevşetilmedi: eşikler aynı.
+- **Hâlâ elle:** bilinçli görsel değişiklikte `update-goldens.yml` (altın döngüsü) hâlâ gerekir.
+

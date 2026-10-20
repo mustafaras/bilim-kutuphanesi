@@ -322,7 +322,7 @@ void main(){float kind=aKI.x,idx=aKI.y;vec3 p=vec3(0.);float a=0.,sz=.04;vec3 c=
      if(hold>2.5)ensure((cur+1)%faces.length);
      let spin=0;if(flipT>=0){flipT+=dt/.95;const e=flipT<1?(flipT<.5?2*flipT*flipT:1-Math.pow(-2*flipT+2,2)/2):1;spin=e*Math.PI*2;if(flipT>.5&&faces[cur].visible&&flipT<1){faces[cur].visible=false;cur=(cur+1)%faces.length;ensure(cur);faces[cur].visible=true;burst()}if(flipT>=1){flipT=-1;hold=0;spin=0}}
      g.rotation.y=Math.sin(t*.6)*.7+it.px*.7*it.hoverT+spin;g.rotation.x=.1+it.py*.3*it.hoverT;k.position.x=Math.cos(t*.9)*3.2;
-     if(rect&&L===0){sx.to=it.px*2.6*it.hoverT+Math.cos(t*.5)*1.9*(1-it.hoverT);sy.to=-it.py*1.5*it.hoverT+.8+Math.sin(t*.37)*.5*(1-it.hoverT);rx=sx.step(paused()?.2:dt);ry=sy.step(paused()?.2:dt);rect.position.set(rx,ry,3.4);rect.lookAt(0,0,0)}
+     if(rect&&L===0){sx.to=it.px*2.6*it.hoverT+Math.cos(t*.5)*1.9*(1-it.hoverT);sy.to=-it.py*1.5*it.hoverT+.8+Math.sin(t*.37)*.5*(1-it.hoverT);if(paused()){sx.x=sx.to;sx.v=0;sy.x=sy.to;sy.v=0}rx=sx.step(paused()?0:dt);ry=sy.step(paused()?0:dt);rect.position.set(rx,ry,3.4);rect.lookAt(0,0,0)}
      if(burstAge>=0&&paused())burstAge=-1;if(burstAge>=0){burstAge+=dt;if(burstAge>1.25)burstAge=-1;else it.dirty=true}
      DU.uT.value=paused()?3.7:t;DU.uBurst.value=paused()?-1:burstAge;DU.uK.value=camera.projectionMatrix.elements[5]*it.canvas.height*.5}}}
  ];

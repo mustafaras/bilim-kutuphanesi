@@ -162,7 +162,9 @@
      Hovering a field marker lights its arm and dims the rest (uFocus, the same uniform the record stars use).
      beacons: ~300 of the brightest stars as instanced quads with 4 diffraction spikes (+ faint 45 degree ones on the very brightest) and a PSF core/halo; slow gentle breathing only (photosensitivity: no fast flicker). */
   let disc=null,beacons=null,beaconN=0,grain=null,deepField=null;const BKEEP=[1,.5,0,0,0],fieldFC=Array.from({length:8},()=>new THREE.Vector3()),fieldFW=new Float32Array(8).fill(1);
-  const DISC_FRAG=`varying vec2 vUv;uniform float uTime,uR,uLight,uFade,uFocus,uBar;uniform sampler2D uSky;uniform vec3 uFC[8];uniform float uFW[8];
+  /* Additive light into a TRANSPARENT canvas: alpha 1 made every quad an opaque black rectangle wherever the page showed through (black squares round the deep-field galaxies, a hard-edged black slab for the diffuse light plane). Coverage is now the brightest channel and the colour is divided by it, so SRC_ALPHA x colour still adds exactly c. */
+  const HADD='vec4 hAdd(vec3 c){float a=clamp(max(c.r,max(c.g,c.b)),0.,1.);return vec4(c/max(a,1e-4),a);}\n';
+  const DISC_FRAG=HADD+`varying vec2 vUv;uniform float uTime,uR,uLight,uFade,uFocus,uBar;uniform sampler2D uSky;uniform vec3 uFC[8];uniform float uFW[8];
    float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
    float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1.,0.)),f.x),mix(h(i+vec2(0.,1.)),h(i+vec2(1.,1.)),f.x),f.y);}
    float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*n(p);p=p*2.03+vec2(1.7,9.2);a*=.5;}return v;}
@@ -193,12 +195,12 @@
     col+=vec3(1.,.38,.55)*knot*1.4;
     col+=tint*armG*.3*smoothstep(.8,2.,r)*(1.-smoothstep(5.2,6.3,r))*(uFocus>-.5?(.4+1.8*fb):1.);
     vec3 outc=col*lum*.2;
-    gl_FragColor=mix(vec4(outc*uFade,1.),vec4(vec3(.22,.17,.26),clamp(lum*.3*uFade,0.,.5)),uLight);}`;
+    gl_FragColor=mix(hAdd(outc*uFade),vec4(vec3(.22,.17,.26),clamp(lum*.3*uFade,0.,.5)),uLight);}`;
   const BEACON_VERT=`attribute float aR,aA,aY,aM,aT;attribute vec3 aC;uniform float uTime,uScale,uFade;varying vec2 vP;varying vec3 vC;varying float vM,vPx;
    void main(){float ang=aA+uTime*.2/(.7+aR*.5);vec4 wp=modelMatrix*vec4(cos(ang)*aR,aY+.022*aR*aR*sin(ang-.6),sin(ang)*aR,1.);vec4 mv=viewMatrix*wp;
     float tw=.92+.08*sin(uTime*(.35+aT*.9)+aT*60.);float s=(.14+1.25*aM*aM)*tw;
     vPx=uScale*s/-mv.z;vP=position.xy;vC=aC;vM=aM;mv.xy+=position.xy*s;gl_Position=projectionMatrix*mv;}`;
-  const BEACON_FRAG=`varying vec2 vP;varying vec3 vC;varying float vM,vPx;uniform float uFade,uGain,uLight;
+  const BEACON_FRAG=HADD+`varying vec2 vP;varying vec3 vC;varying float vM,vPx;uniform float uFade,uGain,uLight;
    float sp(vec2 c,float k,float w){return exp(-abs(c.x)*k)*exp(-c.y*c.y/(w*w));}
    void main(){vec2 c=vP;float d=length(c);float w=clamp(1.15/vPx,.003,.08);
     float core=exp(-d*d*vPx*vPx*.35);float halo=exp(-d*vPx*.16)*.1+exp(-d*3.4)*.04;
@@ -209,7 +211,7 @@
     /* light theme: an atlas star symbol — a small ink dot sized by magnitude and a fine cross on the brighter ones, no halo */
     float dotc=exp(-d*d*vPx*vPx*1.1)*(.55+.45*vM);float crs=(sp(c,9.,w*.7)+sp(c.yx,9.,w*.7))*smoothstep(.4,.8,vM);
     float al=clamp((dotc+crs*.8)*edge*uFade,0.,.92);
-    gl_FragColor=mix(vec4(dk,1.),vec4(.1,.09,.2,al),uLight);}`;
+    gl_FragColor=mix(hAdd(dk),vec4(.1,.09,.2,al),uLight);}`;
   const simVert=`attribute vec2 aRef;attribute float aS;attribute float aBv;attribute float aT;
    uniform float uTime,uScale,uMouseOn,uLight,uWell,uGain,uArmA,uDust;uniform vec3 uMouse,uPulse;uniform sampler2D tPos,uHome,uSky,uLut;varying vec3 vC;varying float vA;varying float vBig;
    void main(){
@@ -236,13 +238,13 @@
      Light: the symbols of an engraved atlas — a fine ink ellipse with a faint wash. Pure decoration of depth: they never move with the galaxy, only with the camera parallax. */
   const DF_N=small?40:90,DF_VERT=`attribute vec3 aP;attribute vec4 aQ;attribute vec3 aC;varying vec2 vP;varying vec4 vQ;varying vec3 vC;uniform float uTime;
    void main(){vec4 mv=viewMatrix*modelMatrix*vec4(aP,1.);float sz=aQ.x;vP=position.xy;vQ=aQ;vC=aC;mv.xy+=position.xy*sz;gl_Position=projectionMatrix*mv;}`,
-  DF_FRAG=`varying vec2 vP;varying vec4 vQ;varying vec3 vC;uniform float uFade,uLight;
+  DF_FRAG=HADD+`varying vec2 vP;varying vec4 vQ;varying vec3 vC;uniform float uFade,uLight;
    void main(){float cr=cos(vQ.z),sr=sin(vQ.z);vec2 q=vec2(cr*vP.x+sr*vP.y,-sr*vP.x+cr*vP.y);q.y/=vQ.y;float d=length(q);
     float tw=vQ.w*d*5.;q=vec2(cos(tw)*q.x-sin(tw)*q.y,sin(tw)*q.x+cos(tw)*q.y);
     float core=exp(-pow(d*3.4,.5)*2.1)*(.7+.3*cos(2.*atan(q.y,q.x+1e-5)*step(.001,vQ.w)));float edge=1.-smoothstep(.8,1.,d);
     float dk=core*edge;
     float ring=exp(-((d-.42)/.045)*((d-.42)/.045))*.55+exp(-d*d*9.)*.28;float al=clamp((ring+dk*.18)*edge,0.,.7);
-    gl_FragColor=mix(vec4(vC*dk*1.7*uFade,1.),vec4(.14,.12,.24,al*uFade*.5),uLight);}`;
+    gl_FragColor=mix(hAdd(vC*dk*1.7*uFade),vec4(.14,.12,.24,al*uFade*.5),uLight);}`;
   const GRAIN_N=small?150000:600000,GKEEP=[1,.5,.15,0,0];
   const GRAIN_VERT=`
    uniform float uTime,uScale,uLight,uFade,uDust,uArmA;uniform sampler2D uSky,uLut;varying vec3 vC;varying float vA;

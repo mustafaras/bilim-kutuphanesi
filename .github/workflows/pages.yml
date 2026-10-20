@@ -16,6 +16,21 @@ permissions:
   pages: write
   id-token: write
 jobs:
+  # Which browser slices does this pull request need? (tools/ci_scope.py: a stage.js-only change skips the hero-galaxy audits and vice versa; UI, text fit, features and the visual gate always run.)
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      all: ${{ steps.s.outputs.all }}
+      hero: ${{ steps.s.outputs.hero }}
+      stage: ${{ steps.s.outputs.stage }}
+      extras: ${{ steps.s.outputs.extras }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - id: s
+        run: python tools/ci_scope.py "origin/${{ github.base_ref }}" | tee -a "$GITHUB_OUTPUT"
   # Fast, browser-free gates (seconds).
   static:
     runs-on: ubuntu-latest
@@ -42,6 +57,7 @@ jobs:
   # The heavy browser and visual gates run on pull requests (and manual dispatch). A push to main is the squash-merge of a pull request that already passed them on the same tree, so it only
   # re-runs `static` and deploys: the publish takes about a minute instead of repeating ~5 minutes of software-GL audits.
   browser:
+    needs: changes
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -50,69 +66,110 @@ jobs:
       matrix:
         include:
           - name: UI audit (overflow, console errors, contrast)
+            scope: always
             cmd: |
               python tools/ui_audit.py
               python tools/palette_audit.py
           - name: Text fit, reduced motion
+            scope: always
             cmd: |
               python tools/text_fit_audit.py
               python tools/reduced_audit.py
           - name: Leak check, 24 rounds, slope test (A6)
+            scope: stage
             cmd: python tools/leak_audit.py --rounds 24
           - name: Features (camera, governor, dive, book, medal, dome, context loss)
+            scope: always
             cmd: python tools/feature_audit.py --only main
           - name: Broken GPU fallback (B9)
+            scope: stage
             cmd: python tools/feature_audit.py --only b9
           - name: Quality tiers (B10)
+            scope: stage
             cmd: python tools/feature_audit.py --only b10
           - name: GPU timing, ?perf, warm-up (B11)
+            scope: hero
             cmd: python tools/feature_audit.py --only b11
           - name: Material and light library (B12)
+            scope: stage
             cmd: python tools/feature_audit.py --only b12
           - name: Uber post-processing chain (B13)
+            scope: hero
             cmd: python tools/feature_audit.py --only b13
           - name: GPGPU galaxy sim (B14)
+            scope: hero
             cmd: python tools/feature_audit.py --only b14
           - name: Realistic galaxy (B15)
+            scope: hero
             cmd: python tools/feature_audit.py --only b15
           - name: Galaxy light, beacons, streak, field tint (B16)
+            scope: hero
             cmd: python tools/feature_audit.py --only b16
           - name: 1M star level and memory signal (B17)
+            scope: hero
             cmd: python tools/feature_audit.py --only b17
           - name: Dome cinematics, cone, Lensflare, intro (B18)
+            scope: hero
             cmd: python tools/feature_audit.py --only b18
           - name: Medal, laurel, rect light, dust, glass (B19)
+            scope: stage
             cmd: python tools/feature_audit.py --only b19
           - name: GPU budgets, hero + ground + shelf (A6)
+            scope: herostage
             cmd: python tools/gpu_budget_audit.py --surfaces hero,ground,stage
           - name: GPU budgets, skyline + Nobel + constellation (A6)
+            scope: extras
             cmd: python tools/gpu_budget_audit.py --surfaces skyline,nobel,constellation
           - name: Hero chain, legacy vs uber (A1)
+            scope: hero
             cmd: python tools/gpu_budget_audit.py --fx-compare
           - name: Hero kill switch, fxuber=0 (1440x900)
+            scope: hero
             cmd: python tools/visual_audit.py --config 1440x900:dark --legacy
           - name: Hero kill switch, fxuber=0 (1024x768)
+            scope: hero
             cmd: python tools/visual_audit.py --config 1024x768:dark --legacy
     name: ${{ matrix.name }}
     steps:
+      - name: Needed for this change?
+        id: gate
+        run: |
+          case "${{ matrix.scope }}" in
+            always) r=true ;;
+            hero) r=${{ needs.changes.outputs.hero || 'true' }} ;;
+            stage) r=${{ needs.changes.outputs.stage || 'true' }} ;;
+            herostage) if [ "${{ needs.changes.outputs.hero || 'true' }}" = true ] || [ "${{ needs.changes.outputs.stage || 'true' }}" = true ]; then r=true; else r=false; fi ;;
+            extras) r=${{ needs.changes.outputs.extras || 'true' }} ;;
+            *) r=true ;;
+          esac
+          echo "run=$r" >> "$GITHUB_OUTPUT"; echo "scope ${{ matrix.scope }}: run=$r"
       - uses: actions/checkout@v6
+        if: steps.gate.outputs.run == 'true'
       - name: Install Playwright
+        if: steps.gate.outputs.run == 'true'
         run: python -m pip install --quiet playwright pillow numpy
       - name: Playwright version
+        if: steps.gate.outputs.run == 'true'
         id: pw
         run: |
           echo "v=$(python -m pip show playwright | sed -n 's/^Version: //p')" >> "$GITHUB_OUTPUT"
       - name: Cache the browser download
+        if: steps.gate.outputs.run == 'true'
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ steps.pw.outputs.v }}
       - name: Install browser and system libraries
+        if: steps.gate.outputs.run == 'true'
         run: |
           python -m playwright install chromium
           python -m playwright install-deps chromium
+      # One automatic retry: a software-GL timing flake costs 30 s here instead of a red PR; a real defect fails twice and still blocks.
       - name: ${{ matrix.name }}
-        run: ${{ matrix.cmd }}
+        if: steps.gate.outputs.run == 'true'
+        env:
+          CMD: ${{ matrix.cmd }}
+        run: bash -e -c "$CMD" || { echo "::warning::first attempt failed, retrying once"; bash -e -c "$CMD"; }
   # R3 visual regression gate: four configurations in parallel (viewport x theme), each captured twice (stability) and compared with tools/golden/ (committed, generated on CI by update-goldens.yml).
   # A pixel regression blocks the deploy. After an intended visual change: run 'Update visual goldens' (workflow_dispatch), review the PR from goldens/update, merge it.
   visual:
@@ -146,7 +203,7 @@ jobs:
           python -m playwright install chromium
           python -m playwright install-deps chromium
       - name: Visual regression gate (R3)
-        run: python tools/visual_audit.py --config ${{ matrix.config }}
+        run: python tools/visual_audit.py --config ${{ matrix.config }} || { echo "::warning::first attempt failed, retrying once"; python tools/visual_audit.py --config ${{ matrix.config }}; }
       - name: Visual output (candidates and differences)
         if: always()
         uses: actions/upload-artifact@v4
