@@ -607,3 +607,10 @@ Her aşama: önce ölçülebilir kabul testi (kırıldığını göster) → yer
 - **Tuzaklar (yeni):** (1) `#define vMapUv bkUv` yalnız **sonraki** metni etkiler: orijinal varying'i okuyan `bkPomUv` tanımı makrodan önce olmalı. (2) `Material.iridescence` 0↔>0 geçişi `USE_IRIDESCENCE` tanımını değiştirip yeniden derleme çıkarır: S3'te `.001` kullanılır. (3) `simplify()` `o.__mat0`'ı özgün malzeme sayar: cam karolarında hover malzemesi atamadan önce `__mat0` kurulmalı. (4) three r160 transmission için **tek** render hedefi tutar (kamera başına değil) ve yalnız `renderer.dispose()` ile bırakılır. (5) Işık sayısı değişimi tüm sahnenin programlarını yeniden derletir: bu yüzden `intensity=0`. (6) B19 testinde sayfa ilk anda kaydırmayı hemen kabul etmeyebilir (`tile()` görünene dek kaydırır).
 - **Doğrulanmayan:** gerçek GPU (kullanıcı RTX 4090, sorun yok bildirdi); yazılımsal GL'de S0 ancak `BKHero.gov.pin(true)` + `setLevel(0)` ile zorlanır; POM/dispersiyon/RectAreaLight sabitleri (`k=.02`, `uBkDisp=.035`, `RINT=9`) ekran tadına açık.
 - **Sıradaki:** R8 zemin ve atmosfer (R9, R10–R13, A4, A5 sonra).
+
+## §74 — v130: NVIDIA'da galaksi kenarında kararan kareler (GLSL `pow` negatif taban)
+- **Belirti (RTX 4090):** hero'da galaksinin çevresinde, derin uzay galaksilerinin (R7.d2) olduğu yerlerde etrafındakinden koyu kareler. Yazılımsal GL'de (CI) görünmüyordu.
+- **Neden:** `DF_FRAG` içinde `pow((d-.42)/.045,2.)`: GLSL'de `pow(x,y)` x<0 için **tanımsız**; NVIDIA NaN döndürür, SwiftShader döndürmez. `gl_FragColor=mix(a,b,uLight)` ve `uLight=0` iken `mix` `a*(1-0)+b*0`: b'deki NaN `NaN*0=NaN` olarak a'ya taşınır, kare siyaha (NaN) döner ve ek geçişlerde (bloom) komşuyu karartır. Aynı kalıp `ground3d.js` (`pow((sc.x-uGlow)*2.1,2.)`) ve `constellation3d.js` (`pow((r-.46-…)*14.,2.)`) içinde de vardı; ayrıca `atan(0,0)` tanımsızdır (`DF_FRAG`'da `+1e-5`).
+- **Düzeltme:** kareler `x*x`/`abs()`; `atan(q.y,q.x+1e-5)`. Kural: **GLSL'de taban negatif olabilecek `pow` yok; `mix(a,b,t)` ile bir kolon NaN üretebiliyorsa `t` sabit olsa da korunmaz.**
+- **Doğrulanmayan:** gerçek GPU (yazılımsal GL'de bu NaN davranışı üretilemez; gerekçe kod ve belirtiden çıkarıldı).
+

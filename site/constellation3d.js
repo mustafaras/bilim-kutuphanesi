@@ -41,7 +41,7 @@
   void main(){vec2 p=(vUv-.5)*2.;float r=length(p),a=atan(p.y,p.x);
    float glow=exp(-r*4.2)*.75+exp(-r*11.)*1.0;
    float rays=(.5+.5*cos(a*7.+uTime*.35))*(.5+.5*cos(a*3.-uTime*.22))*exp(-r*2.6)*.9;
-   float ring=exp(-pow((r-.46-.02*sin(uTime*1.3))*14.,2.))*(uLight>.5?.08:.35);
+   float ring=exp(-pow(abs((r-.46-.02*sin(uTime*1.3))*14.),2.))*(uLight>.5?.08:.35);
    float flick=1.+.07*sin(uTime*2.1)+.04*sin(uTime*5.3);
    float v=(glow+rays*(uLight>.5?.0:.8)+ring)*flick*(1.+uHot*.3);float alpha=clamp(v,0.,1.)*smoothstep(1.,.78,r);
    vec3 col=mix(vec3(1.,.96,.86),uColor,clamp(r*1.1,0.,1.))*(1.+glow*.3);
