@@ -11,7 +11,7 @@ Math.random, effects paused, tiles at dt 0) at 1440x900 and 1024x768 in dark and
 The server port is fixed (--port, default 8613): the address shows up in the page text, a random port made captures differ by glyph pixels.
 Per-surface tolerance / limit table: SURFACES below.
 Captures go to tools/golden/_out/ (git-ignored), differences to tools/golden/_diff/."""
-import argparse, os, socket, subprocess, sys, time, shutil
+import argparse, os, socket, subprocess, sys, time, shutil, io
 from pathlib import Path
 import numpy as np
 from PIL import Image
@@ -80,7 +80,22 @@ def capture(b, w, h, theme, tag, keep=False):
         f = base / f"{w}x{h}-{theme}__{name}.png"
         if target is None: q.screenshot(path=str(f))
         else:
-            q.evaluate("(sel)=>{const e=document.querySelector(sel);if(e)e.scrollIntoView({block:'center'})}", target); q.wait_for_timeout(1800); q.locator(target).first.screenshot(path=str(f))
+            q.evaluate("(sel)=>{const e=document.querySelector(sel);if(e)e.scrollIntoView({block:'center'})}", target); q.wait_for_timeout(1800)
+            bx = q.locator(target).first.bounding_box()
+            if bx and bx["height"] > h - 24:
+                # taller than the viewport: captureBeyondViewport re-rasterizes off-viewport WebGL layers
+                # non-deterministically (the 0.09 timeline flake) — stitch in-viewport segments instead
+                top = int(round(q.evaluate("scrollY") + bx["y"])); total = int(round(bx["height"])); seg = h - 200; parts = []; y = 0
+                while y < total:
+                    hh = min(seg, total - y)
+                    q.evaluate(f"scrollTo(0,{top + y})"); q.wait_for_timeout(700)
+                    cy = max(0, min(h - hh, top + y - int(round(q.evaluate("scrollY")))))
+                    parts.append((q.screenshot(clip={"x": bx["x"], "y": cy, "width": bx["width"], "height": hh}), y)); y += hh
+                im = Image.new("RGB", (int(round(bx["width"])), total))
+                for png, yy in parts: im.paste(Image.open(io.BytesIO(png)), (0, yy))
+                im.save(f)
+            else:
+                q.locator(target).first.screenshot(path=str(f))
         out[name] = f
     q.evaluate("scrollTo(0,0)"); q.wait_for_timeout(1500); shot("hero", ".hero")
     if a.legacy or a.hero_only: ctx.close(); return out, None
