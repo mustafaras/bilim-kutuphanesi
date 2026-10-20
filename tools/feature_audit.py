@@ -562,8 +562,8 @@ def b19(b):
     def wait(js):
         try: q.wait_for_function(js, timeout=40000)
         except Exception: pass
-    q.mouse.move(x + w * .2, y + h * .5); wait("BKStage.medalInfo().rectPos[0]<-.2"); pl = q.evaluate("BKStage.medalInfo().rectPos")
-    q.mouse.move(x + w * .8, y + h * .5); wait("BKStage.medalInfo().rectPos[0]>.4"); pr = q.evaluate("BKStage.medalInfo().rectPos")
+    q.mouse.move(x + w * .2, y + h * .5); wait("BKStage.medalInfo().rectPos[0]<-1"); pl = q.evaluate("BKStage.medalInfo().rectPos")
+    q.mouse.move(x + w * .8, y + h * .5); wait("BKStage.medalInfo().rectPos[0]>1"); pr = q.evaluate("BKStage.medalInfo().rectPos")
     note(f"B19 rect light follows the pointer: left {pl} right {pr}")
     if not (pr[0] - pl[0] > 1.0): problems.append(f"B19 the RectAreaLight does not follow the pointer: {pl} -> {pr}")
     # spark burst on a face change; none under reduced motion
