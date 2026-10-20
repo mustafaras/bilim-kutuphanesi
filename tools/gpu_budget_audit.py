@@ -52,7 +52,7 @@ HOOK = r"""
 # Measured on software GL at 1440x900, dark theme, v121 plus ~25 % headroom, then tightened where a PR removes work (the comment says which).
 LIMITS = {
     "hero":          dict(draws=58, tris=18500, points=1900000, programs=40, targets=18, textures=40),   # BKFX (v123): 30 draws / 12 targets measured (v122: 32 / 13) · BKSim R7.b (v124): +2 GCR compute draws, +4 float ping-pong targets (16), 26 textures, tier-0 worst frame draws 262144 points · R7.c (v125): +2 programs (HII points + hot-core sprite), +2 textures (black-body LUT, dust/sky map) · R7.d (v126): +2 programs (diffuse glow plane, beacon quads), tier-0 worst frame +2 draws (glow plane, 300 instanced beacons = ONE draw), +~600 tris, anamorphic streak +2 post draws and 0 targets (reuses the bloom quarter-resolution mips); R7.d2 (v127): +3 programs (procedural grain points, deep-field quads; the light-theme symbols share them), tier-0 worst frame +2 draws and +600 000 procedural points (gl_VertexID: no attribute data, no compute, no texture); R7.e/R7.f (v128): +1 post draw (light cone, tier 0; 0 targets: it reuses hs[1]), the Lensflare adds ~8 small quad draws + 5 canvas textures + 2 framebuffer textures + 3 programs, the cone sprite +1 program, the 1024² level draws up to 1 048 576 sim points (tier 0 worst frame ~1.65 M points with the 600 000 grain) and 4 x 16 MB float targets; software GL runs tier 3 (and 512²) where all of it is off
-    "ground":        dict(draws=1, tris=70000, points=0, programs=2, targets=0, textures=5),
+    "ground":        dict(draws=9, tris=58000, points=30000, programs=8, targets=3, textures=10),   # R8 (v133): +6 draws worst frame (3 fog cards + the 2-draw mirror pass + the one-off wave upload compute), +2 programs (cards, mirror points), targets 0 -> 3 (wave ping-pong 2 + mirror 512² 1), textures 5 -> 8; PREP now pins tier 0 so the gate measures the FULL wet ground (measured 7 draws / 6 programs / 3 targets / 8 textures / 55 212 tris on software GL)
     "stage":         dict(draws=125, tris=44000, points=75, programs=19, targets=2, textures=66),   # R6 (v129): targets 1 -> 2 = the second baked studio ('medal' PMREM, the rectangular softbox); measured 86 draws / 27.5 k tris / 14 programs / 59 textures. The medal tile itself stays <= 14 draws, <= 40 k tris (B19 pins the object counts)
     "skyline":       dict(draws=12, tris=19200, points=330, programs=8, targets=1, textures=12),
     "nobel":         dict(draws=24, tris=4800, points=1130, programs=5, targets=0, textures=7),
@@ -60,7 +60,7 @@ LIMITS = {
 }
 PREP = {
     "hero": "scrollTo(0,0)",
-    "ground": "scrollTo(0,0)",
+    "ground": "scrollTo(0,0);BKHero&&BKHero.gov.pin&&BKHero.gov.pin(true);BKHero&&BKHero.gov.setLevel&&BKHero.gov.setLevel(0)",   # R8: pin tier 0 so the gate measures the FULL wet ground (256² wave sim + 512² mirror target + 3 fog cards); auto-sensing on software GL would sit at tier 3 where R8 is off
     "stage": "document.getElementById('spotlightGrid').scrollIntoView({block:'center'})",
     "skyline": "document.querySelector('.timeline-section').scrollIntoView({block:'center'})",
     "nobel": "(()=>{const b=document.querySelector('[data-v=galaxy]');if(b)b.click()})()",

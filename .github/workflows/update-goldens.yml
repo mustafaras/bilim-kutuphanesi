@@ -16,6 +16,8 @@ jobs:
           - {config: '1440x900:light', slug: '1440-light', prefix: '1440x900-light'}
           - {config: '1024x768:dark', slug: '1024-dark', prefix: '1024x768-dark'}
           - {config: '1024x768:light', slug: '1024-light', prefix: '1024x768-light'}
+          - {config: '1440x900:dark', slug: '1440-dark', prefix: '1440x900-dark', legacy: '1'}
+          - {config: '1024x768:dark', slug: '1024-dark', prefix: '1024x768-dark', legacy: '1'}
     steps:
       - uses: actions/checkout@v6
       - run: python -m pip install --quiet playwright pillow numpy
@@ -23,11 +25,12 @@ jobs:
           python -m playwright install chromium
           python -m playwright install-deps chromium
       - name: Capture (stability failures are reported but the images are still collected)
-        run: python tools/visual_audit.py --config ${{ matrix.config }} --update || true
+        run: |
+          if [ -n "${{ matrix.legacy }}" ]; then python tools/visual_audit.py --config ${{ matrix.config }} --legacy --update || true; else python tools/visual_audit.py --config ${{ matrix.config }} --update || true; fi
       - uses: actions/upload-artifact@v4
         with:
-          name: golden-${{ matrix.slug }}
-          path: tools/golden/${{ matrix.prefix }}__*.png   # only this configuration's files: every job checks out all 40 old goldens, and merge-multiple lets the last artifact overwrite the others' new files with the old ones
+          name: ${{ matrix.legacy && 'goldlegacy' || 'golden' }}-${{ matrix.slug }}
+          path: tools/golden/${{ matrix.legacy && 'legacy/' || '' }}${{ matrix.prefix }}__*.png   # only this configuration's files: every job checks out all 40 old goldens, and merge-multiple lets the last artifact overwrite the others' new files with the old ones
           if-no-files-found: error
   commit:
     needs: capture
@@ -39,11 +42,16 @@ jobs:
           pattern: golden-*
           path: tools/golden
           merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: goldlegacy-*
+          path: tools/golden/legacy
+          merge-multiple: true
       - name: Push to goldens/update
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B goldens/update
-          git add tools/golden/*.png
+          git add tools/golden/*.png tools/golden/legacy/*.png
           git commit -m "visual goldens (CI, software GL)" || echo "nothing to commit"
           git push --force origin goldens/update
