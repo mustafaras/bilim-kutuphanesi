@@ -25,7 +25,7 @@ if not a.url:
     try: s_.bind(("127.0.0.1", a.port))
     except OSError: sys.exit(f"port {a.port} is busy: stop the other server or pass --port (the port must stay the same between the captures you compare)")
     finally: s_.close()
-    srv = subprocess.Popen([sys.executable, "-m", "http.server", str(a.port), "--directory", str(ROOT / "site")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    srv = subprocess.Popen([sys.executable, str(ROOT / "tools" / "_serve.py"), str(a.port), "--directory", str(ROOT / "site")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     a.url = f"http://127.0.0.1:{a.port}/"; time.sleep(1)
 problems = []; note = lambda m: print(m, flush=True)
 TOL, STABLE, GOLDEN = 10, 0.001, 0.005
