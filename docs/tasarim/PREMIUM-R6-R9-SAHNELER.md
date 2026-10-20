@@ -192,6 +192,8 @@ Zemin siyah-mavi, **cilalı bir mermer yüzey**: galaksi, kubbe ışığı ve ku
 ## Alt adımlar (PR)
 1. **R8.a** sis + `fwidth` kontur + ışık havuzu (ucuz, görsel fark büyük). 2. **R8.b** planar yansıma. 3. **R8.c** dalga simülasyonu + kostik.
 
+> **Durum (v133, tek PR — kullanıcı isteği):** üç alt adım birlikte yayınlandı. Uygulama notları: yansıyan katman, hero'nun ayrı WebGL bağlamındaki canlı galaksisi okunamadığı için **proxy gökyüzü**dür (tohumlu deterministik spiral + lamba dörtlüsü; proxy durgun olduğundan ayna hedefi kare-atlamaya gerek kalmadan yalnız kirli karede bir kez çizilir — bozulma örneklemde, kaynakta değil). Dalga simülatörü `BKSim` yerine ground3d içinde **tek değişkenli GCR** (r=h(t), g=h(t−1)) çalıştırır: 2 ping-pong hedefi + 1 ayna hedefi = **3 ek hedef** (sınır tam olarak). Kenar koşulu: hedef bölge zemin şeridinin ortası (30×30 dünya birimi), kenarlarda sönüm emici gibi davranır. Kostik S1'de ayrıca doku yerine Laplasyan (sim varsa) ya da statik sinüs bandıdır. Test: **B20**; A6 `ground` PREP'i artık kademe 0'a sabitler.
+
 ## Kabul testleri
 - **B8** (bağlam kaybı) **genişler**: yansıma hedefi ve dalga dokuları bağlam kaybından sonra yeniden oluşur (yeni alan `BKGround.info().targets`).
 - Bütçe: zemin hero'ya **+ ≤ 1,5 ms** (S0), `?perf` karşılaştırması (zemin açık/kapalı); `gpu_budget_audit`: zemin ek çizim çağrısı ≤ 6, ek render hedefi ≤ 3.

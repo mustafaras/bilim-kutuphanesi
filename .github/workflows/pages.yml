@@ -115,6 +115,9 @@ jobs:
           - name: Medal, laurel, rect light, dust, glass (B19)
             scope: stage
             cmd: python tools/feature_audit.py --only b19
+          - name: Wet ground, reflection, waves, fog, pool (B20)
+            scope: hero
+            cmd: python tools/feature_audit.py --only b20
           - name: GPU budgets, hero + ground + shelf (A6)
             scope: herostage
             cmd: python tools/gpu_budget_audit.py --surfaces hero,ground,stage

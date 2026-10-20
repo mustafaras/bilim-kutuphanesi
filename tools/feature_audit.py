@@ -11,7 +11,7 @@ import json, argparse, os, re, socket, subprocess, sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
-ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11", "b12", "b13", "b14", "b15", "b16", "b17", "b18", "b19"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11", "b12", "b13", "b14", "b15", "b16", "b17", "b18", "b19", "b20"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
 srv = None
 if not a.url:
     s_ = socket.socket(); s_.bind(("127.0.0.1", 0)); port = s_.getsockname()[1]; s_.close()
@@ -606,6 +606,58 @@ def b19(b):
     if any(t["mode"] != "opaque" for t in g2["tiles"]): problems.append(f"B19 tier 2 glass must be opaque: {g2}")
     ctx.close()
 
+def b20(b):
+    """B20 R8 wet ground (ground3d): tier 0 is the full wet ground — the wave-equation GPGPU (256² float texture, two ping-pong targets) + a 512² mirror
+    target (proxy sky rendered by the mirror camera) + 3 additive fog cards (total extra render targets <= 3; A6 pins the draw counts);
+    a pointer splash wakes the sim (simSteps rises, simActive true) and it falls back asleep after the ~8 s calm window.
+    Tier 1: 128² waves / 256² mirror / 1 card. Tier >= 2: no sim, no mirror target, no cards (the analytic streak path). Frames keep painting across a theme flip."""
+    ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q = ctx.new_page()
+    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
+    errs20 = []; q.on("pageerror", lambda e: errs20.append(str(e)[:160]))
+    q.goto(a.url + "?b20=" + str(time.time()), wait_until="load")
+    try: q.wait_for_function("window.BKGround&&BKGround.info().built&&window.BKHero&&!!document.querySelector('#heroGL.on')", timeout=180000)
+    except Exception: problems.append("B20 the wet ground never booted (BKGround.info().built / hero GL)"); ctx.close(); return
+    probe = q.evaluate("window.BKGL?BKGL.probe():null") or {}
+    frt = bool(probe.get("floatRT"))
+    q.evaluate("BKHero.gov.pin(true)")
+    def lvl(n, w="true"):
+        q.evaluate(f"BKHero.gov.setLevel({n})")
+        try: q.wait_for_function("BKGround.info().built&&(" + w + ")", timeout=60000)
+        except Exception: pass
+        q.wait_for_timeout(1200)
+    lvl(0, "BKGround.info().refl&&(BKGround.info().simSize==256||!window.BKGL||!BKGL.probe().floatRT)")
+    i0 = q.evaluate("BKGround.info()"); note(f"B20 tier 0 (idle): {i0} floatRT {frt}")
+    want_t = 3 if frt else 1
+    if not i0.get("refl") or (i0.get("reflSize") or 0) < 256: problems.append(f"B20 tier 0 must mirror the proxy sky (refl on, >= 256 wide): {i0}")
+    if i0.get("cards") != 3: problems.append(f"B20 tier 0 must show 3 fog cards: {i0}")
+    if i0.get("targets") != want_t: problems.append(f"B20 tier 0 render targets must be {want_t} (wave 2 + mirror 1; floatRT {frt}): {i0}")
+    if frt and i0.get("simSize") != 256: problems.append(f"B20 tier 0 wave sim must be 256²: {i0}")
+    if frt:
+        for k in range(5): q.evaluate(f"BKGround.splash({-6+k*3},-2,1)"); q.wait_for_timeout(200)
+        woke = False
+        try: q.wait_for_function("(BKGround.info().simSteps>0&&BKGround.info().simActive&&(BKGround.sample()||0)>.005)", timeout=60000); woke = True
+        except Exception: pass
+        note(f"B20 tier 0 after splashes: {q.evaluate('BKGround.info()')} sample {q.evaluate('BKGround.sample()')}")
+        if not woke: problems.append("B20 a pointer splash never put energy into the wave simulation (sample stayed ~0)")
+        else:
+            slept = False
+            for _ in range(24):
+                q.wait_for_timeout(1000)
+                if not q.evaluate("BKGround.info().simActive"): slept = True; break
+            if not slept: problems.append("B20 the wave sim must sleep again after the ~8 s calm window: " + str(q.evaluate("BKGround.info()")))
+    lvl(2, "!BKGround.info().refl&&BKGround.info().targets==0")
+    i2 = q.evaluate("BKGround.info()"); note(f"B20 tier 2: {i2}")
+    if i2.get("refl") or i2.get("targets") != 0 or i2.get("cards") != 0 or i2.get("simSize") != 0: problems.append(f"B20 tier 2 must drop sim, mirror and cards (analytic streak fallback): {i2}")
+    lvl(1, "BKGround.info().refl&&(BKGround.info().simSize==128||!window.BKGL||!BKGL.probe().floatRT)")
+    i1 = q.evaluate("BKGround.info()"); note(f"B20 tier 1: {i1}")
+    if i1.get("cards") != 1 or not i1.get("refl") or i1.get("targets") != want_t: problems.append(f"B20 tier 1: 128² waves / 256² mirror / 1 card expected (targets {want_t}): {i1}")
+    if frt and i1.get("simSize") != 128: problems.append(f"B20 tier 1 wave sim must be 128²: {i1}")
+    f0 = q.evaluate("BKGround.info().frames"); q.evaluate("document.documentElement.dataset.theme='light'"); q.wait_for_timeout(2000)
+    f1 = q.evaluate("BKGround.info().frames")
+    if f1 <= f0: problems.append(f"B20 the ground stopped painting after a theme flip ({f0} -> {f1})")
+    if errs20: problems.append(f"B20 page errors: {errs20[:3]}")
+    ctx.close()
+
 def b9(b):
     """B9 broken GPU (own contexts, independent of the main page)."""
     # ---- B9 broken GPU: the shelf must never show a broken book. Inject a shader fault (fragment shaders containing the given text get a syntax error appended)
@@ -631,11 +683,11 @@ def b9(b):
     f_all = faulty(["gl_FragColor", "pc_fragColor"], lambda o: o["lvl"] == 4 and o["cards"] == 0); note(f"B9 nothing compiles -> {f_all}")
     if f_all["lvl"] != 4 or f_all["cards"] != 0: problems.append(f"B9 stage did not fall back to the CSS covers when nothing compiles: {f_all}")
 
-if a.only in ("b9", "b10", "b11", "b12", "b13", "b14", "b15", "b16", "b17", "b18", "b19"):
+if a.only in ("b9", "b10", "b11", "b12", "b13", "b14", "b15", "b16", "b17", "b18", "b19", "b20"):
     with sync_playwright() as p:
         kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]); exe = os.environ.get("BK_CHROMIUM")
         b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
-        {"b9": b9, "b10": b10, "b11": b11, "b12": b12, "b13": b13, "b14": b14, "b15": b15, "b16": b16, "b17": b17, "b18": b18, "b19": b19}[a.only](b); b.close()
+        {"b9": b9, "b10": b10, "b11": b11, "b12": b12, "b13": b13, "b14": b14, "b15": b15, "b16": b16, "b17": b17, "b18": b18, "b19": b19, "b20": b20}[a.only](b); b.close()
     if srv: srv.terminate()
     print("FAIL" if problems else f"OK: {a.only.upper()}", *problems, sep="\n - " if problems else "")
     sys.exit(1 if problems else 0)
@@ -843,7 +895,7 @@ with sync_playwright() as p:
     gls = pg.evaluate("window.BKGL?BKGL.diag().scenes:null"); note(f"B8 BKGL scenes after restore: {gls}")
     if not gls: problems.append("B8 BKGL.diag() is missing")
     else:
-        for n in ("hero", "stage"):
+        for n in ("hero", "stage", "ground"):   # R8: the ground's mirror target + wave ping-pong are render targets too — BKGL must ride their loss/restore out (BKGround.info().targets is pinned per tier by B20)
             sc = gls.get(n)
             if not sc or sc["losses"] < 1 or sc["restores"] < 1 or sc["lost"]: problems.append(f"B8 BKGL did not track the context loss of '{n}': {sc}")
         if any(v["lost"] for v in gls.values()): problems.append(f"B8 a scene is still marked lost after restore: {[k for k, v in gls.items() if v['lost']]}")
@@ -857,7 +909,7 @@ with sync_playwright() as p:
     if a.only is None: b12(b)
     if a.only is None: b13(b)
     if a.only is None: b14(b)
-    if a.only is None: b15(b); b16(b); b17(b); b18(b); b19(b)
+    if a.only is None: b15(b); b16(b); b17(b); b18(b); b19(b); b20(b)
     b.close()
 if srv: srv.terminate()
 print("FAIL" if problems else "OK: Package A features behave as specified", *problems, sep="\n - " if problems else "")
