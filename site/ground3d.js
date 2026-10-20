@@ -36,7 +36,7 @@
      float line=1.-smoothstep(0.,max(.045,fw*1.2),c);
      vec2 g=abs(fract(vP*.5)-.5);float gfw=fwidth(vP.x*.5);float grid=1.-smoothstep(0.,max(.03,gfw*1.1),min(g.x,g.y));
      float dist=smoothstep(26.,2.,length(vP-vec2(0.,6.)));
-     float glow=exp(-pow((sc.x-uGlow)*2.1,2.))*(.35+.65*(1.-sc.y));
+     float glow=exp(-pow(abs((sc.x-uGlow)*2.1),2.))*(.35+.65*(1.-sc.y));
      vec3 brass=vec3(.93,.82,.6),ink=vec3(.16,.27,.37);
      /* palette light-waves: the survey lines carry the discovery-field colours as slow bands rolling toward the viewer */
      vec3 teal=mix(vec3(.49,.78,.72),vec3(.1,.34,.4),uLight),violet=mix(vec3(.73,.65,.84),vec3(.3,.24,.5),uLight),rose=mix(vec3(.84,.6,.42),vec3(.5,.26,.14),uLight);

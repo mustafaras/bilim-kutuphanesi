@@ -182,7 +182,7 @@
     float tauF=sky.r*(.35+1.35*fbm(q*5.2+vec2(1.,4.)));
     float spin=uTime*.2/(.7+r*.5),ph=r*(1.+.06*sin(r*1.7)),sec=.7853982;
     vec3 tint=vec3(0.);float fb=0.;
-    for(int j=0;j<8;j++){float d=a-spin-(float(j)*sec+.35+ph);d=atan(sin(d),cos(d));float w=exp(-pow(d/(sec*.45),2.));
+    for(int j=0;j<8;j++){float d=a-spin-(float(j)*sec+.35+ph);d=atan(sin(d),cos(d));float w=exp(-pow(abs(d/(sec*.45)),2.));
      tint+=uFC[j]*w*uFW[j];if(uFocus>-.5&&abs(float(j)-uFocus)<.5)fb=w;}
     float lum=(disc*(.16+1.7*armG)*cloud*(.75+.5*g2)+bulge*.22+bar*.07)*exp(-tauF*4.6);
     lum=1.-exp(-lum*1.15);   /* soft shoulder: the core and bar roll off instead of clipping to white */
@@ -239,9 +239,9 @@
   DF_FRAG=`varying vec2 vP;varying vec4 vQ;varying vec3 vC;uniform float uFade,uLight;
    void main(){float cr=cos(vQ.z),sr=sin(vQ.z);vec2 q=vec2(cr*vP.x+sr*vP.y,-sr*vP.x+cr*vP.y);q.y/=vQ.y;float d=length(q);
     float tw=vQ.w*d*5.;q=vec2(cos(tw)*q.x-sin(tw)*q.y,sin(tw)*q.x+cos(tw)*q.y);
-    float core=exp(-pow(d*3.4,.5)*2.1)*(.7+.3*cos(2.*atan(q.y,q.x)*step(.001,vQ.w)));float edge=1.-smoothstep(.8,1.,d);
+    float core=exp(-pow(d*3.4,.5)*2.1)*(.7+.3*cos(2.*atan(q.y,q.x+1e-5)*step(.001,vQ.w)));float edge=1.-smoothstep(.8,1.,d);
     float dk=core*edge;
-    float ring=exp(-pow((d-.42)/.045,2.))*.55+exp(-d*d*9.)*.28;float al=clamp((ring+dk*.18)*edge,0.,.7);
+    float ring=exp(-((d-.42)/.045)*((d-.42)/.045))*.55+exp(-d*d*9.)*.28;float al=clamp((ring+dk*.18)*edge,0.,.7);
     gl_FragColor=mix(vec4(vC*dk*1.7*uFade,1.),vec4(.14,.12,.24,al*uFade*.5),uLight);}`;
   const GRAIN_N=small?150000:600000,GKEEP=[1,.5,.15,0,0];
   const GRAIN_VERT=`
