@@ -134,7 +134,7 @@ window.NobelSkyline=(()=>{
   const STLM=!!(window.BKGL&&BKGL.still);   // ?still (visual gate): towers stand at their final height, camera at rest, clock frozen
   function layout(dt){const light=root.dataset.theme==='light',since=(performance.now()-t0)/1000;let moving=false;
    const per=new Array(N).fill(0);
-   for(let k=0;k<K;k++){const {i,c}=keys[k],tgt=catOn[c]?counts[i][c]*HS:0,delay=reduced.matches?0:i*.007,g=since>delay?1:0,goal=g?tgt:0;const d=goal-cur[k];if(!STLM&&Math.abs(d)>.0008){cur[k]+=d*Math.min(1,dt*7.5);moving=true}else cur[k]=goal}
+   for(let k=0;k<K;k++){const {i,c}=keys[k],tgt=catOn[c]?counts[i][c]*HS:0,delay=reduced.matches?0:i*.007,g=STLM?1:(since>delay?1:0),goal=g?tgt:0;const d=goal-cur[k];if(!STLM&&Math.abs(d)>.0008){cur[k]+=d*Math.min(1,dt*7.5);moving=true}else cur[k]=goal}
    /* stacking order: bottom → top = category order */
    const acc=new Float32Array(N);
    for(let k=0;k<K;k++){const {i}=keys[k],h=Math.max(cur[k],.0001),x=X0+i*DX,y0=acc[i];acc[i]+=cur[k];

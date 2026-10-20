@@ -115,6 +115,7 @@ try:
                 out, _ = capture(b, w, h, th, "legacy")
                 for name, f in out.items():
                     im = Image.open(f).convert("RGB").resize((max(1, Image.open(f).width // 2), max(1, Image.open(f).height // 2)), Image.LANCZOS); cand = OUT / "candidates"; cand.mkdir(parents=True, exist_ok=True); im.save(cand / f.name, optimize=True)
+                    if a.update: LEG.mkdir(parents=True, exist_ok=True); im.save(LEG / f.name, optimize=True); note(f"legacy golden updated: {f.name}")
                     if a.hero_only: note(f"captured {f.name}"); continue
                     g = LEG / f.name if (LEG / f.name).exists() else GOLD / f.name
                     r = ratio(g, cand / f.name, DIFF / f"legacy-{f.name}", tol_for(f.name)); note(f"fxuber=0 {f.name}: {r:.5f} of the pixels differ from {g.relative_to(ROOT)} (limit {lim(f.name, 1)})")

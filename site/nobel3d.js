@@ -49,8 +49,8 @@
   ui={canvas:panel.querySelector('canvas'),labels:panel.querySelector('.nc-3d-labels'),tip:panel.querySelector('.nc-3d-tip'),hint:panel.querySelector('.nc-3d-hint'),note:panel.querySelector('.nc-3d-note'),ctl:panel.querySelector('.nc-3d-ctl')};
   labelsOf();
   ui.ctl.setAttribute('aria-label',t('heroZoom'));[['in','heroZoomIn'],['out','heroZoomOut'],['reset','heroZoomReset']].forEach(([k,key])=>ui.ctl.querySelector(`[data-z=${k}]`).setAttribute('aria-label',t(key)));
-  const setView=v=>{if(morphing)return;{const from=view;if(from!==v&&!reduced.matches&&MN>0&&ready(from)&&ready(v)){morphTo(from,v);return}}view=v;chart.hidden=view!=='chart';panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';labelsOf();
-   const shown=view==='galaxy'?panel:view==='skyline'?sky:chart;if(!reduced.matches){shown.classList.remove('nc-enter');void shown.offsetWidth;shown.classList.add('nc-enter');setTimeout(()=>shown.classList.remove('nc-enter'),900)}
+  const setView=v=>{if(morphing)return;{const from=view;if(from!==v&&!reduced.matches&&!(window.BKGL&&BKGL.still)&&MN>0&&ready(from)&&ready(v)){morphTo(from,v);return}}view=v;chart.hidden=view!=='chart';panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';labelsOf();
+   const shown=view==='galaxy'?panel:view==='skyline'?sky:chart;if(!reduced.matches&&!(window.BKGL&&BKGL.still)){shown.classList.remove('nc-enter');void shown.offsetWidth;shown.classList.add('nc-enter');setTimeout(()=>shown.classList.remove('nc-enter'),900)}
    if(view==='galaxy'){if(!booted){booted=true;boot()}else if(api){api.wake();if(api.enter)api.enter()}}
    if(view==='skyline'&&window.NobelSkyline){const si=window.NobelSkyline.inst;if(si){si.sync();if(si.enter)si.enter()}else window.NobelSkyline.init(sky).then(r=>{if(!r){setView('chart')}})}
    linkKick()};

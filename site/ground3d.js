@@ -41,7 +41,8 @@
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(46,2,.1,120);camera.position.set(0,2.4,7.5);camera.lookAt(0,-1.7,-5);
   const R=6,uniforms={uTime:{value:0},uLight:{value:0},uRes:{value:new THREE.Vector2(1,1)},uGlow:{value:.68},uDomeX:{value:.62},uLamp:{value:0},uR:{value:Array.from({length:R},()=>new THREE.Vector4(0,0,-99,0))},uEnergy:{value:0},
    uWave:{value:null},uWaveOn:{value:0},uWaveAmp:{value:.62},uWaveTexel:{value:new THREE.Vector2(1/256,1/256)},
-   uRefl:{value:null},uReflOn:{value:0},uReflVP:{value:new THREE.Matrix4()}};
+   uRefl:{value:null},uReflOn:{value:0},uReflVP:{value:new THREE.Matrix4()},
+   uLwMin:{value:.016},uLwCurv:{value:.45},uCaustK:{value:1}};
   const mat=new THREE.ShaderMaterial({uniforms,transparent:true,depthWrite:false,
    vertexShader:`uniform float uTime;uniform vec4 uR[${R}];uniform mat4 uReflVP;varying vec2 vP;varying float vH;varying float vRip;varying vec4 vR;
     void main(){vec3 p=position;vec2 q=p.xy;
@@ -52,7 +53,7 @@
      h+=rip*.8;vRip=rip;
      vec3 pos=vec3(q.x,h,-q.y);vP=q;vH=h;vR=uReflVP*vec4(pos,1.);
      gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.);}`,
-   fragmentShader:`uniform float uTime,uLight,uGlow,uEnergy,uDomeX,uLamp,uWaveOn,uWaveAmp,uReflOn;uniform vec2 uRes,uWaveTexel;
+   fragmentShader:`uniform float uTime,uLight,uGlow,uEnergy,uDomeX,uLamp,uWaveOn,uWaveAmp,uReflOn,uLwMin,uLwCurv,uCaustK;uniform vec2 uRes,uWaveTexel;
     uniform sampler2D uWave,uRefl;varying vec2 vP;varying float vH;varying float vRip;varying vec4 vR;
     float hs(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
     float wH(vec2 uvw){return texture2D(uWave,uvw).r*uWaveOn*uWaveAmp;}
@@ -66,7 +67,7 @@
      float lap=wH(wuv+vec2(uWaveTexel.x,0.))+wH(wuv-vec2(uWaveTexel.x,0.))+wH(wuv+vec2(0.,uWaveTexel.y))+wH(wuv-vec2(0.,uWaveTexel.y))-4.*wh;
      /* R8.4: pixel-constant lines that thin where the surface curves hard (wave gradient or live ripple energy) */
      float curv=clamp(length(gW)*2.4+abs(vRip)*1.4,0.,1.);
-     float lw=max(.016,fw*1.2*(1.-.45*curv));
+     float lw=max(uLwMin,fw*1.2*(1.-uLwCurv*curv));   // tiers >= 2: uLwMin returns to .045 and uLwCurv=0 — the pre-R8 fixed-thickness line
      float line=1.-smoothstep(0.,lw,c);
      vec2 g=abs(fract(vP*.5)-.5);float gfw=fwidth(vP.x*.5);float grid=1.-smoothstep(0.,max(.03,gfw*1.1),min(g.x,g.y));
      float dist=smoothstep(26.,2.,length(vP-vec2(0.,6.)));
@@ -83,7 +84,7 @@
      vec3 warm=mix(vec3(1.,.82,.52),vec3(.72,.4,.14),uLight);
      /* caustics: light concentrated by the wave curvature; static soft bands where the sim is off (tiers >= 2) */
      float caust=clamp(1.-lap*3.2,0.,1.85);caust=caust*caust*caust*pool*uWaveOn*1.15;
-     float stat=(.5+.5*sin(vP.x*6.2-uTime*1.3)*sin(vP.y*4.7+uTime*.9+1.3));stat=smoothstep(.72,1.,stat)*pool*.35*(1.-uWaveOn);
+     float stat=(.5+.5*sin(vP.x*6.2-uTime*1.3)*sin(vP.y*4.7+uTime*.9+1.3));stat=smoothstep(.72,1.,stat)*pool*.35*(1.-uWaveOn)*uCaustK;
      float a=(line*.62+grid*.07)*(.5+glow*1.2)*dist+vRip*.9*line;
      /* star glints: sparse hashed cells that twinkle, stronger under the galaxy */
      vec2 cell=floor(vP*3.2);float hh=hs(cell);float tw=smoothstep(.985,1.,hh)*(.5+.5*sin(uTime*(1.4+hh*3.)+hh*40.));
@@ -200,6 +201,7 @@
    ensureRefl(s<=0?512:s<=1?256:0);
    uniforms.uReflOn.value=s<=1?1:0;
    if(s<=1)reflDirty=true;
+   uniforms.uLwMin.value=s<=1?.016:.045;uniforms.uLwCurv.value=s<=1?.45:0;uniforms.uCaustK.value=s<=1?1:0;   // level table: contours "sabit" and no caustic band at tiers >= 2
    const n=s<=0?3:s<=1?1:0;cards.forEach((q,i)=>{q.visible=i<n})}
   resize();applyLevel();
 
