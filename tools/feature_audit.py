@@ -409,7 +409,7 @@ def b18(b):
     try: q.wait_for_function("window.BKHero&&BKHero.introRestart&&!!document.querySelector('#heroGL.on')", timeout=180000)
     except Exception: problems.append("B18 the hero never came up (entrance)"); ctx.close(); return
     q.evaluate("BKHero.gov.pin(true)"); q.evaluate("BKHero.gov.setLevel(3)")
-    q.evaluate("BKHero.introRestart()"); r0 = q.evaluate("BKHero.info().intro")
+    r0 = q.evaluate("(()=>{BKHero.introRestart();return BKHero.info().intro})()")   # one task: on slow CI a frame between two evaluates could already outlast the 2.4 s entrance
     if r0.get("done") or r0.get("cut"): problems.append(f"B18 a restarted entrance must be running: {r0}")
     q.mouse.move(700, 400); q.mouse.move(760, 430); q.wait_for_timeout(300)
     r1 = q.evaluate("BKHero.info().intro")
