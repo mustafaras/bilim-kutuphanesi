@@ -614,3 +614,9 @@ Her aşama: önce ölçülebilir kabul testi (kırıldığını göster) → yer
 - **Düzeltme:** kareler `x*x`/`abs()`; `atan(q.y,q.x+1e-5)`. Kural: **GLSL'de taban negatif olabilecek `pow` yok; `mix(a,b,t)` ile bir kolon NaN üretebiliyorsa `t` sabit olsa da korunmaz.**
 - **Doğrulanmayan:** gerçek GPU (yazılımsal GL'de bu NaN davranışı üretilemez; gerekçe kod ve belirtiden çıkarıldı).
 
+## §75 — v131: opak siyah levha ve kareler (şeffaf tuvalde alfa = 1)
+- **Belirti:** galaksi bir levha gibi: arka planla keskin renk geçişi, siyah dikdörtgenler (özellikle dar/mobil ekranda ve kalite kademesi ≥ 1'de).
+- **Neden:** kademe ≥ 1'de `bloomOff` → hero tuvali `mix-blend-mode:screen` olmaktan çıkar ve `setClearColor(0,0)` ile **şeffaf** kalır (sayfanın CSS gradyanı görünür). Üç dark-tema parçası (yaygın ışık düzlemi `DISC_FRAG`, işaret yıldızları `BEACON_FRAG`, derin uzay `DF_FRAG`) çıktıyı `vec4(renk, 1.)` yazıyordu: toplamalı karışımda renk 0 olsa da **alfa 1** birikir, yani her dörtgen tuvale opak siyah dikdörtgen basar. Kademe 0'da tuval `screen` olduğu için siyah görünmez, bu yüzden CI ve yerelde (kademe 0) yakalanmadı.
+- **Düzeltme:** `hAdd(c)`: alfa = en parlak kanal, renk = c / alfa; `SRC_ALPHA × renk` hâlâ tam `c` ekler, alfa yalnız parlaklık kadar dolar. **Kural: toplamalı karışımlı gölgelendirici şeffaf tuvale `vec4(renk,1.)` yazmaz.** Doğrulama: tuvalin CSS arka planı macenta, kademe 1 → önce siyah levha + kareler, sonra temiz.
+- **Not:** v130'daki `pow(negatif)` düzeltmesi (§74) ayrı ve geçerli bir GLSL tanımsızlığıydı; bu belirtinin asıl nedeni burada.
+
