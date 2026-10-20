@@ -620,3 +620,9 @@ Her aşama: önce ölçülebilir kabul testi (kırıldığını göster) → yer
 - **Düzeltme:** `hAdd(c)`: alfa = en parlak kanal, renk = c / alfa; `SRC_ALPHA × renk` hâlâ tam `c` ekler, alfa yalnız parlaklık kadar dolar. **Kural: toplamalı karışımlı gölgelendirici şeffaf tuvale `vec4(renk,1.)` yazmaz.** Doğrulama: tuvalin CSS arka planı macenta, kademe 1 → önce siyah levha + kareler, sonra temiz.
 - **Not:** v130'daki `pow(negatif)` düzeltmesi (§74) ayrı ve geçerli bir GLSL tanımsızlığıydı; bu belirtinin asıl nedeni burada.
 
+## §76 — CI düzeltmesi: ilgisiz dilimleri atla, bir kez otomatik yeniden dene
+- **Sorun:** her PR 26 tarayıcı işi koşuyordu (hero-galaksi denetimleri stage-only değişikliklerde de); yazılımsal GL zamanlama sapmaları (B18 giriş, A6 takımyıldızı 0 kare, görsel kararlılık 0.0011/0.001) PR'ı kırmızıya çeviriyordu.
+- **`tools/ci_scope.py` + `changes` işi:** `git diff base...HEAD` ile hangi dilimlerin değişikliği görebildiğine bakar: `hero` (hero3d, fx, sim, effects, ground3d), `stage` (stage, textfit, record), `extras` (skyline/nobel/constellation/empty3d); `tools/`, `.github/`, `site/vendor/` ve ortak motor (gl, shaders, materials, motion) **her şeyi** koşturur. UI, yazı sığma, özellikler (main) ve dört görsel yapılandırma her zaman koşar. Her matris girdisinin `scope:` alanı vardır; `gate` adımı gerekmiyorsa kurulum ve test adımlarını atlar (iş yeşil kalır, `deploy` kapısı değişmez). Bilinmeyen durumda (diff alınamazsa) her şey koşar.
+- **Bir kez otomatik yeniden deneme:** tarayıcı ve görsel işleri komutu başarısızsa **bir kez** yeniden koşar (`::warning::` ile görünür); gerçek hata iki kez düşer ve PR'ı yine bloklar. Kapı gevşetilmedi: eşikler aynı.
+- **Hâlâ elle:** bilinçli görsel değişiklikte `update-goldens.yml` (altın döngüsü) hâlâ gerekir.
+
