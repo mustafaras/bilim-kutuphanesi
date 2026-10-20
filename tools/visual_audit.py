@@ -69,6 +69,10 @@ def capture(b, w, h, theme, tag, keep=False):
     q.wait_for_function("document.querySelectorAll('.tile-3d.on').length>=8", timeout=180000)
     try: q.wait_for_function("!!document.querySelector('#heroGL.on')", timeout=60000)
     except Exception: pass
+    # Deterministic preconditions (v132, DEVIR §77): a capture must never race async state that changes pixels.
+    try: q.wait_for_function("(()=>{try{return document.fonts.check('400 44px Fraunces')&&document.fonts.check('400 24px Inter')&&document.fonts.check('600 22px \"IBM Plex Mono\"')}catch(e){return true}})()", timeout=90000)   # a web font arriving between the two captures re-lays caption glyphs (the 0.0011 atlas stability flake)
+    except Exception: pass
+    q.wait_for_function("!!window.BKStage&&!!BKStage.medalInfo()&&BKStage.medalInfo().builtFaces>=7", timeout=120000)   # the medal face chain runs in requestIdleCallback (~100 ms Sobel per face): if the atlas canvas first renders mid-chain (paused mode renders once, when dirtied) its pixels depend on idle timing; B19 pins the 7-face end state
     q.add_style_tag(content='header,.site-header,.topbar,.skip-link{position:static!important;visibility:hidden!important}')   # a sticky header would overlap element shots at different places
     q.wait_for_timeout(4000)
     out = {}; base = OUT / tag; base.mkdir(parents=True, exist_ok=True)

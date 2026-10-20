@@ -16,7 +16,7 @@ permissions:
   pages: write
   id-token: write
 jobs:
-  # Which browser slices does this pull request need? (tools/ci_scope.py: a stage.js-only change skips the hero-galaxy audits and vice versa; UI, text fit, features and the visual gate always run.)
+  # Which browser slices does this pull request need? (tools/ci_scope.py: a stage.js-only change skips the hero-galaxy audits and vice versa; UI, text fit and features always run; the visual gate runs when any site/** file changed.)
   changes:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -25,6 +25,7 @@ jobs:
       hero: ${{ steps.s.outputs.hero }}
       stage: ${{ steps.s.outputs.stage }}
       extras: ${{ steps.s.outputs.extras }}
+      visual: ${{ steps.s.outputs.visual }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -164,15 +165,16 @@ jobs:
         run: |
           python -m playwright install chromium
           python -m playwright install-deps chromium
-      # One automatic retry: a software-GL timing flake costs 30 s here instead of a red PR; a real defect fails twice and still blocks.
       - name: ${{ matrix.name }}
         if: steps.gate.outputs.run == 'true'
         env:
           CMD: ${{ matrix.cmd }}
-        run: bash -e -c "$CMD" || { echo "::warning::first attempt failed, retrying once"; bash -e -c "$CMD"; }
+        run: bash -e -c "$CMD"
   # R3 visual regression gate: four configurations in parallel (viewport x theme), each captured twice (stability) and compared with tools/golden/ (committed, generated on CI by update-goldens.yml).
   # A pixel regression blocks the deploy. After an intended visual change: run 'Update visual goldens' (workflow_dispatch), review the PR from goldens/update, merge it.
+  # Skipped on a PR that touches no site/** file: such a PR cannot move a pixel (tools/.github/shared changes set visual=true through ci_scope).
   visual:
+    needs: changes
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -186,26 +188,37 @@ jobs:
           - {config: '1024x768:light', slug: '1024-light'}
     name: visual ${{ matrix.slug }}
     steps:
+      - name: Needed for this change?
+        id: gate
+        run: |
+          r=${{ needs.changes.outputs.visual || 'true' }}
+          echo "run=$r" >> "$GITHUB_OUTPUT"; echo "visual: run=$r"
       - uses: actions/checkout@v6
+        if: steps.gate.outputs.run == 'true'
       - name: Install Playwright and image libraries
+        if: steps.gate.outputs.run == 'true'
         run: python -m pip install --quiet playwright pillow numpy
       - name: Playwright version
+        if: steps.gate.outputs.run == 'true'
         id: pw
         run: |
           echo "v=$(python -m pip show playwright | sed -n 's/^Version: //p')" >> "$GITHUB_OUTPUT"
       - name: Cache the browser download
+        if: steps.gate.outputs.run == 'true'
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ steps.pw.outputs.v }}
       - name: Install browser and system libraries
+        if: steps.gate.outputs.run == 'true'
         run: |
           python -m playwright install chromium
           python -m playwright install-deps chromium
       - name: Visual regression gate (R3)
-        run: python tools/visual_audit.py --config ${{ matrix.config }} || { echo "::warning::first attempt failed, retrying once"; python tools/visual_audit.py --config ${{ matrix.config }}; }
+        if: steps.gate.outputs.run == 'true'
+        run: python tools/visual_audit.py --config ${{ matrix.config }}
       - name: Visual output (candidates and differences)
-        if: always()
+        if: always() && steps.gate.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: visual-${{ matrix.slug }}
