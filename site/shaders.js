@@ -4,7 +4,7 @@
    • inject(src,...names) → src with the chunks placed after `#include <common>` (for onBeforeCompile on built-in materials)
    • key(tag,...names) / hook(material,tag,fn,...names) → program cache key discipline: a material that patches its shader (onBeforeCompile) ALWAYS sets customProgramCacheKey with it; hook() does both.
      Without a key three derives it from the function text, so two materials with different captured data but the same source would silently share one program.
-   • chunks: hash (hash11/12/13/33 + IGN dithering) · noise (simplex 2D/3D, curl, fbm) · lut3d (3D LUT sampling with half-texel correction) · blackbody (Planck colour, B-V → temperature → colour)
+   • chunks: hash (hash11/12/13/33 + IGN dithering) · noise (simplex 2D/3D, curl, fbm) · lut3d (3D LUT sampling with half-texel correction) · blackbody (Planck colour, B-V → temperature → colour) · pom (parallax occlusion mapping: tangent-frame view ray + height-field march, R6.a)
    • js: CPU twins for tests and for baking 1D tables (bakeBlackbody → the stars' temperature LUT texture; the caller makes the texture and disposes it)
    • selfTest(gl?): compiles every chunk in one fragment shader on a real context (the audit's B12 does it; nothing else would notice a typo in a part nobody uses yet) */
 (()=>{
@@ -76,6 +76,24 @@ vec3 bk_blackbody(float kelvin){float t=clamp(kelvin,1000.,40000.)/100.;
 float bk_bvToKelvin(float bv){bv=clamp(bv,-.4,2.);return 4600.*(1./(.92*bv+1.7)+1./(.92*bv+.62));}
 vec3 bk_bvColor(float bv){return bk_blackbody(bk_bvToKelvin(bv));}`,'bk_bvColor(.65).x+bk_blackbody(5800.).y');
 
+ /* R6.a parallax occlusion mapping: tsView = the view direction in the surface's tangent frame (three's own derivative-based frame, so it needs no tangent attribute);
+    pom marches a height field (R channel, 1 = raised) along that ray in `steps` layers (<= 16), refines between the last two layers and returns the shifted uv. k = uv shift at full depth. */
+ add('pom',1,[],`
+vec3 bk_tsView(vec3 eyePos,vec3 N,vec2 uv){
+ vec3 q0=dFdx(eyePos),q1=dFdy(eyePos);vec2 st0=dFdx(uv),st1=dFdy(uv);
+ vec3 q1p=cross(q1,N),q0p=cross(N,q0);
+ vec3 T=q1p*st0.x+q0p*st1.x,B=q1p*st0.y+q0p*st1.y;
+ float det=max(dot(T,T),dot(B,B));float sc=det==0.?0.:inversesqrt(det);
+ T*=sc;B*=sc;vec3 V=normalize(-eyePos);
+ return vec3(dot(V,T),dot(V,B),dot(V,N));}
+vec2 bk_pom(sampler2D hm,vec2 uv,vec3 v,float steps,float k){
+ if(steps<1.||k<=0.)return uv;
+ vec2 dT=v.xy/max(v.z,.05)*k/steps;float ld=1./steps;
+ vec2 t=uv,pt=uv;float cur=0.,pc=0.,d=1.-textureLod(hm,t,0.).r,pd=d;
+ for(int i=0;i<16;i++){if(float(i)>=steps||cur>=d)break;pt=t;pd=d;pc=cur;t-=dT;d=1.-textureLod(hm,t,0.).r;cur+=ld;}
+ float a=d-cur,b=pd-pc,w=(a-b)==0.?0.:clamp(a/(a-b),0.,1.);
+ return mix(t,pt,w);}`,'bk_pom(uTex,vec2(.5),bk_tsView(vec3(1.,0.,-2.),vec3(0.,0.,1.),vec2(.3)),8.,.02).x');
+
  /* ---------- composition ---------- */
  function resolve(names){const out=[],seen=new Set(),visit=n=>{const c=C[n];if(!c)throw new Error('BKShaders: no chunk "'+n+'"');if(seen.has(n))return;seen.add(n);c.deps.forEach(visit);out.push(c)};names.forEach(visit);return out}
  const use=(...names)=>resolve(names).map(c=>'// bk:'+c.name+'@'+c.v+'\n'+c.src).join('\n');
@@ -103,7 +121,7 @@ vec3 bk_bvColor(float bv){return bk_blackbody(bk_bvToKelvin(bv));}`,'bk_bvColor(
   try{if(!gl){own=document.createElement('canvas');gl=own.getContext('webgl2')}
    if(!gl||!gl.createShader)return{ok:false,log:'no WebGL2 context',chunks:order.slice()};
    const names=order.slice(),calls=names.map(n=>C[n].probe).join('+'),
-    fs='#version 300 es\nprecision highp float;precision highp sampler3D;uniform sampler3D uLut;out vec4 o;\n'+use(...names)+'\nvoid main(){o=vec4(vec3(('+calls+')*.001),1.);}',
+    fs='#version 300 es\nprecision highp float;precision highp sampler3D;uniform sampler3D uLut;uniform sampler2D uTex;out vec4 o;\n'+use(...names)+'\nvoid main(){o=vec4(vec3(('+calls+')*.001),1.);}',
     vs='#version 300 es\nvoid main(){gl_Position=vec4(0.,0.,0.,1.);}',
     sh=(t,s)=>{const x=gl.createShader(t);gl.shaderSource(x,s);gl.compileShader(x);return x},
     v=sh(gl.VERTEX_SHADER,vs),f=sh(gl.FRAGMENT_SHADER,fs),p=gl.createProgram();gl.attachShader(p,v);gl.attachShader(p,f);gl.linkProgram(p);

@@ -11,7 +11,7 @@ import json, argparse, os, re, socket, subprocess, sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
-ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11", "b12", "b13", "b14", "b15", "b16", "b17", "b18"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--only", choices=["main", "b9", "b10", "b11", "b12", "b13", "b14", "b15", "b16", "b17", "b18", "b19"], help="run one slice (CI runs the slices as parallel jobs); default runs everything"); a = ap.parse_args()
 srv = None
 if not a.url:
     s_ = socket.socket(); s_.bind(("127.0.0.1", 0)); port = s_.getsockname()[1]; s_.close()
@@ -529,6 +529,80 @@ def b16(b):
     except Exception: problems.append("B16 bksim=0 hero never came up")
     ctx3.close()
 
+def b19(b):
+    """B19 R6 medal and Nobel archive objects: (1) tier 0 (pinned): six faces, 1024² height field, POM 16 steps, iridescence thickness map, laurel = InstancedMesh of ExtrudeGeometry (>= 40 leaves),
+    reed teeth >= 150, the pointer-following RectAreaLight (its spring follows the pointer), dust <= 200; (2) tier 1: POM 8, directional key + baked rectangle, dust <= 100; (3) tier 2: no POM, fixed iridescence, ambient only, no dust,
+    normal-map laurel and reeding; (4) the spark burst starts on a face change and never under reduced motion; (5) glass: tier 0 + hovered tile = real transmission, ONE tile at a time, tier 1 cheap, tier 2 opaque, no shader error;
+    (6) ?still determinism: the dust seeds are a fixed table."""
+    ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q = ctx.new_page()
+    q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark');localStorage.setItem('bk-flag-sim1m','0')}catch(e){}")
+    q.goto(a.url + "?b19=" + str(time.time()), wait_until="load")
+    q.wait_for_function('window.BKStage&&window.BKHero&&BKHero.gov&&typeof records!=="undefined"&&records.length', timeout=180000)
+    q.wait_for_function("document.querySelectorAll('.tile-3d.on').length>=6", timeout=180000)
+    q.evaluate("BKHero.gov.pin(true)")
+    def lvl(n): q.evaluate(f"BKHero.gov.setLevel({n})"); q.wait_for_timeout(600)
+    lvl(0)
+    q.evaluate("document.querySelectorAll('.atlas-tile')[7].scrollIntoView({block:'center'})"); q.wait_for_timeout(2500)
+    def tile(i):
+        for _ in range(8):   # the page may still be settling (smooth scroll, entrance): scroll until the tile is really on screen
+            q.evaluate(f"document.querySelectorAll('.atlas-tile')[{i}].scrollIntoView({{block:'center'}})"); q.wait_for_timeout(800)
+            if q.evaluate(f"(()=>{{const r=document.querySelectorAll('.atlas-tile')[{i}].getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight}})()"): break
+        return q.evaluate(f"(()=>{{const r=document.querySelectorAll('.atlas-tile')[{i}].getBoundingClientRect();return[r.left,r.top,r.width,r.height]}})()")
+    m0 = q.evaluate("BKStage.medalInfo()"); note(f"B19 tier 0 {m0}")
+    if not m0: problems.append("B19 no medal"); ctx.close(); return
+    if not (m0["faces"] == 6 and m0["normal"] and not m0["bump"] and m0["height"] == 1024 and m0["pom"]["steps"] == 16 and m0["pom"]["on"] and m0["iri"] == "map"): problems.append(f"B19 tier 0 relief wrong (6 faces, 1024² height, POM 16, thickness map): {m0}")
+    if not (m0["laurel"]["count"] >= 40 and m0["laurel"]["geometry"] == "ExtrudeGeometry" and m0["teeth"] >= 150): problems.append(f"B19 tier 0 needs real laurel (>= 40 extruded leaves) and >= 150 reed teeth: {m0}")
+    if not (m0["rect"] and m0["light"] == "rect" and m0["rectI"] > 0): problems.append(f"B19 tier 0 must light the medal with the RectAreaLight: {m0}")
+    if not (0 < m0["dust"] <= 200 and m0["dustMax"] <= 200 and m0["sparks"] > 0): problems.append(f"B19 tier 0 dust must be 1-200 points including sparks: {m0}")
+    # the 6 other faces are built while idle (no hitch at the flip); wait for them so the pointer checks below are not starved of frames
+    try: q.wait_for_function("BKStage.medalInfo().builtFaces>=7", timeout=90000)
+    except Exception: problems.append("B19 the idle warm-up never built all seven faces")
+    # the rect light follows the pointer
+    x, y, w, h = tile(7)
+    def wait(js):
+        try: q.wait_for_function(js, timeout=40000)
+        except Exception: pass
+    q.mouse.move(x + w * .2, y + h * .5); wait("BKStage.medalInfo().rectPos[0]<-.2"); pl = q.evaluate("BKStage.medalInfo().rectPos")
+    q.mouse.move(x + w * .8, y + h * .5); wait("BKStage.medalInfo().rectPos[0]>.4"); pr = q.evaluate("BKStage.medalInfo().rectPos")
+    note(f"B19 rect light follows the pointer: left {pl} right {pr}")
+    if not (pr[0] - pl[0] > 1.0): problems.append(f"B19 the RectAreaLight does not follow the pointer: {pl} -> {pr}")
+    # spark burst on a face change; none under reduced motion
+    q.evaluate("BKStage.medal(2)"); q.wait_for_timeout(300); burst = q.evaluate("BKStage.medalInfo().burst")
+    q.mouse.move(5, 5); q.evaluate("document.documentElement.classList.add('effects-paused')"); q.wait_for_timeout(1600)
+    q.evaluate("BKStage.medal(3)"); q.wait_for_timeout(300); burst_paused = q.evaluate("BKStage.medalInfo().burst")
+    note(f"B19 spark burst: normal {burst}, reduced motion {burst_paused}")
+    if not burst: problems.append("B19 a face change must start the spark burst at tier 0")
+    if burst_paused: problems.append("B19 reduced motion must not start the spark burst")
+    # determinism: the dust is seeded (no Math.random), so ?still always shows the same particles; the seed table has a fixed fingerprint
+    dh = q.evaluate("BKStage.medalInfo().dustHash"); note(f"B19 dust seed fingerprint {dh}")
+    if dh != 3416825296: problems.append(f"B19 the dust must be seeded (fingerprint 3416825296): {dh}")
+    q.evaluate("document.documentElement.classList.remove('effects-paused')")
+    # all faces get built (idle warm-up) so no hitch on the flip
+    q.wait_for_function("BKStage.medalInfo().builtFaces>=7", timeout=60000)
+    # glass: one transmission tile at a time
+    modes = {}
+    for i in (0, 1, 2):
+        x, y, w, h = tile(i); q.mouse.move(x + w / 2, y + h / 2); wait(f"BKStage.glass().tiles.find(t=>t.i=={i}).mode=='trans'"); g = q.evaluate("BKStage.glass()"); modes[i] = g
+    note(f"B19 glass per hovered tile: {modes}")
+    for i, g in modes.items():
+        want = {t["i"]: t["mode"] for t in g["tiles"]}
+        if want.get(i) != "trans" or sum(1 for v in want.values() if v == "trans") != 1: problems.append(f"B19 hovering tile {i} must give exactly that tile real transmission: {g}")
+        if not (g["disp"] > 0): problems.append("B19 the glass has no dispersion")
+    q.mouse.move(5, 5); q.wait_for_timeout(1500); g = q.evaluate("BKStage.glass()")
+    if any(t["mode"] == "trans" for t in g["tiles"]): problems.append(f"B19 transmission must end when the pointer leaves: {g}")
+    se = q.evaluate("BKStage.diag().shaderErrors")
+    if se: problems.append(f"B19 {se} shader error(s): the POM / dispersion / RectAreaLight programs must compile")
+    # tier 1
+    lvl(1); m1 = q.evaluate("BKStage.medalInfo()"); note(f"B19 tier 1 {m1}")
+    if not (m1["pom"]["steps"] == 8 and m1["light"] == "directional" and m1["dust"] <= 100 and m1["laurel"]["count"] >= 20 and m1["teeth"] >= 150): problems.append(f"B19 tier 1: POM 8, directional key + baked rectangle, dust <= 100, real laurel and reeding: {m1}")
+    x, y, w, h = tile(1); q.mouse.move(x + w / 2, y + h / 2); q.wait_for_timeout(1500)
+    if any(t["mode"] == "trans" for t in q.evaluate("BKStage.glass().tiles")): problems.append("B19 tier 1 must keep the cheap glass (no transmission)")
+    # tier 2
+    lvl(2); q.mouse.move(5, 5); q.wait_for_timeout(800); m2 = q.evaluate("BKStage.medalInfo()"); g2 = q.evaluate("BKStage.glass()"); note(f"B19 tier 2 {m2} {g2}")
+    if not (m2["pom"]["steps"] == 0 and not m2["pom"]["on"] and m2["iri"] in ("fixed", "none") and m2["light"] == "ambient" and m2["dust"] == 0 and m2["laurel"]["count"] == 0 and m2["teeth"] == 0 and m2["normal"] and m2["reed"]): problems.append(f"B19 tier 2: no POM, fixed iridescence, ambient only, no dust, normal-map laurel and reeding: {m2}")
+    if any(t["mode"] != "opaque" for t in g2["tiles"]): problems.append(f"B19 tier 2 glass must be opaque: {g2}")
+    ctx.close()
+
 def b9(b):
     """B9 broken GPU (own contexts, independent of the main page)."""
     # ---- B9 broken GPU: the shelf must never show a broken book. Inject a shader fault (fragment shaders containing the given text get a syntax error appended)
@@ -554,11 +628,11 @@ def b9(b):
     f_all = faulty(["gl_FragColor", "pc_fragColor"], lambda o: o["lvl"] == 4 and o["cards"] == 0); note(f"B9 nothing compiles -> {f_all}")
     if f_all["lvl"] != 4 or f_all["cards"] != 0: problems.append(f"B9 stage did not fall back to the CSS covers when nothing compiles: {f_all}")
 
-if a.only in ("b9", "b10", "b11", "b12", "b13", "b14", "b15", "b16", "b17", "b18"):
+if a.only in ("b9", "b10", "b11", "b12", "b13", "b14", "b15", "b16", "b17", "b18", "b19"):
     with sync_playwright() as p:
         kw = dict(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]); exe = os.environ.get("BK_CHROMIUM")
         b = p.chromium.launch(executable_path=exe, **kw) if exe else p.chromium.launch(**kw)
-        {"b9": b9, "b10": b10, "b11": b11, "b12": b12, "b13": b13, "b14": b14, "b15": b15, "b16": b16, "b17": b17, "b18": b18}[a.only](b); b.close()
+        {"b9": b9, "b10": b10, "b11": b11, "b12": b12, "b13": b13, "b14": b14, "b15": b15, "b16": b16, "b17": b17, "b18": b18, "b19": b19}[a.only](b); b.close()
     if srv: srv.terminate()
     print("FAIL" if problems else f"OK: {a.only.upper()}", *problems, sep="\n - " if problems else "")
     sys.exit(1 if problems else 0)
@@ -780,7 +854,7 @@ with sync_playwright() as p:
     if a.only is None: b12(b)
     if a.only is None: b13(b)
     if a.only is None: b14(b)
-    if a.only is None: b15(b); b16(b); b17(b); b18(b)
+    if a.only is None: b15(b); b16(b); b17(b); b18(b); b19(b)
     b.close()
 if srv: srv.terminate()
 print("FAIL" if problems else "OK: Package A features behave as specified", *problems, sep="\n - " if problems else "")

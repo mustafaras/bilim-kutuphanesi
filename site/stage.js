@@ -13,12 +13,12 @@
  if(!hasGL())return;
  let THREE=null,renderer=null,loading=null,items=[],raf=0,last=0,PT=null,warmHold=null;   // PT: ?perf recorder for tile renders; warmHold keeps the warmed scenes (their programs stay compiled)
  const paused=()=>root.classList.contains('effects-paused')||reduced.matches;
- const load=()=>loading||(loading=import('./vendor/three.module.min.js').then(m=>{THREE=m;renderer=new m.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(1);renderer.shadowMap.enabled=true;renderer.shadowMap.type=m.PCFSoftShadowMap;renderer.setClearColor(0x000000,0);renderer.setScissorTest(true);BM.tone(renderer,'stage');watchContext();if(window.BKGL)PT=BKGL.perf.track('stage',renderer);return m}).catch(()=>null));
+ const load=()=>loading||(loading=import('./vendor/three.module.min.js').then(m=>{THREE=m;renderer=new m.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(1);renderer.shadowMap.enabled=true;renderer.shadowMap.type=m.PCFSoftShadowMap;renderer.setClearColor(0x000000,0);renderer.setScissorTest(true);BM.tone(renderer,'stage');watchContext();if(window.BKGL)PT=BKGL.perf.track('stage',renderer);return m}).then(async m=>{if(m)try{const L=await import('./vendor/jsm/lights/RectAreaLightUniformsLib.js');L.RectAreaLightUniformsLib.init();RECT=true}catch{RECT=false}return m}).catch(()=>null));   // R6.c: three's RectAreaLightUniformsLib (the LTC tables a RectAreaLight needs), vendored; without it the medal falls back to the baked rectangle
  /* Self-check and graceful degradation. Some GPU/driver combinations cannot build (or silently drop) the heavy book materials; the book then paints as a few untextured bits
     (headband, foil, ribbon) or not at all. Every checked tile therefore inspects what it painted; when that looks broken the whole stage steps down one level and repaints:
     1 plain standard materials, no shadows / bump / clearcoat / sheen · 2 lambert (no PBR, no environment) · 3 flat basic colours, no textures · 4 give up on 3D, the CSS cover stays.
     Add ?diag to the address for a one-line status in the corner (level, shader errors, GPU). */
- let SAFE=0,lastEsc=0;const DIAG={shaderErrors:0,escalations:[],gpu:'',maxTex:0,maxSize:0,webgl2:false};
+ let SAFE=0,lastEsc=0,RECT=false;const DIAG={shaderErrors:0,escalations:[],gpu:'',maxTex:0,maxSize:0,webgl2:false};
  const probe=document.createElement('canvas');probe.width=probe.height=32;const pctx=probe.getContext('2d',{willReadFrequently:true});
  function looksBroken(it){try{pctx.clearRect(0,0,32,32);pctx.drawImage(it.canvas,0,0,32,32);const d=pctx.getImageData(0,0,32,32).data;let n=0,sum=0;
    for(let i=0;i<d.length;i+=4)if(d[i+3]>200){n++;sum+=d[i]+d[i+1]+d[i+2]}
@@ -48,8 +48,8 @@
   renderer.debug.onShaderError=(gl,prog,vs,fs)=>{DIAG.shaderErrors++;if(DIAG.shaderErrors===1)try{console.warn('[stage] shader error, falling back to simpler materials')}catch{}if(SAFE===0||performance.now()-lastEsc>6000)escalate('shader error')};   // errors of the level just left arrive late (within seconds) and must not skip levels; a shader error 6 s after the last step means the CURRENT level fails too, so step down without waiting for 70 frames of pixel checks (each frame with a broken program is slow, on a weak GPU that took minutes)
   try{const g=renderer.getContext(),dbg=g.getExtension('WEBGL_debug_renderer_info');DIAG.gpu=dbg?g.getParameter(dbg.UNMASKED_RENDERER_WEBGL):g.getParameter(g.RENDERER);DIAG.maxTex=g.getParameter(g.MAX_TEXTURE_IMAGE_UNITS);DIAG.maxSize=g.getParameter(g.MAX_TEXTURE_SIZE);DIAG.webgl2=!!(g instanceof self.WebGL2RenderingContext)}catch{}
   if(window.BKGL){BKGL.probe(renderer);BKGL.watch(rc,{name:'stage',onLost(){glLost=true},onRestore(){glLost=false;try{rebuildEnv()}catch{}for(const i of items)i.dirty=true;kick()}})}}
- function rebuildEnv(){if(!THREE)return;const r=BM.rebake(renderer,THREE,'book');if(!r)return;
-  for(const i of items)BM.swapEnv(i.scene,r.old,r.fresh);try{sceneCache.forEach(x=>BM.swapEnv(x.scene,r.old,r.fresh))}catch{}}
+ function rebuildEnv(){if(!THREE)return;for(const pr of['book','medal']){const r=BM.rebake(renderer,THREE,pr);if(!r)continue;
+  for(const i of items)BM.swapEnv(i.scene,r.old,r.fresh);try{sceneCache.forEach(x=>BM.swapEnv(x.scene,r.old,r.fresh))}catch{}}}
  const io=typeof IntersectionObserver==='function'?new IntersectionObserver(es=>{for(const e of es){const it=e.target.__stage;if(it){it.visible=e.isIntersecting;it.dirty=true}}kick()},{rootMargin:'160px'}):null;
 
  function register(canvas,factory,opts={}){
@@ -111,6 +111,7 @@
   sc.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.isLight&&o.shadow&&o.shadow.dispose)o.shadow.dispose();   // the key light's 1024x1024 shadow map is a render target of its own: it stays on the GPU unless released
    const ms=Array.isArray(o.material)?o.material:o.material?[o.material]:[];
    ms.forEach(mt=>{for(const k in mt){const v=mt[k];if(v&&v.isTexture&&v!==env)v.dispose()}mt.dispose()})});
+  try{if(it.api&&it.api.dispose)it.api.dispose()}catch{}
   it.scene=null;it.api=null;it.ready=false}
  /* Quality tiers (BKMotion.quality, published by the hero governor; switch off with BKGL.flags stagequality=0): level >= 2 caps the tile DPR at 1.0 (was 1.5),
     >= 3 idle tiles draw every 4th frame (15 fps, was 30), 4 only the hovered / dragged tile (and the open record's book, opts.focus) stays live and the rest repaint when something changes. */
@@ -198,7 +199,7 @@
    return{scene,camera,update(t,dt,it){g.rotation.set(.35+it.py*.3*it.hoverT,t*.3+it.px*.6*it.hoverT,.35);rs[3].rotation.y=t*.5;eq.rotation.z=t*.2}}},
   /* 7 Nobel archive — struck gold medal: relief face (laurel, star, lettering via bump), clearcoat, ribbon, orbiting glints */
   (m,it,col)=>{const{scene,camera}=rig(m,32,7.4),g=new m.Group();scene.add(g);
-   const envMap=studioEnv(m);if(envMap)scene.environment=envMap;
+   const envMap=BM.env(renderer,m,'medal');if(envMap)scene.environment=envMap;
    /* One struck face per Nobel prize: shared rim + laurel, a category emblem in the centre, lettering laid along the arc by measured width. */
    const CATS=['PHYSICS','CHEMISTRY','MEDICINE','LITERATURE','PEACE','ECONOMICS'];
    const emblem=(x,k)=>{x.lineWidth=7;x.lineCap='round';x.lineJoin='round';
@@ -215,36 +216,115 @@
     x.lineWidth=2;for(let i=0;i<72;i++){const a=i/72*Math.PI*2,r1=156,r2=i%6===0?172:164;x.beginPath();x.moveTo(Math.cos(a)*r1,Math.sin(a)*r1);x.lineTo(Math.cos(a)*r2,Math.sin(a)*r2);x.stroke()}/* year-ruler ticks */
     for(let s2=-1;s2<=1;s2+=2){for(let i=0;i<13;i++){const a=Math.PI*.58+i*.17,rr=190;x.save();x.scale(s2,1);x.rotate(a);x.translate(rr,0);x.rotate(.9);x.beginPath();x.ellipse(0,0,26,9,0,0,7);x.fill();x.restore()}}
     emblem(x,k);arcText(x,k<6?'· NOBEL · '+CATS[k]+' · 1901 – 2026 ·':'· BİLİM KÜTÜPHANEM ·',188,30)};
-   const faceMaskOf=k=>canvasTex(m,512,512,(x,W,H)=>drawFace(x,W,H,k),false);
-   /* relief: a height field (sunburst field, guilloche band, soft shoulders on every raised shape) turned into a normal map — sharper, truer lighting than a bump of the flat mask */
-   const reliefOf=k=>{const mk=faceMaskOf(k).image,c=document.createElement('canvas');c.width=c.height=512;const x=c.getContext('2d');x.fillStyle='#4a4a4a';x.fillRect(0,0,512,512);x.save();x.translate(256,256);
+   /* R6 — the medal at full ambition. Every face is struck from a 1024² height field (the same field drives the normal map, the parallax occlusion march and an iridescence thickness map), the laurel and the reeded edge are real geometry (instanced), a RectAreaLight follows the pointer, dust and a spark burst float in front. Tiers: 0 everything · 1 POM 8 steps, directional key + the baked rectangle in the environment, half the dust · 2+ normal maps only, ambient, no dust. */
+   const BS=window.BKShaders,lvl=()=>Math.max(ql(),SAFE);
+   const cv=(W,H,draw)=>{const c=document.createElement('canvas');c.width=W;c.height=H;draw(c.getContext('2d'),W,H);return c};
+   const maskCv=k=>cv(1024,1024,(x,W,H)=>{x.scale(2,2);drawFace(x,512,512,k)});   // drawn in the 512 design space, rendered at 1024
+   /* relief: a height field (sunburst field, guilloche band, soft shoulders on every raised shape), 1 = raised */
+   const heightOf=(k,mk)=>cv(1024,1024,(x,W,H)=>{x.fillStyle='#4a4a4a';x.fillRect(0,0,W,H);x.save();x.translate(W/2,H/2);x.scale(2,2);
     x.strokeStyle='rgba(255,255,255,.10)';x.lineWidth=1;for(let i=0;i<180;i++){const a=i/180*Math.PI*2;x.beginPath();x.moveTo(Math.cos(a)*40,Math.sin(a)*40);x.lineTo(Math.cos(a)*146,Math.sin(a)*146);x.stroke()}
     x.strokeStyle='rgba(255,255,255,.16)';for(let n=0;n<3;n++){x.beginPath();for(let i=0;i<=720;i++){const a=i/720*Math.PI*2,r=186+7*Math.sin(a*(18+n*6)+n)+4*Math.sin(a*7);i?x.lineTo(Math.cos(a)*r,Math.sin(a)*r):x.moveTo(Math.cos(a)*r,Math.sin(a)*r)}x.closePath();x.stroke()}x.restore();
-    x.globalCompositeOperation='lighten';if('filter' in x){x.filter='blur(7px)';x.globalAlpha=.55;x.drawImage(mk,0,0);x.filter='blur(2px)';x.globalAlpha=1;x.drawImage(mk,0,0);x.filter='none'}else x.drawImage(mk,0,0);
-    return normalFromHeight(m,c,3.4)};
+    x.globalCompositeOperation='lighten';if('filter' in x){x.filter='blur(14px)';x.globalAlpha=.55;x.drawImage(mk,0,0);x.filter='blur(4px)';x.globalAlpha=1;x.drawImage(mk,0,0);x.filter='none'}else x.drawImage(mk,0,0)});
+   /* iridescence thickness (G channel): concentric bands of film thickness, a little thicker on the raised shapes — so the colour shifts follow the engraving */
+   const thicknessOf=(k,mk)=>canvasTex(m,512,512,(x,W,H)=>{const gr=x.createRadialGradient(W*.46,H*.42,10,W/2,H/2,W*.72);[[0,70],[.18,175],[.36,105],[.55,225],[.74,120],[1,200]].forEach(([s,v])=>gr.addColorStop(s,`rgb(${v},${v},${v})`));x.fillStyle=gr;x.fillRect(0,0,W,H);
+    x.globalCompositeOperation='lighter';x.globalAlpha=.22;x.drawImage(mk,0,0,W,H)},false);
    const faceCol=canvasTex(m,512,512,(x,W,H)=>{const gr=x.createRadialGradient(W*.4,H*.35,20,W/2,H/2,W*.62);gr.addColorStop(0,'#f6e3ad');gr.addColorStop(.55,'#d9b46c');gr.addColorStop(1,'#a67c34');x.fillStyle=gr;x.fillRect(0,0,W,H)},true);
-   const faceOf=k=>{const mk=faceMaskOf(k),rf=canvasTex(m,512,512,(x,W,H)=>{x.fillStyle='#8a8a8a';x.fillRect(0,0,W,H);x.drawImage(mk.image,0,0);x.globalCompositeOperation='multiply';x.fillStyle='#cfcfcf';x.fillRect(0,0,W,H)},false);
-    return BM.foil(m,{map:faceCol,normalMap:reliefOf(k),normalScale:new m.Vector2(1,1),metalness:.9,roughness:.34,roughnessMap:rf,clearcoat:.5,clearcoatRoughness:.12,iridescence:.35,iridescenceIOR:1.35,iridescenceThicknessRange:[180,420],envMapIntensity:2.2})};
+   const IRI=[[1.3,170,430],[1.36,200,480],[1.42,240,520],[1.32,180,400],[1.46,220,560],[1.38,150,450],[1.34,200,430]];   // per face: film IOR and thickness range (nm)
+   const POMU={steps:{value:16},k:{value:.02}};   // shared by every face: a tier change is a uniform write, never a recompile
+   const POMGLSL=`uniform sampler2D bkH;uniform float bkSteps;uniform float bkK;
+vec2 bkUv;
+vec2 bkPomUv(){vec3 ts=bk_tsView(-vViewPosition,normalize(vNormal),vMapUv);return bk_pom(bkH,vMapUv,ts,bkSteps,bkK*smoothstep(.1,.5,ts.z));}
+#define vMapUv bkUv
+#define vNormalMapUv bkUv
+#define vRoughnessMapUv bkUv
+#define vIridescenceThicknessMapUv bkUv`;
+   const faceOf=k=>{const mk=maskCv(k),hc=heightOf(k,mk),hTex=new m.CanvasTexture(hc);hTex.minFilter=m.LinearFilter;hTex.generateMipmaps=false;hTex.anisotropy=4;
+    const rf=canvasTex(m,512,512,(x,W,H)=>{x.fillStyle='#8a8a8a';x.fillRect(0,0,W,H);x.drawImage(mk,0,0,W,H);x.globalCompositeOperation='multiply';x.fillStyle='#cfcfcf';x.fillRect(0,0,W,H)},false);
+    const mt=BM.foil(m,{map:faceCol,normalMap:normalFromHeight(m,hc,6.8),normalScale:new m.Vector2(1,1),metalness:.9,roughness:.34,roughnessMap:rf,clearcoat:.5,clearcoatRoughness:.12,iridescence:.35,iridescenceIOR:IRI[k][0],iridescenceThicknessRange:[IRI[k][1],IRI[k][2]],iridescenceThicknessMap:thicknessOf(k,mk),envMapIntensity:2.2});
+    mt.bkHeight=hTex;mt.userData.iri=IRI[k];   // a texture property of the material: disposeItem releases it with the others
+    if(BS)BS.hook(mt,'medal-pom',sh=>{sh.uniforms.bkH={value:hTex};sh.uniforms.bkSteps=POMU.steps;sh.uniforms.bkK=POMU.k;
+     sh.fragmentShader=BS.inject(sh.fragmentShader,'pom').replace('#include <normal_pars_fragment>','#include <normal_pars_fragment>\n'+POMGLSL).replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nbkUv=bkPomUv();')},'pom');
+    return mt};
    const edge=BM.brass(m);
-   /* coin reeding: 96 fine ridges around the rim */
+   /* coin reeding for the lower tiers: 96 fine ridges around the rim as a normal map (tiers 0-1 get real teeth, below) */
    const reed=(()=>{const c=document.createElement('canvas');c.width=128;c.height=8;const x=c.getContext('2d');for(let i=0;i<128;i++){const v=(.5+.5*Math.sin(i/128*Math.PI*2*16))*255|0;x.fillStyle=`rgb(${v},${v},${v})`;x.fillRect(i,0,1,8)}const t=normalFromHeight(m,c,2.6);t.repeat.set(6,1);return t})();
    const edgeSide=edge.clone();edgeSide.normalMap=reed;edgeSide.normalScale=new m.Vector2(1.4,1.4);
-   const disc=new m.Mesh(new m.CylinderGeometry(1.45,1.45,.16,96),[edgeSide,edge,edge]);disc.rotation.x=Math.PI/2;g.add(disc);
-   const faces=CATS.map((c,k)=>{const f=new m.Mesh(new m.CircleGeometry(1.4,96),faceOf(k));f.position.z=.0815;f.visible=k===0;g.add(f);return f});
-   const backF=new m.Mesh(new m.CircleGeometry(1.4,96),faceOf(6));backF.rotation.y=Math.PI;backF.position.z=-.0815;g.add(backF);
+   const disc=new m.Mesh(new m.CylinderGeometry(1.45,1.45,.16,96),[edge,edge,edge]);disc.rotation.x=Math.PI/2;g.add(disc);
+   /* faces: the meshes exist up front, the material (1024² height, normal, thickness: ~100 ms of CPU each) is built for the face on show and the others while the browser is idle */
+   const built=[],faces=CATS.map((c,k)=>{const f=new m.Mesh(new m.CircleGeometry(1.4,96),edge);f.position.z=.0815;f.visible=k===0;g.add(f);return f});
+   const backF=new m.Mesh(new m.CircleGeometry(1.4,96),edge);backF.rotation.y=Math.PI;backF.position.z=-.0815;g.add(backF);
+   let appliedL=-1;const tune=mt=>{const L=lvl(),iri=mt.userData.iri;if(!iri)return;mt.iridescenceThicknessRange=L>=2?[(iri[1]+iri[2])/2,(iri[1]+iri[2])/2]:[iri[1],iri[2]];mt.iridescence=L>=3?.001:.35;mt.envMapIntensity=L===0?1.9:L===1?2.6:1.3;mt.normalScale.setScalar(L>=2?1.15:1)};
+   const ensure=k=>{if(built[k])return;built[k]=true;const mt=faceOf(k);tune(mt);if(k<6)faces[k].material=mt;else backF.material=mt};
+   ensure(0);
+   const idle=window.requestIdleCallback||(f=>setTimeout(f,120));let nextIdle=1;const warm=()=>{if(nextIdle>6)return;ensure(nextIdle++);idle(warm,{timeout:2500})};idle(warm,{timeout:2500});
    let cur=0,flipT=-1,hold=0;
+   /* real laurel: 26 leaves sit exactly on the painted ones (same maths as drawFace, mirrored for the second branch), 22 smaller ones form an outer row; one InstancedMesh per side */
+   const leafGeo=(()=>{const L=.1422,H=.0656,sh=new m.Shape();sh.moveTo(-L,0);sh.bezierCurveTo(-L*.4,H,L*.4,H,L,0);sh.bezierCurveTo(L*.4,-H,-L*.4,-H,-L,0);
+    const gm=new m.ExtrudeGeometry(sh,{depth:.012,bevelEnabled:true,bevelThickness:.005,bevelSize:.004,bevelSegments:1,curveSegments:6});gm.translate(0,0,.005);return gm})();
+   const K=2.8/512,leafList=[];
+   for(let s2=-1;s2<=1;s2+=2)for(let i=0;i<13;i++){const a=Math.PI*.58+i*.17,p=a+.9;leafList.push([s2*190*Math.cos(a)*K,-190*Math.sin(a)*K,-(s2>0?p:Math.PI-p),1])}
+   for(let s2=-1;s2<=1;s2+=2)for(let i=0;i<11;i++){const a=Math.PI*.58+.085+i*.17,p=a+1.02;leafList.push([s2*206*Math.cos(a)*K,-206*Math.sin(a)*K,-(s2>0?p:Math.PI-p),.72])}
+   const mkLeaves=()=>{const im=new m.InstancedMesh(leafGeo,edge,leafList.length),M4=new m.Matrix4(),q=new m.Quaternion(),zA=new m.Vector3(0,0,1),P=new m.Vector3(),S=new m.Vector3();
+    leafList.forEach((l,i)=>{P.set(l[0],l[1],0);q.setFromAxisAngle(zA,l[2]);S.set(l[3],l[3],1);M4.compose(P,q,S);im.setMatrixAt(i,M4)});im.frustumCulled=false;return im};
+   const laurelF=mkLeaves();laurelF.position.z=.0817;g.add(laurelF);
+   const laurelB=mkLeaves(),backG=new m.Group();backG.position.z=-.0817;backG.rotation.y=Math.PI;backG.add(laurelB);g.add(backG);
+   /* real reeding: 180 teeth round the rim */
+   const TEETH=180,teeth=new m.InstancedMesh(new m.BoxGeometry(.028,.03,.13),edge,TEETH);
+   {const M4=new m.Matrix4(),q=new m.Quaternion(),zA=new m.Vector3(0,0,1),P=new m.Vector3(),S=new m.Vector3(1,1,1);for(let i=0;i<TEETH;i++){const a=i/TEETH*Math.PI*2;P.set(Math.cos(a)*1.478,Math.sin(a)*1.478,0);q.setFromAxisAngle(zA,a);M4.compose(P,q,S);teeth.setMatrixAt(i,M4)}teeth.frustumCulled=false;g.add(teeth)}
    const rim=new m.Mesh(new m.TorusGeometry(1.42,.06,16,120),edge);g.add(rim);
    const bail=new m.Mesh(new m.TorusGeometry(.16,.04,12,32),edge);bail.position.y=1.62;g.add(bail);
    const rb=new m.PlaneGeometry(.5,1.5,1,16),rpp=rb.attributes.position;for(let i=0;i<rpp.count;i++){const y=rpp.getY(i);rpp.setZ(i,Math.sin(y*3.4)*.05)}rb.computeVertexNormals();
    const ribMat=BM.cloth(m,{color:0x16406e,roughness:.4,sheen:1,sheenColor:0xb8d4ff,iridescence:1,iridescenceIOR:1.5,iridescenceThicknessRange:[250,600],metalness:.25,side:m.DoubleSide});
    [-1,1].forEach(sg=>{const rbm=new m.Mesh(rb,ribMat);rbm.position.set(sg*.28,2.35,-.02);rbm.rotation.z=sg*-.2;g.add(rbm)});
-   const N=60,gp=new Float32Array(N*3),gs=[];for(let i=0;i<N;i++)gs.push({a:Math.random()*7,r:1.7+Math.random()*1.1,y:(Math.random()-.5)*2.4,s:.25+Math.random()*.6});
-   const gl=new m.Points(new m.BufferGeometry().setAttribute('position',new m.BufferAttribute(gp,3)),new m.PointsMaterial({color:0xffe6a8,size:.05,transparent:true,opacity:.85,depthWrite:false,blending:m.AdditiveBlending}));scene.add(gl);
-   scene.add(new m.AmbientLight(0xffffff,.4));const k=new m.DirectionalLight(0xfff0d0,2.6);k.position.set(2.5,2,4);scene.add(k);const k2=new m.DirectionalLight(0x9fc4ff,.9);k2.position.set(-3,-1,3);scene.add(k2);
-   return{scene,camera,info(){return{normal:!!faces[cur].material.normalMap,bump:!!faces[cur].material.bumpMap,reed:!!edgeSide.normalMap,faces:faces.length}},face(i){faces[cur].visible=false;cur=((i%faces.length)+faces.length)%faces.length;faces[cur].visible=true},update(t,dt,it){hold+=dt;if(flipT<0&&hold>5.5&&!paused()){flipT=0}
-    let spin=0;if(flipT>=0){flipT+=dt/.95;const e=flipT<1?(flipT<.5?2*flipT*flipT:1-Math.pow(-2*flipT+2,2)/2):1;spin=e*Math.PI*2;if(flipT>.5&&faces[cur].visible&&flipT<1){faces[cur].visible=false;cur=(cur+1)%faces.length;faces[cur].visible=true}if(flipT>=1){flipT=-1;hold=0;spin=0}}
-    g.rotation.y=Math.sin(t*.6)*.7+it.px*.7*it.hoverT+spin;g.rotation.x=.1+it.py*.3*it.hoverT;k.position.x=Math.cos(t*.9)*3.2;
-    for(let i=0;i<N;i++){const q=gs[i],a=q.a+t*q.s;gp[i*3]=Math.cos(a)*q.r;gp[i*3+1]=q.y+Math.sin(t*q.s*2+i)*.15;gp[i*3+2]=Math.sin(a)*q.r*.6}gl.geometry.attributes.position.needsUpdate=true}}}
+   /* dust + glints + spark burst in ONE Points draw (200 slots: 110 dust, 60 glints, 30 sparks). Dust drifts along a curl-noise field in the vertex shader; sparks fly for 1.2 s after a face change. Seeded: ?still always shows the same dust. */
+   const NP=200,rnd=rng(0x6d65),pp=new Float32Array(NP*3),aS=new Float32Array(NP*4),aKI=new Float32Array(NP*2);
+   for(let i=0;i<NP;i++){const kind=i<110?0:i<170?1:2;aKI[i*2]=kind;aKI[i*2+1]=i-(kind===0?0:kind===1?110:170);for(let j=0;j<4;j++)aS[i*4+j]=rnd()}
+   const dg=new m.BufferGeometry();dg.setAttribute('position',new m.BufferAttribute(pp,3));dg.setAttribute('aS',new m.BufferAttribute(aS,4));dg.setAttribute('aKI',new m.BufferAttribute(aKI,2));
+   const DU={uT:{value:0},uBurst:{value:-1},uK:{value:300},uKeep:{value:new m.Vector3(110,60,30)}};
+   const dust=new m.Points(dg,new m.ShaderMaterial({uniforms:DU,transparent:true,depthWrite:false,blending:m.AdditiveBlending,
+    vertexShader:(BS?BS.use('hash','noise'):'')+`
+uniform float uT;uniform float uBurst;uniform float uK;uniform vec3 uKeep;
+attribute vec4 aS;attribute vec2 aKI;
+varying float vA;varying vec3 vC;
+void main(){float kind=aKI.x,idx=aKI.y;vec3 p=vec3(0.);float a=0.,sz=.04;vec3 c=vec3(1.);
+ if(kind<.5){vec3 b=(aS.xyz*2.-1.)*vec3(2.1,1.9,1.1);p=b+bk_curl(b*.55+vec3(uT*.05,0.,uT*.11))*.32;p.y=mod(p.y+uT*.035*(.4+aS.w)+1.95,3.9)-1.95;
+  a=(.22+.3*aS.w)*(.6+.4*sin(uT*(.6+aS.w)*2.+aS.x*40.))*step(idx,uKeep.x-1.);sz=.03+.035*aS.w;c=vec3(1.,.93,.78);}
+ else if(kind<1.5){float sp=.25+aS.y*.6,an=aS.x*6.2832+uT*sp,r=1.7+aS.z*1.1;p=vec3(cos(an)*r,(aS.w-.5)*2.4+sin(uT*sp*2.+idx)*.15,sin(an)*r*.6);a=.85*step(idx,uKeep.y-1.);sz=.05;c=vec3(1.,.9,.66);}
+ else{vec3 d=normalize(aS.xyz*2.-1.+vec3(0.,0.,.001));float age=uBurst,live=step(0.,age)*step(age,1.2);p=d*(max(age,0.)*(.9+aS.w*1.6))+vec3(0.,-age*age*.7,.2);a=live*pow(clamp(1.-age/1.2,0.,1.),1.6)*step(idx,uKeep.z-1.);sz=.045;c=vec3(1.,.95,.75);}
+ vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;gl_PointSize=max(1.,sz*uK/max(-mv.z,.1));vA=a;vC=c;}`,
+    fragmentShader:`varying float vA;varying vec3 vC;void main(){float d=length(gl_PointCoord-.5);float s=smoothstep(.5,.0,d);gl_FragColor=vec4(vC,vA*s);}`}));
+   dust.frustumCulled=false;scene.add(dust);
+   /* light: constant count (a tier change is an intensity, never a recompile). Tier 0 = the pointer-following RectAreaLight (critically damped spring) over a weak key; tier 1 = directional key + the rectangle baked into the 'medal' environment; tier 2+ = ambient */
+   const amb=new m.AmbientLight(0xffffff,.22);scene.add(amb);const k=new m.DirectionalLight(0xfff0d0,1.1);k.position.set(2.5,2,4);scene.add(k);const k2=new m.DirectionalLight(0x9fc4ff,.9);k2.position.set(-3,-1,3);scene.add(k2);
+   const MO=window.BKMotion,SPR=x0=>MO?MO.springZ(x0,9,1):{to:x0,step(){return this.to}},RINT=9,rect=RECT?new m.RectAreaLight(0xfff4de,RINT,3.2,1.7):null,sx=SPR(0),sy=SPR(.8);let rx=0,ry=.8;
+   if(rect){rect.position.set(0,.8,3.4);rect.lookAt(0,0,0);scene.add(rect)}
+   let burstAge=-1;const burst=()=>{burstAge=!paused()&&lvl()<2?0:-1};
+   let dh=0;for(let i=0;i<aS.length;i++)dh=(Math.imul(dh,31)+Math.round(aS[i]*1e6))>>>0;
+   const apply=L=>{if(L===appliedL)return;appliedL=L;
+    POMU.steps.value=L===0?16:L===1?8:0;
+    if(rect)rect.intensity=L===0?RINT:0;
+    amb.intensity=L===0?.22:L===1?.4:1.1;k.intensity=L===0?1.1:L===1?2.6:.9;k2.intensity=L>=2?.3:.9;
+    laurelF.count=laurelB.count=L===0?leafList.length:L===1?26:0;laurelF.visible=backG.visible=L<2;teeth.visible=L<2;
+    disc.material[0]=L>=2?edgeSide:edge;
+    DU.uKeep.value.set(L===0?110:L===1?40:0,L===0?60:L===1?40:0,L===0?30:L===1?20:0);dust.visible=L<2;
+    built.forEach((b,i)=>{if(b)tune(i<6?faces[i].material:backF.material)})};
+   apply(lvl());
+   return{scene,camera,
+    info(){apply(lvl());const L=lvl(),mt=faces[cur].material,hi=mt.bkHeight&&mt.bkHeight.image,kp=DU.uKeep.value;
+     return{normal:!!mt.normalMap,bump:!!mt.bumpMap,reed:!!edgeSide.normalMap,faces:faces.length,level:L,
+      height:hi?hi.width:0,pom:{steps:POMU.steps.value,on:POMU.steps.value>0&&!!mt.bkHeight},
+      iri:L>=3?'none':L===2?'fixed':(mt.iridescenceThicknessMap?'map':'none'),
+      laurel:{count:laurelF.visible?laurelF.count:0,geometry:laurelF.geometry.type},teeth:teeth.visible?TEETH:0,
+      light:rect&&rect.intensity>0?'rect':k.intensity>1.5?'directional':'ambient',rect:!!rect,rectI:rect?rect.intensity:0,rectPos:[+rx.toFixed(3),+ry.toFixed(3)],
+      dust:dust.visible?kp.x+kp.y+kp.z:0,dustMax:NP,sparks:dust.visible?kp.z:0,burst:burstAge>=0&&!paused(),dustHash:dh,builtFaces:built.filter(Boolean).length}},
+    face(i){ensure(((i%7)+7)%7);ensure(((i%faces.length)+faces.length)%faces.length);faces[cur].visible=false;cur=((i%faces.length)+faces.length)%faces.length;faces[cur].visible=true;burst()},
+    update(t,dt,it){const L=lvl();apply(L);hold+=dt;if(flipT<0&&hold>5.5&&!paused()){flipT=0}
+     if(hold>2.5)ensure((cur+1)%faces.length);
+     let spin=0;if(flipT>=0){flipT+=dt/.95;const e=flipT<1?(flipT<.5?2*flipT*flipT:1-Math.pow(-2*flipT+2,2)/2):1;spin=e*Math.PI*2;if(flipT>.5&&faces[cur].visible&&flipT<1){faces[cur].visible=false;cur=(cur+1)%faces.length;ensure(cur);faces[cur].visible=true;burst()}if(flipT>=1){flipT=-1;hold=0;spin=0}}
+     g.rotation.y=Math.sin(t*.6)*.7+it.px*.7*it.hoverT+spin;g.rotation.x=.1+it.py*.3*it.hoverT;k.position.x=Math.cos(t*.9)*3.2;
+     if(rect&&L===0){sx.to=it.px*2.6*it.hoverT+Math.cos(t*.5)*1.9*(1-it.hoverT);sy.to=-it.py*1.5*it.hoverT+.8+Math.sin(t*.37)*.5*(1-it.hoverT);rx=sx.step(paused()?.2:dt);ry=sy.step(paused()?.2:dt);rect.position.set(rx,ry,3.4);rect.lookAt(0,0,0)}
+     if(burstAge>=0&&paused())burstAge=-1;if(burstAge>=0){burstAge+=dt;if(burstAge>1.25)burstAge=-1;else it.dirty=true}
+     DU.uT.value=paused()?3.7:t;DU.uBurst.value=paused()?-1:burstAge;DU.uK.value=camera.projectionMatrix.elements[5]*it.canvas.height*.5}}}
  ];
 
  /* ---------- 3D book (shelf) ---------- */
@@ -289,7 +369,7 @@
  let _en=null;const edgeNormal=(m,vertical)=>{_en=_en||{};const k=vertical?'v':'h';return _en[k]||(_en[k]=(()=>{const t=normalFromHeight(m,BM.edgeHeight(vertical?512:64,vertical?64:512,vertical),2.2);t.anisotropy=4;return t})())};
  let _bt=null;const bandTex=m=>_bt||(_bt=(()=>{const c=document.createElement('canvas');c.width=64;c.height=8;const x=c.getContext('2d');for(let i=0;i<8;i++){x.fillStyle=i%2?'#e9dcc0':'#b8423a';x.fillRect(i*8,0,8,8)}const t=new m.CanvasTexture(c);t.colorSpace=m.SRGBColorSpace;t.wrapS=t.wrapT=m.RepeatWrapping;t.repeat.set(2,1);return t})());
  let _fib=null;const fiberTex=m=>_fib||(_fib=(()=>{const t=normalFromHeight(m,BM.fiberHeight(256),2.4);t.repeat.set(3,4);t.anisotropy=4;return t})());
- window.BKStage={pageShape,diag:()=>({level:SAFE,...DIAG,ql:ql(),dprCap:dprCap(),stats:{...STATS},lost:glLost,items:items.filter(i=>i.opts.check).map(i=>i.failed?'failed':i.stat||null)}),forceLevel:l=>{SAFE=Math.max(0,Math.min(4,l|0));lastEsc=0;applySafe()},paintPage,medalInfo:()=>{const it=items.find(i=>i.api&&i.api.face&&i.api.info);return it?it.api.info():null},medal:k=>{const it=items.find(i=>i.api&&i.api.face);if(!it)return false;it.api.face(k);it.dirty=true;kick();return true},tiles:()=>items.filter(i=>i.canvas.classList.contains('tile-3d')&&i.camera).map(i=>({z:+i.camera.position.z.toFixed(3),op:i.canvas.style.opacity,top:Math.round(i.host.getBoundingClientRect().top+scrollY)})),info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
+ window.BKStage={pageShape,diag:()=>({level:SAFE,...DIAG,ql:ql(),dprCap:dprCap(),stats:{...STATS},lost:glLost,items:items.filter(i=>i.opts.check).map(i=>i.failed?'failed':i.stat||null)}),forceLevel:l=>{SAFE=Math.max(0,Math.min(4,l|0));lastEsc=0;applySafe()},paintPage,glass:()=>({owner:!!GLASSBUS.owner,disp:GLASSBUS.disp,tiles:GLASS.map(g=>({i:g.i,mode:g.mode}))}),medalInfo:()=>{const it=items.find(i=>i.api&&i.api.face&&i.api.info);return it?it.api.info():null},medal:k=>{const it=items.find(i=>i.api&&i.api.face);if(!it)return false;it.api.face(k);it.dirty=true;kick();return true},tiles:()=>items.filter(i=>i.canvas.classList.contains('tile-3d')&&i.camera).map(i=>({z:+i.camera.position.z.toFixed(3),op:i.canvas.style.opacity,top:Math.round(i.host.getBoundingClientRect().top+scrollY)})),info:()=>renderer?{...renderer.info.memory,programs:renderer.info.programs?renderer.info.programs.length:0,items:items.length,cache:sceneCache.size}:null,paintCover,coverTexture,spineTexture,mini:(cv,rec,done)=>register(cv,m=>{try{return sceneFor(m,rec)}catch{return null}},{host:cv.parentElement||cv,onReady:()=>{cv.classList.add('on');if(done)done()}})}; /* test hook for tools/text_fit_audit.py */
 
  /* Image-based lighting: the studio (soft boxes → PMREM) is baked once per renderer by BKMaterials.env; makes foil, cloth, clearcoat and gold read as real materials. */
  const studioEnv=m=>BM.env(renderer,m,'book');
@@ -510,6 +590,13 @@
     {const yv=lastYaw==null?0:(yaw-lastYaw)/Math.max(dt,.001);lastYaw=yaw;if(!(window.BKGL&&BKGL.still))stepRibbon(dt,Math.max(-3,Math.min(3,yv))*.5,t)}shadow.material.opacity=(real?.4:.95)-it.hoverT*.2;key.intensity=dark()?2.3:2.0;rim.intensity=dark()?1.1:.7}}}
 
 
+
+ /* R6.e: glass transmission with fake chromatic dispersion. three r160 has no `dispersion`; its refraction sample is patched to take 3 samples (red / green / blue at ior x (1 -/0/+ uBkDisp)). */
+ const BS_=window.BKShaders,GLASS=[],GLASSBUS={owner:null,warm:false,disp:.035};
+ const DISPNEW='vec3 transmissionRay=vec3(0.0);vec4 transmittedLight=vec4(0.0);\n for(int ch=0;ch<3;ch++){float iorC=ior*(1.0+uBkDisp*(float(ch)-1.0));vec3 ray=getVolumeTransmissionRay(n,v,thickness,iorC,modelMatrix);vec4 nd=projMatrix*viewMatrix*vec4(position+ray,1.0);vec4 smp=getTransmissionSample(nd.xy/nd.w*0.5+0.5,roughness,iorC);\n  if(ch==0)transmittedLight.r=smp.r;else if(ch==1){transmittedLight.g=smp.g;transmissionRay=ray;}else transmittedLight.b=smp.b;\n  transmittedLight.a+=smp.a/3.0;}';
+ const dispChunk=m=>'uniform float uBkDisp;\n'+m.ShaderChunk.transmission_pars_fragment.replace(/vec3 transmissionRay = getVolumeTransmissionRay[\s\S]*?vec4 transmittedLight = getTransmissionSample\( refractionCoords, roughness, ior \);/,DISPNEW);
+ const transFor=(m,c)=>{const t=new m.MeshPhysicalMaterial({color:c.color.clone(),transmission:1,thickness:.7,ior:1.5,roughness:Math.max(.03,c.roughness),metalness:0,attenuationColor:c.color.clone(),attenuationDistance:1.8,clearcoat:1,clearcoatRoughness:.04,envMapIntensity:c.envMapIntensity||1.6});
+  return BS_.hook(t,'glass-dispersion',sh=>{sh.uniforms.uBkDisp={value:GLASSBUS.disp};sh.fragmentShader=sh.fragmentShader.replace('#include <transmission_pars_fragment>',dispChunk(m))})};
  /* F1: every atlas tile gets solid, lit objects in its own material (glass atom core, glass DNA with gold rungs, glass globe, gold lattice nodes, lit banded planet, gold armillary rings), all under the same studio IBL (one PMREM, see studioEnv). F2: the camera drifts with the pointer so the layers separate (parallax). */
  const SOLID={
   0:(m,sc,g,col)=>{const mat=BM.glass(m,{color:col.clone().lerp(new m.Color(1,1,1),.35),opacity:.62,roughness:.06,metalness:0,clearcoatRoughness:.04,envMapIntensity:1.7});
@@ -535,8 +622,23 @@
   if(env)made.scene.environment=env;
   try{SOLID[i](m,made.scene,g,col)}catch{}
   made.scene.add(new m.AmbientLight(0xffffff,.45));const key=new m.DirectionalLight(0xfff1d6,2);key.position.set(-3,4,5);made.scene.add(key);
-  const up0=made.update,z0=made.camera.position.z,MO=window.BKMotion;
+  /* R6.e glass: tiles 0-2 (atom, DNA, globe). Tier 0 + the hovered tile = real transmission (MeshPhysicalMaterial.transmission with a fake chromatic dispersion: 3 refraction samples at ior -/0/+ 3.5 %), only ONE tile at a time;
+     tier 1 keeps the cheap translucent glass plus a fresnel-like sheen rim; tier 2+ is opaque. */
+  const gm=[];if(i<=2)made.scene.traverse(o=>{if(o.isMesh&&o.material&&o.material.isMeshPhysicalMaterial&&o.material.transparent)gm.push(o)});
+  const own=new Map(),gs={i,mode:'cheap'};
+  gm.forEach(o=>{const c=o.material;o.__mat0=c;c.userData.op=c.opacity;c.sheen=1;c.sheenRoughness=.35;c.sheenColor=new m.Color(0xdde8ff)});
+  if(gm.length)GLASS.push(gs);
+  const setGlass=(it2,mode)=>{if(gs.mode===mode)return;const wasT=gs.mode==='trans';gs.mode=mode;
+   gm.forEach(o=>{const c=o.__mat0;
+    if(mode==='trans'){let t=own.get(c);if(!t){t=transFor(m,c);own.set(c,t)}o.material=t}else{o.material=c;c.transparent=mode!=='opaque';c.opacity=mode==='opaque'?1:c.userData.op;c.depthWrite=mode==='opaque'}});
+   if(mode==='trans')GLASSBUS.owner=it2;else if(wasT&&GLASSBUS.owner===it2)GLASSBUS.owner=null;it2.dirty=true};
+  const up0=made.update,z0=made.camera.position.z,MO=window.BKMotion,disp0=made.dispose;
+  made.dispose=()=>{if(disp0)disp0();own.forEach(t=>t.dispose());own.clear();const k=GLASS.indexOf(gs);if(k>=0)GLASS.splice(k,1)};
   made.update=(t,dt,it2)=>{if(up0)up0(t,dt,it2);
+   if(gm.length){const L=Math.max(ql(),SAFE);
+    if(L===0&&!GLASSBUS.warm&&BS_){GLASSBUS.warm=true;(window.requestIdleCallback||setTimeout)(()=>{try{const sv=gm.map(o=>o.material);gm.forEach(o=>{let tt=own.get(o.__mat0);if(!tt){tt=transFor(m,o.__mat0);own.set(o.__mat0,tt)}o.material=tt});renderer.compile(made.scene,made.camera);gm.forEach((o,j)=>{o.material=sv[j]})}catch{}})}   // compile the transmission program while idle: the first hover must not stall on it
+    const want=L===0&&BS_&&it2.hoverT>.5&&(!GLASSBUS.owner||GLASSBUS.owner===it2);
+    if(want)setGlass(it2,'trans');else setGlass(it2,L>=2?'opaque':'cheap')}
    /* A1: the object dollies in (and fades up) as its tile arrives from below the fold; A4: a click dives the camera into it before the filter applies */
    const arr=MO?MO.arrival(it2.host):1,dv=it2.diveT0?(MO||{ease:{inOut3:x=>x}}).ease.inOut3(Math.min(1,(performance.now()-it2.diveT0)/420)):0;
    made.camera.position.x=it2.px*.45*it2.hoverT*(1-dv);made.camera.position.y=-it2.py*.28*it2.hoverT*(1-dv);made.camera.position.z=z0*(1+.5*(1-arr))*(1-.52*dv);made.camera.lookAt(0,0,0);

@@ -60,7 +60,7 @@ Hedef izlenim: "ekran görüntüsü değil, bir nesneye bakıyorum".
 | Toz/kıvılcım | 200 | 100 | yok | yok |
 | Cam transmission | aktif karo | ucuz yol | opak | opak |
 
-## Alt adımlar (her biri ayrı PR)
+## Alt adımlar (v129'da tek PR ile tamamlandı — `DEVIR-FAZ-4.md` §73)
 1. **R6.a** yükseklik 1024² + POM + iridesans haritası (madalya yüzü). 2. **R6.b** gerçek defne/tırtıl geometrisi. 3. **R6.c** `RectAreaLight` + sahte yansıma geri dönüşü. 4. **R6.d** toz/kıvılcım. 5. **R6.e** transmission cam + sahte dağılım. Her adımda B6 genişler.
 
 ## Kabul testleri (sayısal)
