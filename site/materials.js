@@ -2,7 +2,7 @@
 /* BKMaterials — the one place for materials, studio light and tone mapping of every PBR scene (shelf / record stage, Nobel skyline).
    • foil / cloth / glass / brass (MeshPhysicalMaterial) and paper (MeshStandardMaterial): factories take the three namespace first, then overrides — BKMaterials.glass(THREE,{color,opacity,...}).
      Defaults only hold what is shared; every call site states what differs, so a material looks exactly as it did when it was declared inline.
-   • env(renderer,THREE,preset): the studio (soft boxes → PMREM). One bake per renderer and preset ('book' for the stage, 'city' for the skyline), cached; a PMREM is a render target of ONE
+   • env(renderer,THREE,preset): the studio (soft boxes → PMREM). One bake per renderer and preset ('book' for the stage, 'medal' for the Nobel medal (the studio plus a rectangular softbox), 'city' for the skyline), cached; a PMREM is a render target of ONE
      GL context, so two renderers can never share a texture, but they share this one bake routine (the only PMREMGenerator in the code base). rebake() after a context loss, swapEnv() moves the scenes over.
    • tone(renderer): tone mapping and exposure in one place. Default NoToneMapping / exposure 1 (what the R3 visual goldens were captured with); flag acestone = ACES with an exposure per theme.
    • lighter(THREE,material,level) + LEVELS: the material levels full / standard / lambert / basic (0–3) the quality ladder of the stage steps down through.
@@ -15,6 +15,7 @@
  /* ---------- studio light: soft boxes [w,h,x,y,z,colour,intensity] ---------- */
  const PRESETS={
   book:{bg:0x07090f,sigma:.035,boxes:[[9,5,-6,5,6,0xfff0d6,6],[4,9,8,1,3,0xd6e4ff,3.4],[12,2,0,-6,1,0xffdca8,1.3],[7,3,0,7,-6,0xffffff,2.6],[3,6,-8,-1,-2,0xffe6c4,1.4],[7,5,0,1,9,0xfff4dc,3.2]]},
+  medal:{bg:0x07090f,sigma:.03,boxes:[[9,5,-6,5,6,0xfff0d6,3.4],[4,9,8,1,3,0xd6e4ff,2.6],[12,2,0,-6,1,0xffdca8,1],[7,3,0,7,-6,0xffffff,2.2],[3,6,-8,-1,-2,0xffe6c4,1.2],[7,5,0,1,9,0xfff4dc,2],[3.6,2,-2.4,2.6,7.4,0xfff8ea,22]]},   // R6.c: the 'book' studio plus the medal's rectangular softbox baked in as a hard-edged rectangle: the reflection the real RectAreaLight replaces at tier 0 and the lower tiers keep
   city:{bg:0x06080d,sigma:.03,boxes:[[10,5,-5,6,6,0xfff0d6,5],[4,9,8,1,3,0xd6e4ff,3],[14,2,0,-6,2,0xffdca8,1.2],[7,4,0,7,-6,0xffffff,2.4],[8,5,0,2,9,0xfff4dc,2.4]]}};
  const cache=new WeakMap(),ids=new WeakMap(),baked=[];let nid=0,bakes=0,rebakes=0;   // baked: weak list of the renderers we hold a bake for (a WeakMap cannot be iterated)
  const slot=r=>{let s=cache.get(r);if(!s){s={};cache.set(r,s);ids.set(r,++nid);baked.push(new WeakRef(r))}return s};

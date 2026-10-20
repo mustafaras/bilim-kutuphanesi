@@ -81,6 +81,8 @@ jobs:
             cmd: python tools/feature_audit.py --only b17
           - name: Dome cinematics, cone, Lensflare, intro (B18)
             cmd: python tools/feature_audit.py --only b18
+          - name: Medal, laurel, rect light, dust, glass (B19)
+            cmd: python tools/feature_audit.py --only b19
           - name: GPU budgets, hero + ground + shelf (A6)
             cmd: python tools/gpu_budget_audit.py --surfaces hero,ground,stage
           - name: GPU budgets, skyline + Nobel + constellation (A6)

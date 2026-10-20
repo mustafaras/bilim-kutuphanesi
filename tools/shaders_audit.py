@@ -88,7 +88,7 @@ console.log(JSON.stringify(out));"""
     if r.returncode or not r.stdout.strip(): problems.append("shaders.js did not run under node: " + (r.stderr or r.stdout)[:300])
     else:
         o = json.loads(r.stdout)
-        for want in ("hash", "noise", "lut3d", "blackbody"):
+        for want in ("hash", "noise", "lut3d", "blackbody", "pom"):
             if want not in o["names"]: problems.append(f"BKShaders lacks the '{want}' chunk")
         if o["dupDefs"]: problems.append(f"BKShaders chunks define a function twice: {o['dupDefs']}")
         if o["unprefixed"]: problems.append(f"BKShaders functions without the bk_ prefix: {o['unprefixed']}")
