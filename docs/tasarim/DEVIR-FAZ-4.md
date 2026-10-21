@@ -819,3 +819,37 @@ Canlı geçiş (`skyline → galaxy → skyline`) rAF ile örneklendi: 52 etkin 
 **Kural:** bir WebGL tuvalinin opak olup olmadığını `drawImage`/`getImageData` geri okumasıyla **ölçme**. `preserveDrawingBuffer:false` iken tampon birleştirmeden sonra temizlenir; okunan değer anlamsızdır. Ekran görüntüsü al, panel bölgesini kırp, sayısal olarak örnekle.
 
 **Kural:** `THREE.CustomBlending` kullanırken `blendSrcAlpha`/`blendDstAlpha` üç.js'te varsayılan olarak `null`'dır ve `blendSrc`/`blendDst`'den miras alınır. Alfayı korumak istiyorsan ikisini de **açıkça** yaz (`ZeroFactor`/`OneFactor`), yoksa `AdditiveBlending` ile aynı doygunluğa düşersin.
+
+## §84.4 — R10.c: açık temada gündüz silüeti (v137)
+
+**Belirti.** §84.3 siyah dikdörtgeni kaldırdıktan sonra kullanıcı "hâlâ çok çirkin" dedi. Ölçüm bunu doğruladı: koyu tema net bir gece şehriydi, açık tema ise parşömen sayfada soluk gri bir lekeydi.
+
+| ölçüm (panel kırpımı, 1096×552) | açık, v136 | koyu, v136 |
+|---|---|---|
+| parlaklık ortalama / std | 229.5 / **21.5** | 50.7 / 38.7 |
+| sayfadan ≥15 parlak piksel | **%0.6** | %23.6 |
+| sayfadan ≥25 koyu piksel | %11.3 | — |
+
+**Kök neden.** `CATC` paleti (`#e8c58a`, `#7fcdb4`, `#d9909f`, `#b4a1e2`, `#8fbaf0`, `#e59a6e`, `#8fa3ad`) koyu zeminde parlamak için seçilmiş pastel tonlar. Açık temada `recolor()` yalnızca `×0.88` uyguluyor ve seçili olmayan kuleleri `#dad2c0` (açık bej) tonuna çekiyordu — yani kuleler sayfadan **daha açık** hâle geliyor, parşömen üstünde kayboluyordu. Panelin kendi gradyanı da Package 29'da (`background:none!important`) silindiği için arkada hiçbir şey yoktu.
+
+**Düzeltme 1 — kontrast ilişkisini tersine çevir (`skyline3d.js` `recolor()`).** Gündüz silüetinde kuleler **koyu** kütle, gökyüzü **açık** olandır. Açık temada `multiplyScalar(hot||sel ? .8 : .5)` ve seçili olmayan kuleler `#6b665c` (koyu sıcak gri) tonuna `lerp(..., .2)`. Koyu tema dalı (`1.45 / 1.3 / .82`, `#1b2a36`) **değişmedi**.
+
+**Düzeltme 2 — açık tema ışığı (`theme()`).** `envMapIntensity` 1.0 → 1.15, `key.intensity` 2.4 → 2.0, `rim.intensity` .5 → .7, `U.win.value` .5 → .7, `U.rim.value` .18 → .5. Pencere shader'ı kendi kulesinin rengini yaydığı için kule koyulaşınca pencereler de koyulaşır; fresnel kenar (`fr*uRim`) tek bağımsız kenar vurgusu olduğundan açık temada yükseltildi — koyu kulelerin cam kenarları parşömen üstünde keskin kalıyor. Zemin `0x3a3226` / opaklık .22 (kulelerin bastığı bir zemin).
+
+**Düzeltme 3 — gerçek gökyüzü (Package 48).** Package 47'nin açık varyantı `rgba(255,254,250,.95)` ile `#f8f7f3` sayfa arasında yalnızca ~5 birimlik bir gradyandı; görünmüyordu. Package 48 açık temada `radial-gradient(76% 84% at 50% 36%, #fffdf7, #f9f1de 42%, #efe3c9 68%, transparent 88%)` veriyor ve `.nc-sky::after` ile alt %30'a yumuşak bir zemin gölgesi ekliyor. Koyu tema Package 47'deki lacivert havuzda bırakıldı. Çerçevesizlik korunuyor: kenarlık, yarıçap, kutu gölgesi yok; `pointer-events:none`.
+
+**Doğrulama (v137, aynı URL `?sort=title&ui=tr`, 1969 seçili).**
+
+| ölçüm | açık v136 | açık v137 | koyu v137 |
+|---|---|---|---|
+| ortalama / std | 229.5 / 21.5 | 214.7 / **37.3** | 59.2 / 43.6 |
+| sayfadan ≥25 koyu | %11.3 | **%23.8** | — |
+| sayfadan ≥15 parlak | %0.6 | %0.0 | **%33.2** |
+
+Yani iki tema artık **zıt işaretli** yapı taşıyor: açık temada panelin %23.8'i sayfadan belirgin koyu (kuleler), koyu temada %33.2'si belirgin parlak (kuleler). Dikey profil açık temada 236.4 → 157.3 → 222.0 (gökyüzü → şehir → zemin), yani panel düz değil.
+
+Geçiş yeniden ölçüldü: `skyline → galaxy → skyline`, `last={mode:'iris',dur:900,frames:56,ms:918,targets:1,programs:1}`, `active:false` — temiz kapanış. Geçiş sonrası açık panel: ortalama 215.5, std 35.9, **siyah piksel %0.00** (siyah dikdörtgen geri gelmiyor).
+
+**Kapılar.** Statik: `node --check site/*.js`, `validate_site`, `validate_fonts`, `validate_i18n`, `gl_audit`, `materials_audit`, `shaders_audit`, `check_app` → hepsi geçti. Tarayıcı/görsel kapılar PR'da CI'da koşar (bu ortamda Playwright venv'i yok).
+
+**Kural:** bir paleti "koyu zeminde parlamak için" seçtiysen, açık temada aynı paleti yalnızca çarpanla koyulaştırmak yetmez — kuleler yine sayfadan açık kalır. İlişkiyi tersine çevir: kule = koyu kütle, gökyüzü = açık. Ayrıca pencere parlaklığı kule rengine bağlı olduğu için kule koyulaşınca pencereler de söner; kenar vurgusunu (`uRim`) ayrı yükselt.

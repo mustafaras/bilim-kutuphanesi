@@ -1561,3 +1561,13 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
  background:radial-gradient(74% 80% at 50% 44%,rgba(18,44,66,.9),rgba(9,22,34,.46) 50%,rgba(6,16,26,0) 80%)}
 :root[data-theme=light] .nc-sky::before,:root[data-theme=light] .nc-3d:not(.nc-sky)::before{
  background:radial-gradient(74% 80% at 50% 44%,rgba(255,254,250,.95),rgba(240,231,212,.6) 50%,rgba(238,228,207,0) 80%)}
+
+/* Package 48 — R10.c "gündüz silüeti" (daylight silhouette). Package 47 gave the skyline a stage, but its light-mode pool was
+   rgba(255,254,250,.95) over a #f8f7f3 page: a 5-unit gradient nobody can see, so the panel still read as bare paper. Light mode
+   now gets a real sky — a warm pool that is clearly lighter than the page at the top and settles into a horizon tone at the
+   bottom — plus a soft ground shadow so the towers stand on something instead of floating. Dark mode keeps Package 47's navy
+   pool unchanged; only the light branch is overridden. Still frameless: no border, no radius, no shadow on the box itself. */
+:root[data-theme=light] .nc-sky::before{
+ background:radial-gradient(76% 84% at 50% 36%,#fffdf7 0%,#f9f1de 42%,#efe3c9 68%,rgba(238,226,200,0) 88%)}
+:root[data-theme=light] .nc-sky::after{content:"";position:absolute;left:4%;right:4%;bottom:0;height:30%;z-index:0;pointer-events:none;
+ background:radial-gradient(58% 100% at 50% 100%,rgba(74,58,34,.18),rgba(74,58,34,.07) 46%,rgba(74,58,34,0) 76%)}
