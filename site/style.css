@@ -1582,3 +1582,16 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
  -webkit-mask-composite:source-in;
  mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent),linear-gradient(180deg,transparent,#000 10%,#000 80%,transparent);
  mask-composite:intersect}
+
+/* Package 50 — R10.g: light mode must read as the page, not as a plate laid on top of it. Package 48 gave the panel a warm cream
+   pool (#fffdf7 -> #f9f1de -> #efe3c9) plus a warm-brown ground shadow, and measured against the page the panel came out at
+   rgb(237.8,232.5,222.7) — 6 units redder and 3 units bluer than the paper, which is exactly the "levha" the user rejected: a
+   visible warm rectangle sitting on a neutral page. Rebuilding that pool from --paper was not enough: the page is not one colour,
+   it carries the .ambient-light warm blobs, so any flat fill still reads as a rectangle (measured rgb(244.6,243.6,240.6) against
+   rgb(243.3,236.9,227.8) at the panel's left edge — 13 units bluer). The skyline renderer already clears to alpha 0
+   (setClearColor(0,0)), so the honest answer is no backdrop at all: both pseudo-layers are dropped and the page's own gradient
+   shows through the towers. The ground shadow goes with them — the 3D floor plane already grounds the city, and a second painted
+   ellipse under it was the other half of the plate. Dark mode is untouched: Package 47's navy pool is what makes the night
+   skyline read at all. */
+:root[data-theme=light] .nc-sky::before{background:none}
+:root[data-theme=light] .nc-sky::after{background:none}

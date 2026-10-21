@@ -3,9 +3,10 @@
    The outgoing scene's last frame is frozen into ONE render target, the incoming scene keeps drawing live underneath,
    and a single ShaderMaterial composites the two on a separate pointer-events:none canvas that is removed on exit.
    • ONE program for every effect: uMode picks dive / materialize / iris / chromatic / filament / cut, so the program count never grows with the transition table
-   • R10.e: `filament` is the view-switch cross — the frozen frame ignites into a jittered star lattice whose stars orbit on their own arcs and
-     link to their right/bottom neighbour with thin glowing segments. No radial mask anywhere: the image breaks up by ignition order, not by
-     distance from a centre, so it reads as a galaxy forming rather than an iris opening (the user rejected the vignette look)
+   • R10.g: `filament` is the view-switch cross — the frozen frame dissolves in the first quarter of the cross and the rest of the show is a
+     sparse lattice of points that fly outward from the centre, joined by thin links that stretch as the field expands. No radial mask, no
+     burn flash, and no lingering dark rectangle: the user rejected both the vignette look and the frozen-frame dissolve ("black
+     transformation"), so the frame is gone by 26 % and the points carry the whole cross
    • the frozen frame is a CanvasTexture uploaded with renderer.initTexture() in the SAME task as the source render — a preserveDrawingBuffer:false
      canvas is blank once the task ends, so a later upload would freeze an empty frame
    • the freeze pass bakes the outgoing panel's own CSS radial-gradient behind the frame (both scene canvases are alpha:true), so the frozen
@@ -59,43 +60,51 @@ void main(){
   float ca=sin(uT*3.14159265)*.012;
   col=vec3(texture2D(tFrom,uv+vec2(ca,0.)).r,texture2D(tFrom,uv).g,texture2D(tFrom,uv-vec2(ca,0.)).b);
   a=1.-smoothstep(.55,1.,uT);
- }else{                                                                            /* filament: the frame ignites into a galaxy of orbiting stars and glowing links */
-  /* R10.e: a jittered cell lattice in aspect-corrected UV. Every cell owns one star; the star's hash picks its offset, its orbit phase and
-     its ignition time, so the field is deterministic (still() holds any uT) and no two cells move together. */
-  vec2 g=uv*vec2(uAspect,1.)*uGrid,cell=floor(g),f=g-cell;
-  float h=bk_hash12(cell);
-  vec2 off=(vec2(bk_hash12(cell+11.3),bk_hash12(cell+27.7))-.5)*.62;
-  float orb=h*6.2832+uT*2.4;                                                         /* each star orbits its own centre on a hash-chosen arc */
-  vec2 drift=vec2(cos(orb),sin(orb))*.20;
-  vec2 p0=.5+off+drift;                                                             /* this cell's star, in cell-local units */
-  float sweep=clamp(uv.x*.55+(1.-uv.y)*.45,0.,1.);                                   /* ignition front: top-left to bottom-right, never radial */
-  float t0=h*.34+sweep*.30;
-  float k=smoothstep(t0,t0+.42,uT);
-  float rad=mix(.02,.60,k);                                                         /* the star swells as it ignites */
-  float star=1.-smoothstep(rad*.45,rad,length(f-p0));
-  float line=0.;
-  for(int i=0;i<2;i++){                                                             /* right + bottom neighbour only: one link per pair, no double draw */
-   vec2 o=i==0?vec2(1.,0.):vec2(0.,1.),c1=cell+o;
-   float h1=bk_hash12(c1);
-   vec2 off1=(vec2(bk_hash12(c1+11.3),bk_hash12(c1+27.7))-.5)*.62;
-   vec2 p1=.5+off1+vec2(cos(h1*6.2832+uT*2.4),sin(h1*6.2832+uT*2.4))*.20;
-   float t1=h1*.34+sweep*.30;
-   float k1=smoothstep(t1,t1+.42,uT);
-   vec2 pa=f-p0,ba=o+p1-p0;                                                          /* point-to-segment distance between the two stars */
-   float dist=length(pa-ba*clamp(dot(pa,ba)/max(dot(ba,ba),1e-6),0.,1.));
-   float w=.010+.016*(1.-k);                                                        /* the link thins as its star grows */
-   line=max(line,(1.-smoothstep(w,w*2.4,dist))*min(k,k1));                           /* a link only exists once BOTH ends are lit */
-  }
-  /* alpha: base keeps the frozen frame opaque at uT=0 and fades it out by uT=1; lattice is the starfield that replaces it in between.
-     At uT=0 base=1 and lattice=0 so a=1; at uT=1 base=0 and lattice=0 so a=0. Both endpoints are exact, so the cross starts and ends on a
-     clean frame instead of a half-lit one. */
-  float base=1.-smoothstep(.10,.92,uT);
-  float lattice=max(star,line*.9)*(1.-smoothstep(.42,1.,uT));
-  a=max(base,lattice);
-  /* cool blue-white stars with warm gold highlights; the star term is gated by its own ignition k so nothing glows before it lights up
-     (that also makes the uT=0 frame exactly the frozen image), and the whole glow is gone before the cross ends. */
-  vec3 gc=mix(vec3(.52,.76,1.),vec3(1.,.84,.58),smoothstep(.72,1.,h));
-  col+=gc*(star*k*1.5+line*1.1)*(1.-smoothstep(.55,1.,uT));
+ }else{                                                                            /* filament: the frame dissolves into a field of flying points and links */
+   /* R10.g: the frozen frame is gone by 26 % of the cross, so there is no dark rectangle left to read as a "black transformation". What
+      carries the rest is a sparse lattice of points that fly outward from the centre, joined by thin links that stretch as the field
+      expands. One hash per cell drives the offset, the ignition time and the colour, so the field is deterministic (still() holds any uT)
+      and the whole branch costs 5 hashes per fragment — fewer than the 9 the previous orbit version needed. */
+   float zoom=1.+uT*1.30;                                                           /* the field expands: a lattice point L appears at (L-.5)*zoom+.5 */
+   vec2 g=((uv-.5)/zoom+.5)*vec2(uAspect,1.)*uGrid;
+   vec2 cell=floor(g),f=g-cell;
+   float h=bk_hash12(cell);
+   vec2 off=vec2(fract(h*7.31),fract(h*13.7))-.5;
+   vec2 p0=.5+off*.56;                                                             /* +-0.28 keeps every point inside its own cell, so nothing is clipped */
+   float sweep=clamp(uv.x*.55+(1.-uv.y)*.45,0.,1.);                                 /* ignition front: top-left to bottom-right, never radial */
+   float t0=h*.18+sweep*.18;
+   float k=smoothstep(t0,t0+.22,uT);
+   float rad=mix(.06,.17,k)/zoom;                                                  /* the point swells as it ignites, then holds its screen size */
+   float star=1.-smoothstep(rad*.35,rad,length(f-p0));
+   float line=0.;
+   for(int i=0;i<4;i++){                                                           /* all four neighbours: each cell draws its half of every link, so the segments meet */
+    vec2 o=i==0?vec2(1.,0.):i==1?vec2(0.,1.):i==2?vec2(-1.,0.):vec2(0.,-1.);
+    float h1=bk_hash12(cell+o);
+    vec2 off1=vec2(fract(h1*7.31),fract(h1*13.7))-.5;
+    vec2 p1=o+.5+off1*.56;
+    float t1=h1*.18+sweep*.18;
+    float k1=smoothstep(t1,t1+.22,uT);
+    vec2 pa=f-p0,ba=p1-p0;                                                          /* point-to-segment distance between the two points */
+    float dist=length(pa-ba*clamp(dot(pa,ba)/max(dot(ba,ba),1e-6),0.,1.));
+    float w=.022/zoom;                                                             /* the link keeps its screen width as the field expands */
+    line=max(line,(1.-smoothstep(w,w*2.6,dist))*min(k,k1));                         /* a link only exists once BOTH ends are lit */
+   }
+   /* alpha: base is the frozen frame and it is gone by 26 %, so the cross never sits on a dark rectangle; lattice is the point field that
+      replaces it. At uT=0 base=1 and lattice=0 so a=1; at uT=1 both are 0 so a=0. Both endpoints are exact, so the cross starts and ends on
+      a clean frame instead of a half-lit one. */
+   float base=1.-smoothstep(0.,.26,uT);
+   float lattice=max(star,line*.85)*(1.-smoothstep(.52,1.,uT));
+   a=max(base,lattice);
+   /* cool azure points with warm gold highlights. The point colour REPLACES the base instead of being added to it: the base is the frozen
+      frame, which is paper-bright in the upper half of the panel, so an additive dot saturated to white and vanished there — the field
+      only ever showed up over the dark towers. Mixing keeps the dot readable on paper and on night sky alike, and a hot white core on top
+      of the mix gives it the lit-from-within look. The base itself fades from the frozen frame to the panel's own background as base
+      falls, so once the frame is gone the field sits on the page colour instead of on a ghost of the skyline (in dark mode that ghost was
+      a navy veil that dimmed the galaxy's core). The point term is gated by its own ignition k so nothing glows before it lights up
+      (that also makes the uT=0 frame exactly the frozen image), and the whole field is gone before the cross ends. */
+   vec3 gc=mix(vec3(.30,.58,1.),vec3(1.,.72,.34),smoothstep(.72,1.,h));
+   float f1=clamp(star*k*1.7+line*1.1,0.,1.)*(1.-smoothstep(.58,1.,uT));
+   col=mix(mix(bgAt(vUv),col,base),gc,f1)+vec3(1.)*pow(star,3.)*k*.5*(1.-smoothstep(.58,1.,uT));
  }
  col=mix(col,vec3(1.,.78,.42),burn*.55);
  /* R10.b: feather the composite's own edges so the frozen frame melts into the page instead of ending on a hard rectangle */
@@ -146,7 +155,7 @@ void main(){
    uBgA:{value:new THREE.Color(bg.a[0],bg.a[1],bg.a[2])},
    uBgB:{value:new THREE.Color(bg.b[0],bg.b[1],bg.b[2])},
    uT:{value:0},uMode:{value:MODE[mode]||0},uPass:{value:0},
-   uAspect:{value:w/Math.max(1,h)},uSeed:{value:0},uSoft:{value:.18},uGrid:{value:26.}
+   uAspect:{value:w/Math.max(1,h)},uSeed:{value:0},uSoft:{value:.18},uGrid:{value:12.}
   };
   const geo=new THREE.PlaneGeometry(2,2);
   const mat=new THREE.ShaderMaterial({uniforms:U,vertexShader:VERT,fragmentShader:frag(),depthTest:false,depthWrite:false,transparent:true});

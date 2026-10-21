@@ -944,3 +944,56 @@ Canlı geçiş: `skyline → galaxy` `{mode:'filament',dur:1000,frames:59,ms:101
 **Doğrulama (1024×768, açık, panel 964×471).** Hesaplanmış maske `3%`/`97%` doğrulandı. Panel ortalaması 215.3, std 34.3, gökyüzü 233.7. Koyu sütunlar **%4.1–%96.3** (v138'de %2.9–%99.1). 2%'lik bant profili kuyruğu: `92-94%: 686`, `94-96%: 542`, `96-98%: 72`, `98-100%: 0` — kule tamamen opak bölgede, sönme yok. 1901'de koyu sütunlar %4.1–%92.4 (merkez %48.3), 2026'da %4.1–%96.3 (merkez %50.2). Koyu tema: siyah piksel **%0.00**, ortalama 55.6, std 38.8; eşik taraması `+40` → %2.9–%97.0 (merkez %49.9), `+60` → %5.2–%96.4 (merkez %50.8) — 97–100% bandında yalnız bloom halesi var, katı kütle değil.
 
 **Kural (yeni).** Kadraj ölçerken `anchor()`'a güvenme: ray noktasını (z = ±0.4) izdüşürür, kule yüzünden (z = +0.25) ~%2 sapar ve perspektif yüzünden uçlarda asimetriktir. **Gerçekten çizilen kenarı ölç** — ekran görüntüsünde sütun profili çıkar, koyu/parlak sütunların ilk ve son endeksini al. Ayrıca `sway = sin(time*.35)*.045` yüzünden `anchor()` tam bir 18 sn'lik döngüde ±%1 oynar; yargı vermeden önce **19 sn** örnekle. Ve bir çerçeveleme değişikliğinden sonra **CSS maskesini** kontrol et: tuvalin görünür alanı geometriden dar olabilir.
+
+### 84.7 R10.g — siyah dönüşümün kaldırılması, uçan noktalar ve panellerin sayfa olması (v141–v143)
+
+**Belirti (kullanıcı).** "skyline'dan galaksiye geçişteki son eklediğin gereksiz anlamsız siyah dönüşüm efektlerini kaldır, bunların yerine uçan nokta ve çizgiler kullan; light moddaki arka plan rengi de çok kötü, sayfa rengiyle uyumlu olmalı; bunun dışında arkada levha gibi duran şey iyi görünmüyor."
+
+Üç ayrı kusur, üç ayrı kök neden.
+
+**1. "Siyah dönüşüm" = dondurulmuş karenin çok uzun yaşaması.** `filament` dalında `base=1.-smoothstep(.10,.92,uT)` vardı. `smoothstep` .10'da başlayıp .92'de bittiği için t=.30'da `base` hâlâ ≈.85 idi: dondurulmuş silüet karesi — koyu tema lacivert, açık tema koyu kuleler — geçişin neredeyse tamamı boyunca ekranda kalıyor, üstüne noktalar biniyordu. Kullanıcının "siyah dönüşüm" dediği şey buydu; ayrı bir efekt değil, **efektin bitmemesiydi**. Ölçüm (açık tema, t=.30): `dark<40` **%3.53** — galaksi tabanı %0.34 iken.
+
+Düzeltme: `base=1.-smoothstep(0.,.26,uT)`. Kare ilk çeyrekte tamamen gider, geri kalan süre yalnızca örgüye aittir.
+
+**2. "Uçan nokta ve çizgiler" = dışa genişleyen seyrek örgü.** Eski alan `uGrid=26` ile 53×26 ≈ **1385** hücre çiziyordu; ekranda "yoğun parlayan doku" gibi okunuyordu, nokta gibi değil. Yeni alan:
+
+- `uGrid` 26 → **12** (≈248 ayrı nokta).
+- `zoom=1.+uT*1.30`; `g=((uv-.5)/zoom+.5)*vec2(uAspect,1.)*uGrid`. Bir örgü noktası `L` ekranda `uv=(L-.5)*zoom+.5`'te görünür, yani `zoom` büyüdükçe noktalar **merkezden dışa uçar**. Ekran boyutu `df*zoom/uGrid` ile orantılı olduğu için `rad` ve `w` `/zoom` ile telafi edilir — noktalar uçarken küçülmez.
+- Hücre başına **tek** hash (`h`) ofset/ateşleme/renk üçlüsünü sürer: `off=vec2(fract(h*7.31),fract(h*13.7))-.5`, `p0=.5+off*.56`. `off∈[-.5,.5]` → `p0∈[.22,.78]`; `rad≤.17` ile nokta `[.05,.95]` aralığında kalır, **hiçbir nokta hücresinden taşıp kırpılmaz**.
+- **4 komşu** (sağ/alt/sol/üst). Yalnız sağ+alt ile her bağlantı hücre kenarında biten yarım bir parça olarak çiziliyor ve segmentler arasında görünür boşluk kalıyordu.
+- Hash maliyeti 9 → **5** (komşu döngüsü iki katına çıkmasına rağmen daha ucuz), `feature_audit` B22'nin yazılımsal GL'de ≥2 kare şartı için pay.
+
+**3. Renk: toplamalı → `mix` → `bgAt` üzerine `mix`.** Üç tur gerekti, her turu ölçüm gösterdi:
+
+| tur | ifade | açık tema t=.50 | kusur |
+|---|---|---|---|
+| 1 | `col=s.rgb; col+=gc*(star*k*2.0+line*1.2)` | yıldız %5.30 ama **üst fark 0.27 / alt 12.07** | dondurulmuş kare üst yarıda kâğıt parlaklığında (~.95); mavi-beyaz nokta toplamayla doyup beyaza dönüşüyor ve **kayboluyordu**. Alan yalnız koyu kulelerin üstünde görünüyordu. |
+| 2 | `col=mix(col,gc,f1)+…` | üst 20.10 / alt 20.21 | alan artık her yerde, ama taban hâlâ dondurulmuş kare: koyu temada lacivert bir peçe galaksinin parlak çekirdeğini karartıyordu (`dark<40` %47.55 → **%73.71**). |
+| 3 | `col=mix(mix(bgAt(vUv),col,base),gc,f1)+…` | üst 83.18 / alt 81.48 | yok. `base` düşerken taban dondurulmuş kareden panelin **kendi arka planına** geçer; t=0'da `base=1` → birebir dondurulmuş kare, t≥.26'da `base=0` → alan sayfa renginin üstünde. |
+
+`bgAt()` zaten shader'da vardı (dondurma geçişinde giden panelin CSS gradyanını pişiriyor); burada yeniden kullanıldı.
+
+**4. "Levha" = Package 48'in krem havuzu + kahverengi zemin gölgesi.** Ölçüm: panel `rgb(237.8,232.5,222.7)`, sayfa `rgb(231.7,230.0,225.4)` — 6 birim kırmızı, 3 birim mavi fark, yani nötr sayfanın üstünde **sıcak bir dikdörtgen**. `::before`/`::after` kapatıldığında panel `rgb(236.7,231.2,221.8)`'e düşüyordu, yani levhanın iki yarısı tam olarak bu iki katmandı.
+
+İlk deneme (Package 50, v141) havuzu `--paper`'dan yeniden kurdu. **Yetmedi.** Sayfa tek renk değil: `.ambient-light` içinde `#c99563` sıcak lekesi `left:-25%`'te duruyor, yani sayfa soldan sağa ısınıyor. Panel `rgb(244.6,243.6,240.6)` ölçülürken sol kenardaki sayfa `rgb(243.3,236.9,227.8)` — **13 birim mavi fark**. Düz bir dolgu, sayfa gradyanlı olduğu sürece her zaman dikdörtgen okunur.
+
+Kesin çözüm: **hiç arka plan koymamak.** Silüet renderer'ı zaten `new THREE.WebGLRenderer({alpha:true})` + `setClearColor(0,0)` ile saydam tuvale çiziyor; `::before`/`::after` tamamen düşürüldü, sayfanın kendi gradyanı kulelerin arasından geçiyor. Koyu tema dokunulmadı — Package 47'nin lacivert havuzu gece silüetini okunur kılan şey.
+
+**Doğrulama (1024×768, açık tema, panel 52,120 1096×552).**
+
+| ölçüm | v140 (levha) | v143 |
+|---|---|---|
+| sol kenarda adım (y=200) | 236 → 244 (**8 birim**) | 234 → 233 → 232 (**0**) |
+| sol kenarda adım (y=400) | 232 → 244 (**12 birim**) | 232 → 231 → … → 225 (gradyan, adım yok) |
+| geçiş t=.30 `dark<40` | %3.53 | **%0.01** |
+| geçiş t=.50 yıldız pikseli | %5.30 (ama üst yarıda görünmez) | **%5.55** |
+| geçiş t=.50 üst/alt fark | 0.27 / 12.07 | **83.18 / 81.48** |
+| geçiş t=.85 yıldız pikseli | %0.50 (taban %0.53) | %0.50 — sönme çalışıyor |
+| koyu tema t=.50 `dark<40` | %73.71 (taban %47.55) | **%76.09** (taban %78.25) — karartma yok |
+| koyu tema t=.50 yıldız pikseli | %2.57 | %2.32 (taban %0.24) |
+
+Hareket kanıtı: ardışık `t` kareleri arasında yüksek-geçiren korelasyon **0.005 / 0.065 / −0.002** — alan gerçekten akıyor, donmuş bir doku değil. Canlı geçiş: `{mode:'filament', dur:1000, frames:61, ms:1009, targets:1, programs:1}`, `active` true→false, 0 konsol hatası (yalnız `stage.js:469`'un zararsız `willReadFrequently` uyarısı).
+
+**Kapılar.** Statik: `node --check site/*.js`, `validate_site` (2653 kayıt, 10 rota, 2015 Drive bağlantısı), `validate_i18n`, `validate_fonts`, `gl_audit`, `materials_audit`, `shaders_audit` (BKShaders 5150 bayt, 23 fonksiyon), `check_app` → hepsi geçti.
+
+**Kural (yeni).** Bir geçişte "efekt çirkin" şikâyeti geldiğinde önce **efektin ne zaman bittiğini** ölç: `smoothstep(a,b,uT)` içindeki `b` .9'a yakınsa efekt 1 saniyelik pencerenin çoğunda hâlâ yarı yoldadır ve kullanıcı onu "efekt" değil "eski görüntü" olarak görür. İkincisi: **toplamalı (`AdditiveBlending`) renk açık temada güvenilmez** — parlak bir tabanın üstüne eklenen açık renk doyar ve kaybolur; üst/alt yarı farkını ayrı ayrı ölçmeden "alan görünüyor" demeyin. Üçüncüsü: bir panelin arka planını sayfayla uyumlu yapmanın tek güvenilir yolu **arka planı kaldırmaktır**; sayfa `.ambient-light` yüzünden gradyanlıdır ve hiçbir düz dolgu onu taklit edemez. Dördüncüsü: bir CSS katmanını "levha" diye düşürmeden önce tuvalin saydam olup olmadığını doğrula (`alpha:true` + `setClearColor(0,0)`); saydam tuvalin üstüne konan her dolgu levhadır.
