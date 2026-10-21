@@ -727,3 +727,18 @@ Her iki yol da "tek seferlik yavaşlık" değil, **kendini onarmayan** bir kilit
 - **Kural:** bir geçiş tuvali `.nc-3d` içine eklenirse `.nc-3d canvas{opacity:0}` kuralını miras alır — yeni tuval kendi `opacity:1;transition:none` kuralını getirmek zorundadır.
 - **Kural:** bağlam kaybından sonra **bir kare daha** çalışır (olay görev olarak kuyruğa girer). Her çizimden önce `isContextLost()` kontrol edilmezse three.js `null` program günlüğünde patlar.
 - **Kural:** geçiş kendi `rAF` döngüsünü çalıştırırken Playwright'ın `wait_for_function(..., polling=…)` zamanlayıcısı açlığa düşer — tuval **varken bile** zaman aşımına uğrar. Tuvalin varlığı tıklama ile **aynı `evaluate`** içinde senkron okunur; yalnız "geçiş bitti" beklentisi `wait_for_function` ile yapılabilir.
+
+### §84.1 — B21 kırmızısı: geçiş sonrası görünüm durumu ve testin sabit uykusu
+
+PR #91'in ilk koşusunda **B21** kırmızı düştü: `the skyline stopped painting after a theme flip (176 -> 176, vis 0)`. R9'da aynı adım yeşildi, yani regresyon R10.a'nın `crossTo` yolundan geliyordu. Yerelde birebir yeniden üretildi (`104 -> 104, vis 0`).
+
+**İki ayrı kusur bulundu.**
+
+1. **Ürün kusuru — `crossTo` düz geçişin yaptığını yapmıyordu.** Düz yol `si.sync()` **ve** `si.enter()` çağırıyor (kamera geri çekilmesi), `crossTo` yalnız `sync()` çağırıyordu; ayrıca `end()` geri çağrısı `toPanel.style.transition='none'` satırını **hiç geri almıyordu**, yani geçişten sonra panel kalıcı olarak `transition:none` ile kalıyor ve sonraki `.nc-3d` opaklık geçişleri ölüyordu. Düzeltme: `enter()` her iki yönde de çağrılır, `end()` ve `T.run()`'ın `false` dönüş yolu `toPanel.style.transition=''` ile temizler.
+2. **Test kusuru — sabit `wait_for_timeout(1600)`.** Görünüm değişimi 1,6 s'lik parçacık morph'u ya da ~0,9 s'lik geçiş; ikisi de `rAF` ile sürülür. Yazılımsal GL'de sayfa 1 fps'in altında çalıştığı için morph yerelde **19 s** sürdü; 1600 ms'lik uyku bitince `morphing` hâlâ `true` kalıyor ve **sonraki tıklama `if(morphing)return` kapısında sessizce düşüyor**. Test sonunda `chart` görünümünde kalıyor, silüet paneli `hidden` olduğu için `vis 0` ve kare sayacı donuyor. Düzeltme: her tıklamadan sonra `.nc-morphing` sınıfı ve `canvas.nc-morph` / `canvas.nc-cross` yok olana kadar (en çok 40 s) beklenir; tema dönüşümünden önce de `BKSkyline.info().vis===1` beklenir (IntersectionObserver asenkron).
+
+**Yerel doğrulama.** `feature_audit --only b21` → **OK: B21** (`hover latency: 2 frames`, `idPath async`, `vis 1`, kare sayacı tema dönüşümünde 44 → 48). `feature_audit --only b22` → **OK**. `gpu_budget_audit --surfaces transition` → 2 çizim / 4 üçgen / 2 program / 1 hedef / 6 doku, **OK**. `leak_audit --cross --rounds 3` → 18 → 18, **OK**. `gl_audit`, `reduced_audit` → **OK**.
+
+**Kural:** bir görünüm değişimi `morphing` gibi bir kapıyla korunuyorsa, denetim **sabit süre uyumaz**; kapının kapandığını (sınıf/tuval yokluğu) yoklayarak bekler. Aksi hâlde yavaş GPU'da tıklama sessizce yutulur ve hata, suçlu olmayan bir sonraki adımda patlar.
+
+**Kural:** bir geçiş `end()` geri çağrısıyla satır içi stil yazıyorsa (`opacity`, `transition`), **her iki yolu** da (başarı ve `false` dönüşü) eski değere döndürmek zorundadır; yarım bırakılan `transition:none` o panelin bütün sonraki geçişlerini öldürür.

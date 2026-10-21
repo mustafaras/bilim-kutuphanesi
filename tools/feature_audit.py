@@ -763,11 +763,23 @@ def b21(b):
         return q.evaluate("(()=>{const c=document.querySelector('.nc-chart'),s=document.querySelector('.nc-3d.nc-sky'),g=document.querySelector('.nc-3d:not(.nc-sky)');return[c,s,g].filter(e=>e&&!e.hidden).length})()")
     if views() != 1: problems.append(f"B21 exactly one of chart / skyline / galaxy must be visible, saw {views()}")
     for v in ("chart", "galaxy", "skyline"):
-        q.evaluate(f"(()=>{{const b=document.querySelector('[data-v={v}]');if(b)b.click()}})()"); q.wait_for_timeout(1600)
+        q.evaluate(f"(()=>{{const b=document.querySelector('[data-v={v}]');if(b)b.click()}})()")
+        # a view switch is a 1.6 s particle morph or a ~0.9 s cross, both rAF-driven; software GL runs the page at well under 1 fps,
+        # so a fixed sleep leaves `morphing` set and the NEXT click is dropped by the guard. Wait for the switch to actually finish.
+        q.wait_for_timeout(400)
+        deadline = time.time() + 40
+        while time.time() < deadline:
+            if q.evaluate("(()=>{const c=document.querySelector('.nobel-chronicle');return !c.classList.contains('nc-morphing')&&!document.querySelector('canvas.nc-morph')&&!document.querySelector('canvas.nc-cross')})()"):
+                break
+            q.wait_for_timeout(200)
+        else:
+            problems.append(f"B21 the switch to {v} never finished (morph/cross still running after 40 s)")
         if views() != 1: problems.append(f"B21 after switching to {v} exactly one view must be visible, saw {views()}")
     # frames keep painting across a theme flip (re-scroll first: the view switches above can leave the panel off-screen, and parking
-    # an off-screen panel is correct behaviour, not a stall)
-    q.evaluate("document.querySelector('.nc-sky').scrollIntoView({block:'center'})"); q.wait_for_timeout(900)
+    # an off-screen panel is correct behaviour, not a stall). The IntersectionObserver that un-parks it is async, so wait for vis.
+    q.evaluate("document.querySelector('.nc-sky').scrollIntoView({block:'center'})")
+    try: q.wait_for_function("BKSkyline.info().vis===1", timeout=15000)
+    except Exception: pass
     f0 = q.evaluate("BKSkyline.info().frames"); q.evaluate("document.documentElement.dataset.theme='light'"); q.wait_for_timeout(2000)
     f1 = q.evaluate("BKSkyline.info().frames")
     if f1 <= f0: problems.append(f"B21 the skyline stopped painting after a theme flip ({f0} -> {f1}, vis {q.evaluate('BKSkyline.info().vis')})")

@@ -106,15 +106,16 @@
    if(!src||!dst||typeof src.snap!=='function')return false;
    const fromPanel=from==='skyline'?sky:panel,toPanel=to==='skyline'?sky:panel,tc=toPanel.querySelector('canvas');
    T.bind({from:()=>({render:()=>src.snap()}),host:()=>toPanel,bg:()=>bgOf(fromPanel),
-    end:()=>{morphing=false;chron.classList.remove('nc-morphing');toPanel.style.opacity='';if(tc)tc.style.transition='';linkKick()}});
+    end:()=>{morphing=false;chron.classList.remove('nc-morphing');toPanel.style.opacity='';toPanel.style.transition='';if(tc)tc.style.transition='';linkKick()}});
    /* the incoming panel has to be on screen and its canvas opaque before the composite is built */
    view=to;chart.hidden=true;panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';labelsOf();
    toPanel.style.transition='none';toPanel.style.opacity='1';
    if(tc){tc.style.transition='none';tc.classList.add('on')}
-   if(to==='galaxy'&&api)api.wake();if(to==='skyline'&&window.NobelSkyline.inst)window.NobelSkyline.inst.sync();
+   if(to==='galaxy'&&api){api.wake();if(api.enter)api.enter()}
+   if(to==='skyline'&&window.NobelSkyline.inst){const si=window.NobelSkyline.inst;si.sync();if(si.enter)si.enter()}
    morphing=true;chron.classList.add('nc-morphing');linkSvg.classList.remove('on');
    if(T.run(from==='skyline'?'materialize':'iris'))return true;
-   morphing=false;chron.classList.remove('nc-morphing');toPanel.style.opacity='';if(tc)tc.style.transition='';
+   morphing=false;chron.classList.remove('nc-morphing');toPanel.style.opacity='';toPanel.style.transition='';if(tc)tc.style.transition='';
    return false}
   /* audit hook: hold ONE transition frame at a fixed uT. tools/visual_audit.py captures the intermediate frames of the cross with it and
      tools/gpu_budget_audit.py reads the composite's targets/programs from the same held frame. It only runs when a tool calls it. */
