@@ -9,7 +9,8 @@ import argparse, os, socket, subprocess, sys, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
-ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--rounds", type=int, default=40); ap.add_argument("--slope", type=float, default=0.1, help="largest allowed growth per round in the second half"); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--rounds", type=int, default=40); ap.add_argument("--slope", type=float, default=0.1, help="largest allowed growth per round in the second half")
+ap.add_argument("--cross", action="store_true", help="R10.a: cycle skyline <-> galaxy N times instead of opening records, and check that the transition's canvas, render target and program are released every round"); a = ap.parse_args()
 srv = None; url = a.url
 if not url:
     s = socket.socket(); s.bind(("127.0.0.1", 0)); port = s.getsockname()[1]; s.close()
@@ -38,6 +39,29 @@ try:
                 pg.wait_for_timeout(600)
             pg.evaluate("document.getElementById('recordBack').click()")
             pg.wait_for_function("document.getElementById('recordView').hidden", timeout=60000); pg.wait_for_timeout(400)
+        if a.cross:
+            # R10.a: every cross builds ONE render target + ONE program in its own context and must release both on exit. A leaked target or a
+            # leaked context shows up as a growing canvas count and a growing BKTransition.info().targets, so the same slope test applies.
+            def cross(i):
+                pg.evaluate("(()=>{const b=document.querySelector('[data-v=%s]');if(b)b.click()})()" % ("galaxy" if i % 2 == 0 else "skyline"))
+                try: pg.wait_for_function("!!document.querySelector('canvas.nc-cross')", timeout=60000)
+                except Exception: pass
+                pg.wait_for_function("!document.querySelector('canvas.nc-cross')", timeout=120000); pg.wait_for_timeout(300)
+            pg.evaluate("document.querySelector('.nc-sky').scrollIntoView({block:'center'})"); pg.wait_for_timeout(1500)
+            for i in range(2): cross(i)      # warm-up: the first cross loads three.js and builds the skyline
+            base = count(); snaps = []
+            for i in range(a.rounds):
+                cross(i); snaps.append(pg.evaluate("({geometries:0,textures:0,targets:BKTransition.info().targets,programs:BKTransition.info().programs,canvases:document.querySelectorAll('canvas').length})"))
+            end = count()
+            print(f"canvases: baseline {base} -> end {end}")
+            print("transition after last cross", snaps[-1])
+            if end > base: problems.append(f"canvas count grew {base} -> {end} over {a.rounds} crosses")
+            if any(s_["targets"] or s_["programs"] for s_ in snaps): problems.append(f"a cross left its render target / program alive: {[s_ for s_ in snaps if s_['targets'] or s_['programs']][:3]}")
+            if errs: problems.append(f"console errors: {errs[:3]}")
+            b.close()
+            if srv: srv.terminate()
+            print("FAIL" if problems else "OK: no leaks over %d crosses" % a.rounds, *problems, sep="\n - " if problems else "")
+            sys.exit(1 if problems else 0)
         for i in range(2): cycle(i)          # warm-up: first record opens create the per-session helpers
         base = count(); snaps = []
         for i in range(a.rounds):

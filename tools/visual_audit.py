@@ -37,6 +37,7 @@ TOL, STABLE, GOLDEN = 10, 0.001, 0.005
 SURFACES = {
     "constellation": dict(stable=0.02, golden=0.03),
     "nobel-galaxy": dict(stable=0.01, golden=0.02),
+    "transition": dict(stable=0.02, golden=0.03),   # R10.a: the frozen frame is the outgoing skyline (seeded in ?still) but the incoming galaxy shows through the composite's alpha, and its stray stars are not seeded
     "book-open": dict(tol=3),
 }
 def spec(name, key):
@@ -104,6 +105,13 @@ def capture(b, w, h, theme, tag, keep=False):
     if q.evaluate("!!document.querySelector('.timeline-section')"): shot("timeline", ".timeline-section")
     if q.evaluate("!!document.querySelector('.nc-view [data-v=galaxy],[data-v=galaxy]')"):
         q.evaluate("document.querySelector('[data-v=galaxy]').click()"); q.wait_for_timeout(3000); shot("nobel-galaxy", ".nc-3d:not(.nc-sky)")
+        # R10.a: the intermediate frames of the freeze-and-cross, each held at a fixed uT. Dark 1440x900 only — the shader is theme-independent but the
+        # frozen frame carries the outgoing panel's own CSS gradient, so a light set would double the goldens for one extra background colour.
+        if (w, h, theme) == (1440, 900, "dark") and q.evaluate("!!window.__bkCrossStill"):
+            for t in (0, .25, .5, .75, 1):
+                q.evaluate(f"window.__bkCrossStill('materialize',{t})"); q.wait_for_timeout(700)
+                shot("transition-%03d" % round(t * 100), ".nc-3d:not(.nc-sky)")
+            q.evaluate("window.BKTransition&&BKTransition.end()")
     # record page: the 3D book closed and its three open spreads (same steps as feature_audit B5). Effects stay paused: in ?still the book lands exactly on every target
     q.evaluate("openRecord(records[5].id)"); q.wait_for_timeout(2500)
     if q.evaluate("!!document.querySelector('.rv-constellation')"): q.wait_for_timeout(2500); shot("constellation", ".rv-constellation")
