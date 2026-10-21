@@ -118,6 +118,9 @@ jobs:
           - name: Wet ground, reflection, waves, fog, pool (B20)
             scope: hero
             cmd: python tools/feature_audit.py --only b20
+          - name: Skyline silhouette, Nobel timeline (B21)
+            scope: extras
+            cmd: python tools/feature_audit.py --only b21
           - name: GPU budgets, hero + ground + shelf (A6)
             scope: herostage
             cmd: python tools/gpu_budget_audit.py --surfaces hero,ground,stage

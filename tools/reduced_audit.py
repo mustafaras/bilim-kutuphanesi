@@ -12,7 +12,7 @@ ap = argparse.ArgumentParser(); ap.add_argument("--url"); ap.add_argument("--out
 srv = None; url = a.url
 if not url:
     s = socket.socket(); s.bind(("127.0.0.1", 0)); port = s.getsockname()[1]; s.close()
-    srv = subprocess.Popen([sys.executable, "-m", "http.server", str(port), "--directory", str(ROOT / "site")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    srv = subprocess.Popen([sys.executable, str(ROOT / "tools" / "_serve.py"), str(port), "--directory", str(ROOT / "site")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     url = f"http://127.0.0.1:{port}/"; time.sleep(1)
 problems = []
 try:

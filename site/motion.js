@@ -19,8 +19,11 @@
  /* springZ(x0,wn,zeta): a second-order spring in the engineer's terms — natural frequency wn (rad/s) and damping ratio zeta (zeta .8 overshoots ~1.5 %, 1 is critical). Sub-stepped (<= 8 ms) so it stays stable and accurate at the 50 ms frame cap. step(dt) returns x. */
  function springZ(x0,wn,zeta){wn=wn||8;zeta=zeta==null?.8:zeta;const s={x:x0||0,v:0,to:x0||0,wn,zeta,step(dt){dt=Math.min(Math.max(dt,0),.05);const n=Math.max(1,Math.ceil(dt/.008)),h=dt/n;for(let i=0;i<n;i++){s.v+=(s.wn*s.wn*(s.to-s.x)-2*s.zeta*s.wn*s.v)*h;s.x+=s.v*h}return s.x}};return s}
  function spring(x0,k,c){k=k||90;c=c==null?2*Math.sqrt(k):c;const s={x:x0||0,v:0,to:x0||0,step(dt){dt=Math.min(dt,.05);const a=-k*(s.x-s.to)-c*s.v;s.v+=a*dt;s.x+=s.v*dt;return s.x}};return s}
- const quality={level:0,
-  set(l){l=Math.max(0,Math.min(4,l|0));if(l===quality.level)return;quality.level=l;try{document.dispatchEvent(new CustomEvent('bk:quality',{detail:l}))}catch{}}};
+ const quality={level:0,pinned:false,
+  set(l){if(quality.pinned)return;l=Math.max(0,Math.min(4,l|0));if(l===quality.level)return;quality.level=l;try{document.dispatchEvent(new CustomEvent('bk:quality',{detail:l}))}catch{}},
+  /* pin(l): hold the tier against the hero's frame-time governor (audit tools and BKSkyline.tier use it, so a measured tier is the tier that ran) */
+  pin(l){quality.pinned=true;l=Math.max(0,Math.min(4,l|0));if(l!==quality.level){quality.level=l;try{document.dispatchEvent(new CustomEvent('bk:quality',{detail:l}))}catch{}}return quality.level},
+  unpin(){quality.pinned=false;return quality.level}};
  const perf={fps:0,ms:0,level:0,frames:0,t:0};
  function tick(dtMs){perf.frames++;perf.t+=dtMs;perf.ms+=(dtMs-perf.ms)*.1;if(perf.t>=500){perf.fps=Math.round(perf.frames*1000/perf.t);perf.frames=0;perf.t=0}perf.level=quality.level}
  /* scroll choreography published as CSS variables (works with or without WebGL):

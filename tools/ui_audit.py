@@ -87,7 +87,7 @@ def main():
     url = args.url
     if not url:
         port = free_port()
-        server = subprocess.Popen([sys.executable, "-m", "http.server", str(port), "--directory", str(SITE)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        server = subprocess.Popen([sys.executable, str(ROOT / "tools" / "_serve.py"), str(port), "--directory", str(SITE)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         url = f"http://127.0.0.1:{port}/"
         time.sleep(1)
     failures = []

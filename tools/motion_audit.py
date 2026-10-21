@@ -35,13 +35,16 @@ with sync_playwright() as p:
         # in-page sampler (screenshots are far slower than the dive on software GL): ghost rect + record state every frame
         pg.evaluate("""window.__dive=[];(function s(t0){const g=document.querySelector('.fly-ghost'),r=g?g.getBoundingClientRect():null;
           window.__dive.push({t:Math.round(performance.now()-t0),ghost:!!g,w:r?Math.round(r.width):0,h:r?Math.round(r.height):0,x:r?Math.round(r.left+r.width/2):0,rec:!document.getElementById('recordView').hidden});
-          if(performance.now()-t0<2600)requestAnimationFrame(()=>s(t0))})(performance.now());BKHero.fly(37)""")
-        pg.wait_for_timeout(3000)
+          if(performance.now()-t0<4200)requestAnimationFrame(()=>s(t0))})(performance.now());BKHero.fly(37)""")
+        pg.wait_for_timeout(4600)
         d = pg.evaluate("window.__dive"); gh = [r for r in d if r["ghost"]]
         first_rec = next((r["t"] for r in d if r["rec"]), None)
-        print(theme, f"dive: {len(d)} frames, ghost frames {len(gh)}, max ghost {max([r['w'] for r in gh] or [0])}px, record opened at {first_rec}ms")
+        # the sampler window is wall-clock, but on software GL a single rAF can land hundreds of ms late,
+        # so also accept the settled end state: the dive must finish with the record open either way.
+        rec_final = pg.evaluate("!document.getElementById('recordView').hidden")
+        print(theme, f"dive: {len(d)} frames, ghost frames {len(gh)}, max ghost {max([r['w'] for r in gh] or [0])}px, record opened at {first_rec}ms (final state open: {rec_final})")
         if not gh: problems.append(f"{theme}: no ghost cover during the dive")  # (scale progress is not measurable at ~2 fps)
-        if first_rec is None: problems.append(f"{theme}: record never opened")
+        if first_rec is None and not rec_final: problems.append(f"{theme}: record never opened")
         pg.screenshot(path=str(out / f"dive-{theme}-record.png"))
         pg.evaluate("document.getElementById('recordBack').click()"); pg.wait_for_timeout(2500)
         pg.evaluate("document.getElementById('timeline').scrollIntoView()"); pg.wait_for_timeout(4000)

@@ -31,7 +31,7 @@ def contrast(a, b):
 
 with socket.socket() as s:
     s.bind(("127.0.0.1", 0)); port = s.getsockname()[1]
-srv = subprocess.Popen([sys.executable, "-m", "http.server", str(port), "--directory", str(ROOT / "site")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+srv = subprocess.Popen([sys.executable, str(ROOT / "tools" / "_serve.py"), str(port), "--directory", str(ROOT / "site")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 url = f"http://127.0.0.1:{port}/"; time.sleep(1)
 try:
     with sync_playwright() as p:
