@@ -1547,3 +1547,8 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 :root[data-theme=light] .nc-sky .nc-3d-labels span[data-d]::after{background:linear-gradient(180deg,rgba(70,96,111,0),rgba(70,96,111,.45))}
 :root[data-theme=light] .nc-sky .nc-3d-labels span[data-d]::before{background:rgba(70,96,111,.55)}
 @media(prefers-reduced-motion:reduce){.nc-sky .nc-3d-labels span{transition:none}}
+
+/* Package 46 — R10.a "dondur-ve-geç" (freeze-and-cross). The composite lives on its own canvas inside the incoming panel: it must be fully
+   opaque (the panel's own canvas rule sets opacity:0 until .on) and it must never eat a pointer event — the panel underneath stays live. */
+.nc-3d canvas.nc-cross{position:absolute;inset:0;width:100%;height:100%;opacity:1;transition:none;z-index:2;pointer-events:none}
+@media(prefers-reduced-motion:reduce){.nc-3d canvas.nc-cross{display:none}}

@@ -14,6 +14,7 @@
  let mounted=false;
  function mount(){
   if(mounted||!hasGL())return;const chart=section.querySelector('.nc-chart');if(!chart||typeof records==='undefined'||!records.length)return;mounted=true;
+  if(window.BKTransition)BKTransition.init();   /* R10.a: load three for the transition pass while the user is still reading the chart */
   const sw=document.createElement('div');sw.className='nc-viewswitch';sw.setAttribute('role','group');
   const panel=document.createElement('div');panel.className='nc-3d';panel.hidden=true;
   chart.parentNode.insertBefore(panel,chart.nextSibling);
@@ -49,7 +50,7 @@
   ui={canvas:panel.querySelector('canvas'),labels:panel.querySelector('.nc-3d-labels'),tip:panel.querySelector('.nc-3d-tip'),hint:panel.querySelector('.nc-3d-hint'),note:panel.querySelector('.nc-3d-note'),ctl:panel.querySelector('.nc-3d-ctl')};
   labelsOf();
   ui.ctl.setAttribute('aria-label',t('heroZoom'));[['in','heroZoomIn'],['out','heroZoomOut'],['reset','heroZoomReset']].forEach(([k,key])=>ui.ctl.querySelector(`[data-z=${k}]`).setAttribute('aria-label',t(key)));
-  const setView=v=>{if(morphing)return;{const from=view;if(from!==v&&!reduced.matches&&!(window.BKGL&&BKGL.still)&&MN>0&&ready(from)&&ready(v)){morphTo(from,v);return}}view=v;chart.hidden=view!=='chart';panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';labelsOf();
+  const setView=v=>{if(morphing)return;{const from=view;if(from!==v&&!reduced.matches&&!(window.BKGL&&BKGL.still)&&MN>0&&ready(from)&&ready(v)){if(crossTo(from,v))return;morphTo(from,v);return}}view=v;chart.hidden=view!=='chart';panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';labelsOf();
    const shown=view==='galaxy'?panel:view==='skyline'?sky:chart;if(!reduced.matches&&!(window.BKGL&&BKGL.still)){shown.classList.remove('nc-enter');void shown.offsetWidth;shown.classList.add('nc-enter');setTimeout(()=>shown.classList.remove('nc-enter'),900)}
    if(view==='galaxy'){if(!booted){booted=true;boot()}else if(api){api.wake();if(api.enter)api.enter()}}
    if(view==='skyline'&&window.NobelSkyline){const si=window.NobelSkyline.inst;if(si){si.sync();if(si.enter)si.enter()}else window.NobelSkyline.init(sky).then(r=>{if(!r){setView('chart')}})}
@@ -86,6 +87,46 @@
    else{api.projectRecords(xy);for(let i=0;i<MN;i++)al[i]=NF.on[mCat[i]]?1:.12}
    return{xy,al}}
   const easeIO=(window.BKMotion&&BKMotion.ease.inOut3)||(x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2),clamp01=x=>x<0?0:x>1?1:x;
+  /* ---- R10.a freeze-and-cross: the outgoing view's last frame is frozen into one render target, the incoming view keeps drawing live
+     underneath, and BKTransition composites the two on a pointer-events:none canvas that is removed when the transition ends.
+     The frozen frame carries the outgoing panel's own CSS radial-gradient, so the composite can hand the incoming scene back through its alpha. */
+  const splitTop=s=>{const out=[];let d=0,cur='';for(const ch of s){if(ch==='(')d++;else if(ch===')')d--;if(ch===','&&d===0){out.push(cur);cur=''}else cur+=ch}out.push(cur);return out};
+  const bgOf=el=>{const bi=(el&&getComputedStyle(el).backgroundImage)||'',i=bi.indexOf('('),j=bi.lastIndexOf(')'),parts=i>=0&&j>i?splitTop(bi.slice(i+1,j)):[];
+   const rgb=s=>{const n=(s||'').match(/[\d.]+/g)||[];return[(+n[0]||0)/255,(+n[1]||0)/255,(+n[2]||0)/255]};
+   const a=parts[1]?rgb(parts[1]):[.06,.13,.19],b=parts[2]?rgb(parts[2]):[.02,.06,.1];
+   let c=[.5,.5],r=[.8,.9];
+   if(parts[0]){const at=parts[0].split(' at '),sz=(at[0]||'').trim().split(/\s+/),ps=(at[1]||'').trim().split(/\s+/);
+    if(sz.length>=2)r=[(parseFloat(sz[0])||80)/100,(parseFloat(sz[1])||90)/100];
+    if(ps.length>=2)c=[(parseFloat(ps[0])||50)/100,(parseFloat(ps[1])||30)/100]}
+   return{a,b,center:c,radii:r}};
+  const crossSide=v=>v==='skyline'?(window.NobelSkyline&&window.NobelSkyline.inst)||null:v==='galaxy'?(api&&api.snap?api:null):null;
+  function crossTo(from,to){
+   const T=window.BKTransition;if(!T||!T.ready)return false;
+   const src=crossSide(from),dst=crossSide(to);
+   if(!src||!dst||typeof src.snap!=='function')return false;
+   const fromPanel=from==='skyline'?sky:panel,toPanel=to==='skyline'?sky:panel,tc=toPanel.querySelector('canvas');
+   T.bind({from:()=>({render:()=>src.snap()}),host:()=>toPanel,bg:()=>bgOf(fromPanel),
+    end:()=>{morphing=false;chron.classList.remove('nc-morphing');toPanel.style.opacity='';if(tc)tc.style.transition='';linkKick()}});
+   /* the incoming panel has to be on screen and its canvas opaque before the composite is built */
+   view=to;chart.hidden=true;panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';labelsOf();
+   toPanel.style.transition='none';toPanel.style.opacity='1';
+   if(tc){tc.style.transition='none';tc.classList.add('on')}
+   if(to==='galaxy'&&api)api.wake();if(to==='skyline'&&window.NobelSkyline.inst)window.NobelSkyline.inst.sync();
+   morphing=true;chron.classList.add('nc-morphing');linkSvg.classList.remove('on');
+   if(T.run(from==='skyline'?'materialize':'iris'))return true;
+   morphing=false;chron.classList.remove('nc-morphing');toPanel.style.opacity='';if(tc)tc.style.transition='';
+   return false}
+  /* audit hook: hold ONE transition frame at a fixed uT. tools/visual_audit.py captures the intermediate frames of the cross with it and
+     tools/gpu_budget_audit.py reads the composite's targets/programs from the same held frame. It only runs when a tool calls it. */
+  window.__bkCrossStill=(mode,t)=>{
+   const T=window.BKTransition;if(!T||!T.ready)return null;
+   const src=crossSide('skyline'),dst=crossSide('galaxy');
+   if(!src||!dst)return null;
+   T.bind({from:()=>({render:()=>src.snap()}),host:()=>panel,bg:()=>bgOf(sky)});
+   view='galaxy';chart.hidden=true;panel.hidden=false;sky.hidden=true;labelsOf();
+   const tc=panel.querySelector('canvas');if(tc){tc.style.transition='none';tc.classList.add('on')}
+   if(api)api.wake();
+   return T.still(mode,t)};
   function morphTo(from,to){morphing=true;chron.classList.add('nc-morphing');linkSvg.classList.remove('on');
    const A=positions(from);view=to;chart.hidden=view!=='chart';panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';labelsOf();
    const shown=view==='galaxy'?panel:view==='skyline'?sky:chart;shown.style.transition='none';shown.style.opacity='0';
@@ -204,7 +245,9 @@
    size();new ResizeObserver(()=>{size();wake()}).observe(panel);addEventListener('scroll',()=>{if(visible&&view==='galaxy')wake()},{passive:true});document.addEventListener('nobel:filter',wake);if(typeof IntersectionObserver==='function')new IntersectionObserver(es=>{visible=es[0].isIntersecting;if(visible)wake()}).observe(panel);
    new MutationObserver(wake).observe(root,{attributes:true,attributeFilter:['class','data-theme']});
    const projectRecords=out=>{const r=canvas.getBoundingClientRect();grp.updateMatrixWorld(true);camera.updateMatrixWorld();const vv=new THREE.Vector3();for(let i=0;i<N;i++){vv.set(pos[i*3],pos[i*3+1],pos[i*3+2]);grp.localToWorld(vv);vv.project(camera);out[i*2]=r.left+(vv.x*.5+.5)*r.width;out[i*2+1]=r.top+(-vv.y*.5+.5)*r.height}};
-   api={wake,projectRecords,enter(){if(!reduced.matches){zoom=zoomT*.7;vYaw=.015}wake()},anchor(){if(!sel||!anchorLocal)return null;const r=canvas.getBoundingClientRect();return{x:r.left+anchorLocal.x,y:r.top+anchorLocal.y}}};draw(.016);wake();canvas.classList.add('on')}
+   api={wake,projectRecords,enter(){if(!reduced.matches){zoom=zoomT*.7;vYaw=.015}wake()},anchor(){if(!sel||!anchorLocal)return null;const r=canvas.getBoundingClientRect();return{x:r.left+anchorLocal.x,y:r.top+anchorLocal.y}},
+    /* R10.a: one synchronous frame with dt 0 (no drift), so BKTransition can freeze the galaxy inside the same task */
+    snap(){draw(0);return canvas}};draw(.016);wake();canvas.classList.add('on')}
  }
  const go=()=>setTimeout(mount,400);document.addEventListener('library:ready',go);if(typeof records!=='undefined'&&records.length)go();
 })();

@@ -1,12 +1,12 @@
-# Sonraki adımlar ve yeni oturum devri (v134: R1–R9 kodlandı; R9 silüet/Nobel zaman çizelgesi DEVIR §80–§83)
+# Sonraki adımlar ve yeni oturum devri (v135: R1–R9 + R10.a kodlandı; R10.a geçiş shader kitaplığı DEVIR §84)
 
-> **Önce `DEVIR-FAZ-4.md` §80'i oku:** R9 (silüet / Nobel zaman çizelgesi) v134'te tamamlandı. Sıradaki aşama **R10** (`PREMIUM-R10-R13-GECISLER-OLCEK.md`).
+> **Önce `DEVIR-FAZ-4.md` §84'ü oku:** R10.a (geçiş shader kitaplığı + dondur-ve-geç) v135'te tamamlandı. Sıradaki alt adım **R10.b** (gerçek kamera uçuşu) — `PREMIUM-R10-R13-GECISLER-OLCEK.md` (R10).
 
 Bu belge, bir sonraki oturumun sıfırdan başlayıp doğru yerden devam etmesi içindir. Önce **§1 Durum**, sonra **§2 Yapılacaklar**, işe başlarken **§6 Başlangıç istemi**. Büyük geliştirmeler için `YOL-HARITASI-3D.md`.
 
 ## 1. Durum (2026-10-18)
 - Canlı: **v107** (`https://mustafaras.github.io/bilim-kutuphanesi/`). main = `710bbbc`, deploy koşusu #126 yeşil. Sürüm dizesi `site/index.html` (`?v=107`) ve `site/sw.js` (`bilim-kutuphane-v107`) içinde; her kod değişikliğinde ikisi birlikte artırılır.
-- **Yerel çalışma dalı v134'e kadar ilerledi** (R5–R9 kodlandı, PR sırası bekliyor). Sürüm dizesi artık `?v=134` / `bilim-kutuphane-v134`; `site/style.css` son blok **Package 45**.
+- **Yerel çalışma dalı v135'e kadar ilerledi** (R5–R9 + R10.a kodlandı). Sürüm dizesi artık `?v=135` / `bilim-kutuphane-v135`; `site/style.css` son blok **Package 46**.
 - Yığın: vanilla JS/CSS, three.js r160 (vendor), TR/EN, açık/koyu, çalışma zamanında dış istek yok. `site/style.css` "son blok kazanır" kuralıyla `/* Package NN */` blokları ekleyerek büyür (son: 45).
 - Yapılanlar (ayrıntı için `DEVIR-FAZ-4.md` §46–§51): sürekli kamera/dönüş uçuşu/kalite yöneticisi, 3D kitap (sayfa çevirme, okuma sahnesi, ayraç), madalya kabartması, kubbe teleskobu, ekran okuyucu yansıtması, GPU dayanıklılığı (bağlam kaybı kurtarma, kendi kendini denetleyen raf kitapları ve kademeli sadeleşme), PR öncesi CI kapısı.
 - **Bu ortamda görülemeyenler:** gerçek GPU'da akıcılık/his, canlı sitenin gerçek tarayıcıdaki görüntüsü. Yazılımsal GL (SwiftShader) yalnızca durağan kareleri güvenilir gösterir (kapak hiçbir zaman tam yatmaz, ~2 fps).
@@ -19,8 +19,9 @@ Bu belge, bir sonraki oturumun sıfırdan başlayıp doğru yerden devam etmesi 
 - Seviye ≥ 1 ise: `?diag` satırının ekran görüntüsü + F12 konsolundaki kırmızı hatalar + `chrome://gpu` istenir. Bununla kesin sebep bulunup sadeleşmeye gerek bırakmayacak şekilde düzeltilir (ör. belirli bir malzeme özelliği, doku birimi sayısı, ANGLE/D3D derleme sınırı).
 
 ### 2.1b Premium three.js geliştirmeleri → `YOL-HARITASI-3D.md`
-> **Güncel (v134):** R1–R9 tamam. Kalan R10–R13 için **premium kapsam** yazıldı: `PREMIUM-GORSEL-VIZYON.md` (ana belge: ilkeler, yetenek envanteri, altyapı A1–A6, seviyeler, bütçe), `PREMIUM-R6-R9-SAHNELER.md` ve `PREMIUM-R10-R13-GECISLER-OLCEK.md`. Önerilen sıra: A6 → A3 → A1 → A4 → R7 (A2 ile) → R6 → R8 → R9 → R10 → R11 → R12 → R13. **Sıradaki: R10.** A4 (gerçek GPU zamanlaması) ve A5 hâlâ açık; R2'nin gerçek GPU'da `?perf` doğrulaması bekliyor.
-> **R9 sonrası zorunlu takip:** silüet artık Nobel'in varsayılan görünümü olduğu için `tools/golden/*__timeline.png` altınları **bilinçli olarak** değişti. R9 PR'ı birleştikten sonra **`Update visual goldens`** (workflow_dispatch) çalıştır, `goldens/update` PR'ındaki dört `__timeline.png` + iki `legacy` görüntüsünü gözle incele ve birleştir. Yerelde `visual_audit --update` **çalıştırma** (macOS kaydırma çubuğu farkı altınları bozar; §5 Tuzaklar).
+> **Güncel (v135):** R1–R9 tamam, **R10.a tamam**. Kalan R10.b–R10.d ve R11–R13 için **premium kapsam** yazıldı: `PREMIUM-GORSEL-VIZYON.md` (ana belge: ilkeler, yetenek envanteri, altyapı A1–A6, seviyeler, bütçe), `PREMIUM-R6-R9-SAHNELER.md` ve `PREMIUM-R10-R13-GECISLER-OLCEK.md`. Önerilen sıra: A6 → A3 → A1 → A4 → R7 (A2 ile) → R6 → R8 → R9 → R10 → R11 → R12 → R13. **Sıradaki: R10.b.** A4 (gerçek GPU zamanlaması) ve A5 hâlâ açık; R2'nin gerçek GPU'da `?perf` doğrulaması bekliyor.
+> **R10.a sonrası zorunlu takip:** `visual_audit` artık 5 `transition-*` yüzeyi de üretir ama **altınları yok**. R10.a PR'ı birleştikten sonra **`Update visual goldens`** (workflow_dispatch) çalıştır, `goldens/update` PR'ındaki beş geçiş görüntüsünü gözle incele ve birleştir. Yerelde `visual_audit --update` **çalıştırma** (macOS kaydırma çubuğu farkı altınları bozar; §5 Tuzaklar).
+> **R10.a'nın bilinen sapmaları:** yazılımsal GL'de geçiş **2 kare** çiziyor (spec ≥ 4 ister; SwiftShader tüm sayfayı 1 fps altında çalıştırıyor) — gerçek GPU'da ≥ 20 kare doğrulanmadı. reduced-motion'da geçiş **hiç başlamıyor** (0 kare). Geçiş altınları yalnız 1440×900 koyu yapılandırmada alınıyor.
 Büyük geliştirmeler **aşama aşama** (R1–R13) ayrı belgede: her aşama ayrı oturum + ayrı PR, sayısal kabul ölçütü, kapanabilir (flag), kalite katmanlı. İlk üç aşama altyapıdır (ortak GL katmanı, gerçek GPU zamanlaması + `?perf`, deterministik görsel regresyon kapısı) ve görsel işlerden önce yapılmalıdır. Durum tablosu o belgenin §0'ındadır; R1 (BKGL) v108'de tamamlandı ve deploy edildi; R2 (GPU zamanlaması, `?perf`, ısıtma) v109'da kodlandı; gerçek GPU çıktısı bekleniyor (DEVIR §54). Bir sonraki oturum **R3** (görsel regresyon kapısı).
 
 ### 2.2 Düşük öncelikli açıklar
