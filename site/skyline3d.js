@@ -295,7 +295,15 @@ vec3 bkSkyPos(vec3 p,float id){if(uTexOn<.5)return p;
   glassBtn.addEventListener('click',()=>{glassOn=glassBtn.getAttribute('aria-pressed')!=='true';glassBtn.setAttribute('aria-pressed',String(glassOn));syncGlass();colorsDirty.v=true;wake()});
   tl.addEventListener('pointerdown',e=>e.stopPropagation());cmpCard.addEventListener('pointerdown',e=>e.stopPropagation());
   /* camera state + R9.5 rail */
-  let yaw=0,pitch=.2,dist=18.6,distT=18.6,vy=0,drag=null,mouse={x:0,y:0,in:false},visible=true,onscreen=true,raf=0,time0=performance.now();
+  /* R10.d: the city is 20.12 units wide (N*DX + BW) but the old 18.6 distance only showed 19.79 of it, so the two end years were
+     always cropped. 20.4 frames the whole skyline with a ~2 tower margin at each end, which is what makes a centred composition
+     possible in the first place. */
+  const DIST0=20.4;
+  let yaw=0,pitch=.2,dist=DIST0,distT=DIST0,vy=0,drag=null,mouse={x:0,y:0,in:false},visible=true,onscreen=true,raf=0,time0=performance.now();
+  /* R10.d: the skyline is modelled around x=0 (X0=-(N-1)*DX/2), so the camera looks at the city's own axis and the composition
+     stays centred whichever year is selected. The rail only drives a small parallax on the camera POSITION, which changes the
+     angle you see the towers from without sliding the whole city sideways. */
+  const LEAN=.18;
   const railPts=[];for(let d=Math.ceil(Y0/10)*10;d<=Y1;d+=10){const u=(d-Y0)/Math.max(1,N-1);railPts.push(new THREE.Vector3(X0+(d-Y0)*DX,1.15+Math.sin(u*6.2832)*.16,Math.sin(u*9.4248)*.4))}
   if(railPts.length<2)railPts.push(new THREE.Vector3(X0+(N-1)*DX,1.15,0));
   const rail=new THREE.CatmullRomCurve3(railPts,false,'catmullrom',.5),railT=new THREE.Vector3(),railA=new THREE.Vector3(),lookAt=new THREE.Vector3();
@@ -334,7 +342,7 @@ vec3 bkSkyPos(vec3 p,float id){if(uTexOn<.5)return p;
   panel.addEventListener('pointerdown',e=>{if(e.button>0||(e.target.closest&&e.target.closest('.nc-3d-ctl,.nc-sky-legend')))return;drag={x:e.clientX,y:e.clientY,moved:false};try{panel.setPointerCapture(e.pointerId)}catch{}});
   addEventListener('pointerup',()=>{const d=drag;drag=null;railOffT=0;if(d&&!d.moved&&hoverYear>=0&&typeof selectNobelYear==='function'){if(cmpOn&&selYear>=0&&hoverYear!==selYear){cmpYear=hoverYear;updateCompare()}else{selectNobelYear(String(Y0+hoverYear),true);syncSel()}}wake()});
   panel.addEventListener('wheel',e=>{if(!(e.ctrlKey||e.metaKey))return;e.preventDefault();distT=Math.max(10,Math.min(42,distT*Math.exp(e.deltaY*.0016)));wake()},{passive:false});
-  ctl.addEventListener('click',e=>{const b=e.target.closest?e.target.closest('[data-z]'):null;if(!b)return;if(b.dataset.z==='in')distT=Math.max(10,distT/1.3);else if(b.dataset.z==='out')distT=Math.min(42,distT*1.3);else{distT=18.6;yaw=0;pitch=.2;railOffT=0}wake()});
+  ctl.addEventListener('click',e=>{const b=e.target.closest?e.target.closest('[data-z]'):null;if(!b)return;if(b.dataset.z==='in')distT=Math.max(10,distT/1.3);else if(b.dataset.z==='out')distT=Math.min(42,distT*1.3);else{distT=DIST0;yaw=0;pitch=.2;railOffT=0}wake()});
   canvas.tabIndex=0;canvas.setAttribute('role','application');canvas.setAttribute('aria-label',t('nsLabel'));
   canvas.addEventListener('keydown',e=>{const y=typeof nobelYear!=='undefined'&&nobelYear?Number(nobelYear):Y1;let ny=y;const step=(e.ctrlKey||e.metaKey)?10:1;
    if(e.key==='Escape'&&cmpOn){e.preventDefault();setCmp(false);return}
@@ -371,9 +379,10 @@ vec3 bkSkyPos(vec3 p,float id){if(uTexOn<.5)return p;
    if(STLM){dist=distT;railOff=railOffT}else{dist+=(distT-dist)*Math.min(1,dt*5);railOff+=(railOffT-railOff)*Math.min(1,dt*4)}
    const ru=Math.max(0,Math.min(1,((selYear>=0?selYear:N-1)+railOff)/Math.max(1,N-1)));
    rail.getPoint(ru,railT);rail.getPoint(Math.min(1,ru+10/Math.max(1,N-1)),railA);
-   lookAt.set(railT.x+(railA.x-railT.x)*.3,railT.y+(railA.y-railT.y)*.3,railT.z+(railA.z-railT.z)*.3);
+   const lean=railT.x*LEAN;
+   lookAt.set(0,railT.y+(railA.y-railT.y)*.3,railT.z+(railA.z-railT.z)*.3);
    const ang=yaw+sway,arrK=window.BKMotion?BKMotion.arrival(panel):1,dd=dist*(1+.42*(1-arrK));/* A1: dollies in as the section arrives */
-   camera.position.set(railT.x*.34+Math.sin(ang)*dd*Math.cos(pitch),Math.sin(pitch)*dd+1.4,Math.cos(ang)*dd*Math.cos(pitch));camera.lookAt(lookAt);
+   camera.position.set(lean*.34+Math.sin(ang)*dd*Math.cos(pitch),Math.sin(pitch)*dd+1.4,Math.cos(ang)*dd*Math.cos(pitch));camera.lookAt(lookAt);
    if(cmpYear>=0&&beam2.visible){beam2.position.set(X0+cmpYear*DX,3,0);beam2.lookAt(camera.position.x,3,camera.position.z);const e2=idx.get(String(Y0+cmpYear));chip2.textContent=(Y0+cmpYear)+' · '+(e2?e2.total:0);v3.set(X0+cmpYear*DX,yearTop(cmpYear,time)+.5,0);v3.project(camera);const w2=canvas.clientWidth,h2=canvas.clientHeight,cw2=(chip2.offsetWidth||90)/2+8;chip2.style.transform=`translate(${Math.max(cw2,Math.min(w2-cw2,(v3.x*.5+.5)*w2)).toFixed(1)}px,${((-v3.y*.5+.5)*h2).toFixed(1)}px)`}
    if(selYear>=0){const e=idx.get(String(Y0+selYear));beam.position.set(X0+selYear*DX,3,0);beam.lookAt(camera.position.x,3,camera.position.z);if(chip&&e){chip.hidden=false;chip.textContent=(Y0+selYear)+' · '+e.total}}else if(chip)chip.hidden=true;
    const w=canvas.clientWidth,h=canvas.clientHeight;grp.updateMatrixWorld(true);
