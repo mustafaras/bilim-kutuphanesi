@@ -58,7 +58,9 @@ void main(){
   a=1.-smoothstep(.55,1.,uT);
  }
  col=mix(col,vec3(1.,.78,.42),burn*.55);
- gl_FragColor=vec4(col,clamp(a,0.,1.));
+ /* R10.b: feather the composite's own edges so the frozen frame melts into the page instead of ending on a hard rectangle */
+ float edge=smoothstep(0.,.05,vUv.x)*smoothstep(0.,.05,1.-vUv.x)*smoothstep(0.,.07,vUv.y)*smoothstep(0.,.07,1.-vUv.y);
+ gl_FragColor=vec4(col,clamp(a,0.,1.)*edge);
 }`;
   return FRAG;
  }
@@ -118,6 +120,7 @@ void main(){
  function end(){
   const c=cur;if(!c)return;
   cur=null;
+  if(c.guard)try{clearTimeout(c.guard)}catch{}
   if(c.raf)try{cancelAnimationFrame(c.raf)}catch{}
   try{c.renderer.setRenderTarget(null)}catch{}
   try{c.renderer.dispose()}catch{}
@@ -159,6 +162,9 @@ void main(){
    else{last={mode:m,dur:D,frames,ms:Math.round(performance.now()-t0),targets:1,programs:1};end()}
   };
   raf=requestAnimationFrame(frame);
+  /* R10.b watchdog: a throttled/backgrounded tab can starve the rAF loop, and a transition that never ends would keep `cur` set —
+     which makes every later run() return false and leaves the view switch locked. Force the exit one beat after the duration. */
+  c.guard=setTimeout(()=>{if(cur===c)end()},D+1500);
   return true;
  }
 

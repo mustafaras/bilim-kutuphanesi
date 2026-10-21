@@ -254,12 +254,16 @@ vec3 bkSkyPos(vec3 p,float id){if(uTexOn<.5)return p;
    glowGeo.attributes.aId.needsUpdate=true;glow.instanceMatrix.needsUpdate=true;glow.count=n;
   }
   const quadScene=new THREE.Scene(),quadCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
-  const quadMat=new THREE.ShaderMaterial({uniforms:{uTex:{value:null},uAmt:{value:1}},transparent:true,depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending,
+  /* R10.b: the composite adds light but must never touch the destination alpha. THREE.AdditiveBlending blends alpha as
+     srcA*srcA + dstA, so a full-screen quad with alpha 1 saturated the whole canvas to opaque — in light mode the transparent
+     scene background then read as a black rectangle. CustomBlending keeps the additive RGB and leaves alpha = dstA. */
+  const quadMat=new THREE.ShaderMaterial({uniforms:{uTex:{value:null},uAmt:{value:1}},transparent:true,depthTest:false,depthWrite:false,
+   blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor,blendEquationAlpha:THREE.AddEquation,blendSrcAlpha:THREE.ZeroFactor,blendDstAlpha:THREE.OneFactor,
    vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
    fragmentShader:`uniform sampler2D uTex;uniform float uAmt;varying vec2 vUv;
     void main(){vec3 c=vec3(0.0);
      for(int i=0;i<16;i++){float a=float(i)*2.39996;float r=.0035+float(i)*.0016;c+=texture2D(uTex,vUv+vec2(cos(a),sin(a))*r).rgb;}
-     gl_FragColor=vec4(c/16.0*uAmt,1.0);}`});
+     gl_FragColor=vec4(c/16.0*uAmt,0.0);}`});
   quadScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),quadMat));
   /* labels (decades + rulers) */
   const decs=[];for(let d=Math.ceil(Y0/10)*10;d<=Y1;d+=10)decs.push(d);

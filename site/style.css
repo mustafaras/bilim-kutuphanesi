@@ -1552,3 +1552,12 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
    opaque (the panel's own canvas rule sets opacity:0 until .on) and it must never eat a pointer event — the panel underneath stays live. */
 .nc-3d canvas.nc-cross{position:absolute;inset:0;width:100%;height:100%;opacity:1;transition:none;z-index:2;pointer-events:none}
 @media(prefers-reduced-motion:reduce){.nc-3d canvas.nc-cross{display:none}}
+
+/* Package 47 — R10.b "sahne" (stage). Package 29 removed the card so the scene could dissolve into the page, but with nothing behind it
+   the two themes read the same and the towers floated on bare paper. A soft radial pool — no border, no radius, no hard edge — gives
+   the skyline a stage in both themes: warm parchment in light, deep navy in dark. It sits under the canvas (z-index:0, the canvas paints
+   after it in tree order) and never takes a pointer event. */
+.nc-sky::before,.nc-3d:not(.nc-sky)::before{content:"";position:absolute;inset:-3% -2%;z-index:0;pointer-events:none;
+ background:radial-gradient(74% 80% at 50% 44%,rgba(18,44,66,.9),rgba(9,22,34,.46) 50%,rgba(6,16,26,0) 80%)}
+:root[data-theme=light] .nc-sky::before,:root[data-theme=light] .nc-3d:not(.nc-sky)::before{
+ background:radial-gradient(74% 80% at 50% 44%,rgba(255,254,250,.95),rgba(240,231,212,.6) 50%,rgba(238,228,207,0) 80%)}
