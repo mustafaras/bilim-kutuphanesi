@@ -1,12 +1,12 @@
-# Sonraki adımlar ve yeni oturum devri (v136: R1–R9 + R10.a–b kodlandı; R10.b silüet siyah dikdörtgen düzeltmesi DEVIR §84.3)
+# Sonraki adımlar ve yeni oturum devri (v137: R1–R9 + R10.a–c kodlandı; R10.b siyah dikdörtgen §84.3, R10.c açık tema gündüz silüeti §84.4)
 
-> **Önce `DEVIR-FAZ-4.md` §84'ü oku:** R10.a (geçiş shader kitaplığı + dondur-ve-geç) v135'te, R10.b (silüet sahnesinin siyah dikdörtgen hatası + geçiş cilası) v136'da tamamlandı. Sıradaki alt adım **R10.c** (gerçek kamera uçuşu) — `PREMIUM-R10-R13-GECISLER-OLCEK.md` (R10).
+> **Önce `DEVIR-FAZ-4.md` §84'ü oku:** R10.a (geçiş shader kitaplığı + dondur-ve-geç) v135'te, R10.b (silüet sahnesinin siyah dikdörtgen hatası + geçiş cilası) v136'da, R10.c (açık temada gündüz silüeti — kontrast ilişkisinin tersine çevrilmesi + Package 48 gökyüzü) v137'de tamamlandı. Sıradaki alt adım **R10.d** (gerçek kamera uçuşu) — `PREMIUM-R10-R13-GECISLER-OLCEK.md` (R10).
 
 Bu belge, bir sonraki oturumun sıfırdan başlayıp doğru yerden devam etmesi içindir. Önce **§1 Durum**, sonra **§2 Yapılacaklar**, işe başlarken **§6 Başlangıç istemi**. Büyük geliştirmeler için `YOL-HARITASI-3D.md`.
 
 ## 1. Durum (2026-10-18)
 - Canlı: **v107** (`https://mustafaras.github.io/bilim-kutuphanesi/`). main = `710bbbc`, deploy koşusu #126 yeşil. Sürüm dizesi `site/index.html` (`?v=107`) ve `site/sw.js` (`bilim-kutuphane-v107`) içinde; her kod değişikliğinde ikisi birlikte artırılır.
-- **Yerel çalışma dalı v136'ya kadar ilerledi** (R5–R9 + R10.a–b kodlandı). Sürüm dizesi artık `?v=136` / `bilim-kutuphane-v136`; `site/style.css` son blok **Package 47**.
+- **Yerel çalışma dalı v137'ye kadar ilerledi** (R5–R9 + R10.a–c kodlandı). Sürüm dizesi artık `?v=137` / `bilim-kutuphane-v137`; `site/style.css` son blok **Package 48**.
 - Yığın: vanilla JS/CSS, three.js r160 (vendor), TR/EN, açık/koyu, çalışma zamanında dış istek yok. `site/style.css` "son blok kazanır" kuralıyla `/* Package NN */` blokları ekleyerek büyür (son: 45).
 - Yapılanlar (ayrıntı için `DEVIR-FAZ-4.md` §46–§51): sürekli kamera/dönüş uçuşu/kalite yöneticisi, 3D kitap (sayfa çevirme, okuma sahnesi, ayraç), madalya kabartması, kubbe teleskobu, ekran okuyucu yansıtması, GPU dayanıklılığı (bağlam kaybı kurtarma, kendi kendini denetleyen raf kitapları ve kademeli sadeleşme), PR öncesi CI kapısı.
 - **Bu ortamda görülemeyenler:** gerçek GPU'da akıcılık/his, canlı sitenin gerçek tarayıcıdaki görüntüsü. Yazılımsal GL (SwiftShader) yalnızca durağan kareleri güvenilir gösterir (kapak hiçbir zaman tam yatmaz, ~2 fps).
