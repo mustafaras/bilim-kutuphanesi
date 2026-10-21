@@ -91,14 +91,21 @@
      underneath, and BKTransition composites the two on a pointer-events:none canvas that is removed when the transition ends.
      The frozen frame carries the outgoing panel's own CSS radial-gradient, so the composite can hand the incoming scene back through its alpha. */
   const splitTop=s=>{const out=[];let d=0,cur='';for(const ch of s){if(ch==='(')d++;else if(ch===')')d--;if(ch===','&&d===0){out.push(cur);cur=''}else cur+=ch}out.push(cur);return out};
+  /* R10.b: Package 29 makes the panels frameless (background:none!important), so getComputedStyle().backgroundImage is "none" and the
+     old dark-navy fallback baked a black rectangle behind the frozen frame in light mode. Read the panel's own gradient when it still
+     has one, otherwise walk up to the first opaque ancestor and bake THAT colour — the freeze then melts into the page instead of
+     drawing a card that no longer exists. */
+  const rgbOf=s=>{const n=(s||'').match(/[\d.]+/g);if(!n||n.length<3)return null;if(n.length>3&&(+n[3]||0)===0)return null;return[(+n[0]||0)/255,(+n[1]||0)/255,(+n[2]||0)/255]};
+  const pageBg=el=>{for(let n=el;n&&n.nodeType===1;n=n.parentElement){const c=rgbOf(getComputedStyle(n).backgroundColor);if(c)return c}
+   return rgbOf(getComputedStyle(document.body).backgroundColor)||(root.dataset.theme==='light'?[.973,.969,.953]:[.043,.063,.078])};
   const bgOf=el=>{const bi=(el&&getComputedStyle(el).backgroundImage)||'',i=bi.indexOf('('),j=bi.lastIndexOf(')'),parts=i>=0&&j>i?splitTop(bi.slice(i+1,j)):[];
-   const rgb=s=>{const n=(s||'').match(/[\d.]+/g)||[];return[(+n[0]||0)/255,(+n[1]||0)/255,(+n[2]||0)/255]};
-   const a=parts[1]?rgb(parts[1]):[.06,.13,.19],b=parts[2]?rgb(parts[2]):[.02,.06,.1];
-   let c=[.5,.5],r=[.8,.9];
-   if(parts[0]){const at=parts[0].split(' at '),sz=(at[0]||'').trim().split(/\s+/),ps=(at[1]||'').trim().split(/\s+/);
-    if(sz.length>=2)r=[(parseFloat(sz[0])||80)/100,(parseFloat(sz[1])||90)/100];
-    if(ps.length>=2)c=[(parseFloat(ps[0])||50)/100,(parseFloat(ps[1])||30)/100]}
-   return{a,b,center:c,radii:r}};
+   const a=parts[1]?rgbOf(parts[1]):null,b=parts[2]?rgbOf(parts[2]):null;
+   if(a&&b){let c=[.5,.5],r=[.8,.9];
+    if(parts[0]){const at=parts[0].split(' at '),sz=(at[0]||'').trim().split(/\s+/),ps=(at[1]||'').trim().split(/\s+/);
+     if(sz.length>=2)r=[(parseFloat(sz[0])||80)/100,(parseFloat(sz[1])||90)/100];
+     if(ps.length>=2)c=[(parseFloat(ps[0])||50)/100,(parseFloat(ps[1])||30)/100]}
+    return{a,b,center:c,radii:r}}
+   const p=pageBg(el);return{a:p,b:p,center:[.5,.5],radii:[1,1]}};
   const crossSide=v=>v==='skyline'?(window.NobelSkyline&&window.NobelSkyline.inst)||null:v==='galaxy'?(api&&api.snap?api:null):null;
   function crossTo(from,to){
    const T=window.BKTransition;if(!T||!T.ready)return false;

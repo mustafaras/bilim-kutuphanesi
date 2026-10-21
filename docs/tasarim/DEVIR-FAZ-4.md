@@ -765,3 +765,57 @@ PR #91'in ilk koşusunda **B21** kırmızı düştü: `the skyline stopped paint
 Diğer 14 altın yalnız gürültü düzeyinde değişti (en büyük %0.52; `constellation` yüzeyinin kendi sınırı %3, `nobel-galaxy` %2). Yerelde `visual_audit --update` **çalıştırılmadı** — altınlar yalnız CI'da (Linux) üretildi (§81 kuralı).
 
 **Kural:** yeni bir görsel yüzey eklerken altın dosyası aynı PR'da doğmaz; `visual_audit` önce "altın yok" durumunda çalışır, altınlar ancak birleşmeden sonraki `Update visual goldens` koşusunda doğar. Bu yüzden yeni yüzey ekleyen PR'ın kapanış adımı **her zaman** bir altın koşusu + inceleme + ayrı PR'dır.
+
+### §84.3 — v136: silüet sahnesi siyah dikdörtgen + geçiş cilası (R10.b)
+
+Kullanıcı bildirimi: "skyline görünümü çok kötü uygulanmış, dark ve light mode anlaşılmıyor, geçişler çok bozuk." İki ekran görüntüsü: açık temada silüet paneli **kocaman siyah bir dikdörtgen**, koyu temada panel yine siyah olduğu için iki tema neredeyse aynı.
+
+**Kök sebep (ölçümle bulundu).** Siyah dikdörtgen canlı WebGL tuvalinin kendisiydi, CSS değil. Kanıt: tuval `visibility:hidden` yapıldığında panel bölgesi her yerde sayfa rengine (246,245,241) döndü. Sebep `skyline3d.js`'teki bloom birleştirme dörtgeniydi:
+
+```js
+quadMat = new THREE.ShaderMaterial({ blending: THREE.AdditiveBlending, ... });
+// fragment: gl_FragColor = vec4(c/16.0*uAmt, 1.0);
+```
+
+three.js `AdditiveBlending` alfa için `blendSrcAlpha=SrcAlphaFactor, blendDstAlpha=OneFactor` kullanır, yani `a_out = a_src² + a_dst`. Tam ekran bir dörtgen `a=1.0` çıkarınca tuvalin **tüm alfası 1'e doyuyor**. Tuval `alpha:true` + `setClearColor(0,0)` olduğu için şeffaf arka plan açık temada opak siyaha dönüşüyordu. Bloom yalnız `glow.count>0` iken (yıl seçiliyken) çalıştığı için hata yalnız yıl seçiliyken görünüyordu — kullanıcının iki görüntüsünde de yıl seçiliydi.
+
+**Düzeltme 1 — bloom alfası.** `AdditiveBlending` yerine açık `CustomBlending`: RGB toplanır, alfa hiç dokunulmaz.
+
+```js
+blending: THREE.CustomBlending,
+blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+blendEquationAlpha: THREE.AddEquation, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
+// fragment: gl_FragColor = vec4(c/16.0*uAmt, 0.0);
+```
+
+**Düzeltme 2 — dondurulmuş kare arka planı.** `nobel3d.js` `bgOf()` `getComputedStyle(el).backgroundImage` okuyordu; Package 29 `.nc-3d`/`.nc-sky` üzerinde `background:none!important` yazdığı için değer `"none"` geliyor ve fonksiyon sabit koyu lacivert yedeğe (`{a:[.06,.13,.19],b:[.02,.06,.1]}`) düşüyordu. Artık `rgbOf()` + `pageBg()` eklendi: panelin kendi gradyanı iki durağı da ayrıştırılabiliyorsa o kullanılır, aksi hâlde panelden yukarı yürünüp ilk opak ata arka planı (sayfa rengi) alınır. Dondurulmuş kare artık sayfayla aynı renkte başlıyor.
+
+**Düzeltme 3 — kenar tüyü.** `transition.js` birleştirme shader'ı dondurulmuş kareyi sert bir dikdörtgen olarak bırakıyordu. Eklendi:
+
+```glsl
+float edge = smoothstep(0.,.05,vUv.x)*smoothstep(0.,.05,1.-vUv.x)
+           * smoothstep(0.,.07,vUv.y)*smoothstep(0.,.07,1.-vUv.y);
+gl_FragColor = vec4(col, clamp(a,0.,1.)*edge);
+```
+
+**Düzeltme 4 — bekçi (watchdog).** `run()` `cur` doluyken `false` dönüyor; `cur` yalnız `end()` ile boşalıyor. Sekmesi arka plana atılmış bir tarayıcıda `rAF` durur, `end()` hiç çağrılmaz ve görünüm düğmesi kalıcı olarak kilitlenir. `run()` artık `D+1500 ms` sonra `cur===c` ise `end()` çağıran bir zamanlayıcı kuruyor; `end()` onu temizliyor.
+
+**Düzeltme 5 — sahne ışığı (Package 47).** Panel Package 29'dan beri çerçevesiz; silüet tuvali artık şeffaf olduğu için arkasında sayfa düz kalıyordu. `style.css` sonuna tema duyarlı bir radyal ışık havuzu eklendi: koyu temada derin lacivert, açık temada sıcak parşömen; `inset:-3% -2%`, `z-index:0`, `pointer-events:none`, sert kenar yok. `.nc-sky::before` ve `.nc-3d:not(.nc-sky)::before` — ikincisi galaksi panelinde tuval opak olduğu için görünmez, ileride şeffaf olursa diye duruyor.
+
+**Doğrulama (sayısal, PIL ile 12×6 ızgara).** Panel bölgesi kırpılıp küçültülerek örneklendi:
+
+| durum | panel içi | sayfa | sonuç |
+|---|---|---|---|
+| açık, düzeltme öncesi | 0–80 (siyah) | 248,247,243 | siyah dikdörtgen |
+| açık, düzeltme sonrası | 198–250 parşömen, kuleler 189–218 | 248,247,243 | panel sayfayla uyumlu |
+| koyu, düzeltme sonrası | 10–177 lacivert, kuleler 130–177 | 10,18,29 | iki tema artık ayrı |
+
+Canlı geçiş (`skyline → galaxy → skyline`) rAF ile örneklendi: 52 etkin kare, `last={mode:'iris',dur:900,frames:52,ms:909}`, sonunda `active:false`, `morphing:false` — temiz kapanış, kilit yok. `__bkCrossStill` ile tutulan kareler: açık `materialize t=0.02` parşömen zemin + koyu kuleler (kenarlar içten açık → tüy çalışıyor), `t=0.7` neredeyse tamamen çözülmüş; koyu `t=0.02` lacivert + parlak kuleler.
+
+**Kapılar.** Statik: `node --check site/*.js`, `validate_site`, `validate_fonts`, `validate_i18n`, `gl_audit`, `materials_audit`, `shaders_audit`, `check_app` (×2) → hepsi geçti. Tarayıcı: `leak_audit --cross --rounds 12` → 18 → 18, sızıntı yok; `gpu_budget_audit --surfaces skyline,nobel,constellation` ve `--surfaces transition` → **OK**; `feature_audit --only b21` / `b22` → **OK**; `ui_audit` (390/768/1024/1440 × açık/koyu) → taşma/konsol hatası/kontrast hatası yok; `palette_audit`, `reduced_audit` → **OK**.
+
+**Bilinen sapma (dürüstçe).** Depodaki `tools/golden/1440x900-light__timeline.png` altını **hatayı kodluyor**: 2–3. satırları `0,0,0` okuyor. Yani görsel regresyon kapısı şu an hatalı davranışı "doğru" sayıyor. Bu düzeltmeden sonra o altın kırılacak; `Update visual goldens` iş akışı `ref=mustafaras-fix-skyline-theme-transitions` ile çalıştırılıp altınlar yenilenmeli. Yerelde `visual_audit --update` **çalıştırılmadı** (§81 kuralı).
+
+**Kural:** bir WebGL tuvalinin opak olup olmadığını `drawImage`/`getImageData` geri okumasıyla **ölçme**. `preserveDrawingBuffer:false` iken tampon birleştirmeden sonra temizlenir; okunan değer anlamsızdır. Ekran görüntüsü al, panel bölgesini kırp, sayısal olarak örnekle.
+
+**Kural:** `THREE.CustomBlending` kullanırken `blendSrcAlpha`/`blendDstAlpha` üç.js'te varsayılan olarak `null`'dır ve `blendSrc`/`blendDst`'den miras alınır. Alfayı korumak istiyorsan ikisini de **açıkça** yaz (`ZeroFactor`/`OneFactor`), yoksa `AdditiveBlending` ile aynı doygunluğa düşersin.
