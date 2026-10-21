@@ -2,7 +2,10 @@
 /* BKTransition — R10.a "dondur-ve-geç" (freeze-and-cross).
    The outgoing scene's last frame is frozen into ONE render target, the incoming scene keeps drawing live underneath,
    and a single ShaderMaterial composites the two on a separate pointer-events:none canvas that is removed on exit.
-   • ONE program for every effect: uMode picks dive / materialize / iris / chromatic / cut, so the program count never grows with the transition table
+   • ONE program for every effect: uMode picks dive / materialize / iris / chromatic / filament / cut, so the program count never grows with the transition table
+   • R10.e: `filament` is the view-switch cross — the frozen frame ignites into a jittered star lattice whose stars orbit on their own arcs and
+     link to their right/bottom neighbour with thin glowing segments. No radial mask anywhere: the image breaks up by ignition order, not by
+     distance from a centre, so it reads as a galaxy forming rather than an iris opening (the user rejected the vignette look)
    • the frozen frame is a CanvasTexture uploaded with renderer.initTexture() in the SAME task as the source render — a preserveDrawingBuffer:false
      canvas is blank once the task ends, so a later upload would freeze an empty frame
    • the freeze pass bakes the outgoing panel's own CSS radial-gradient behind the frame (both scene canvases are alpha:true), so the frozen
@@ -13,8 +16,8 @@
    • still(mode,t): one deterministic frame at a fixed uT for tools/visual_audit.py (?still only) */
 (()=>{
  const reduced=typeof matchMedia==='function'?matchMedia('(prefers-reduced-motion: reduce)'):{matches:false};
- const MODE={cut:0,iris:1,dive:2,materialize:3,chroma:4};
- const DUR={cut:120,iris:900,dive:1000,materialize:850,chroma:700};
+ const MODE={cut:0,iris:1,dive:2,materialize:3,chroma:4,filament:5};
+ const DUR={cut:120,iris:900,dive:1000,materialize:850,chroma:700,filament:1000};
  const VERT='varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}';
  let THREE=null,loading=false,cross=null,cur=null,last=null;
 
@@ -27,7 +30,7 @@ varying vec2 vUv;
 uniform sampler2D tFrom;
 uniform vec2 uCenter,uBgC,uBgR;
 uniform vec3 uBgA,uBgB;
-uniform float uT,uMode,uPass,uAspect,uSeed,uSoft;
+uniform float uT,uMode,uPass,uAspect,uSeed,uSoft,uGrid;
 vec3 bgAt(vec2 uv){vec2 d=(uv-uBgC)/max(uBgR,vec2(1e-4));return mix(uBgA,uBgB,clamp(length(d),0.,1.));}
 void main(){
  vec4 s=texture2D(tFrom,vUv);if(any(isnan(s)))s=vec4(0.);
@@ -52,10 +55,47 @@ void main(){
   float n=bk_fbm2(uv*vec2(uAspect,1.)*5.5+uSeed)*.5+.5,e=uSoft*.5;
   a=smoothstep(uT-e,uT+e,n);
   burn=(1.-smoothstep(0.,e*2.,abs(n-uT)))*.9;
- }else{                                                                            /* chromatic: RGB split, then the frame drops */
+ }else if(uMode<4.5){                                                              /* chromatic: RGB split, then the frame drops */
   float ca=sin(uT*3.14159265)*.012;
   col=vec3(texture2D(tFrom,uv+vec2(ca,0.)).r,texture2D(tFrom,uv).g,texture2D(tFrom,uv-vec2(ca,0.)).b);
   a=1.-smoothstep(.55,1.,uT);
+ }else{                                                                            /* filament: the frame ignites into a galaxy of orbiting stars and glowing links */
+  /* R10.e: a jittered cell lattice in aspect-corrected UV. Every cell owns one star; the star's hash picks its offset, its orbit phase and
+     its ignition time, so the field is deterministic (still() holds any uT) and no two cells move together. */
+  vec2 g=uv*vec2(uAspect,1.)*uGrid,cell=floor(g),f=g-cell;
+  float h=bk_hash12(cell);
+  vec2 off=(vec2(bk_hash12(cell+11.3),bk_hash12(cell+27.7))-.5)*.62;
+  float orb=h*6.2832+uT*2.4;                                                         /* each star orbits its own centre on a hash-chosen arc */
+  vec2 drift=vec2(cos(orb),sin(orb))*.20;
+  vec2 p0=.5+off+drift;                                                             /* this cell's star, in cell-local units */
+  float sweep=clamp(uv.x*.55+(1.-uv.y)*.45,0.,1.);                                   /* ignition front: top-left to bottom-right, never radial */
+  float t0=h*.34+sweep*.30;
+  float k=smoothstep(t0,t0+.42,uT);
+  float rad=mix(.02,.60,k);                                                         /* the star swells as it ignites */
+  float star=1.-smoothstep(rad*.45,rad,length(f-p0));
+  float line=0.;
+  for(int i=0;i<2;i++){                                                             /* right + bottom neighbour only: one link per pair, no double draw */
+   vec2 o=i==0?vec2(1.,0.):vec2(0.,1.),c1=cell+o;
+   float h1=bk_hash12(c1);
+   vec2 off1=(vec2(bk_hash12(c1+11.3),bk_hash12(c1+27.7))-.5)*.62;
+   vec2 p1=.5+off1+vec2(cos(h1*6.2832+uT*2.4),sin(h1*6.2832+uT*2.4))*.20;
+   float t1=h1*.34+sweep*.30;
+   float k1=smoothstep(t1,t1+.42,uT);
+   vec2 pa=f-p0,ba=o+p1-p0;                                                          /* point-to-segment distance between the two stars */
+   float dist=length(pa-ba*clamp(dot(pa,ba)/max(dot(ba,ba),1e-6),0.,1.));
+   float w=.010+.016*(1.-k);                                                        /* the link thins as its star grows */
+   line=max(line,(1.-smoothstep(w,w*2.4,dist))*min(k,k1));                           /* a link only exists once BOTH ends are lit */
+  }
+  /* alpha: base keeps the frozen frame opaque at uT=0 and fades it out by uT=1; lattice is the starfield that replaces it in between.
+     At uT=0 base=1 and lattice=0 so a=1; at uT=1 base=0 and lattice=0 so a=0. Both endpoints are exact, so the cross starts and ends on a
+     clean frame instead of a half-lit one. */
+  float base=1.-smoothstep(.10,.92,uT);
+  float lattice=max(star,line*.9)*(1.-smoothstep(.42,1.,uT));
+  a=max(base,lattice);
+  /* cool blue-white stars with warm gold highlights; the star term is gated by its own ignition k so nothing glows before it lights up
+     (that also makes the uT=0 frame exactly the frozen image), and the whole glow is gone before the cross ends. */
+  vec3 gc=mix(vec3(.52,.76,1.),vec3(1.,.84,.58),smoothstep(.72,1.,h));
+  col+=gc*(star*k*1.5+line*1.1)*(1.-smoothstep(.55,1.,uT));
  }
  col=mix(col,vec3(1.,.78,.42),burn*.55);
  /* R10.b: feather the composite's own edges so the frozen frame melts into the page instead of ending on a hard rectangle */
@@ -106,7 +146,7 @@ void main(){
    uBgA:{value:new THREE.Color(bg.a[0],bg.a[1],bg.a[2])},
    uBgB:{value:new THREE.Color(bg.b[0],bg.b[1],bg.b[2])},
    uT:{value:0},uMode:{value:MODE[mode]||0},uPass:{value:0},
-   uAspect:{value:w/Math.max(1,h)},uSeed:{value:0},uSoft:{value:.18}
+   uAspect:{value:w/Math.max(1,h)},uSeed:{value:0},uSoft:{value:.18},uGrid:{value:26.}
   };
   const geo=new THREE.PlaneGeometry(2,2);
   const mat=new THREE.ShaderMaterial({uniforms:U,vertexShader:VERT,fragmentShader:frag(),depthTest:false,depthWrite:false,transparent:true});

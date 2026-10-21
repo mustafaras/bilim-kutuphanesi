@@ -853,3 +853,80 @@ Geçiş yeniden ölçüldü: `skyline → galaxy → skyline`, `last={mode:'iris
 **Kapılar.** Statik: `node --check site/*.js`, `validate_site`, `validate_fonts`, `validate_i18n`, `gl_audit`, `materials_audit`, `shaders_audit`, `check_app` → hepsi geçti. Tarayıcı/görsel kapılar PR'da CI'da koşar (bu ortamda Playwright venv'i yok).
 
 **Kural:** bir paleti "koyu zeminde parlamak için" seçtiysen, açık temada aynı paleti yalnızca çarpanla koyulaştırmak yetmez — kuleler yine sayfadan açık kalır. İlişkiyi tersine çevir: kule = koyu kütle, gökyüzü = açık. Ayrıca pencere parlaklığı kule rengine bağlı olduğu için kule koyulaşınca pencereler de söner; kenar vurgusunu (`uRim`) ayrı yükselt.
+
+## §84.5 — R10.d + R10.e: silüet ortalanması ve `filament` geçişi (v138)
+
+**İstek.** Kullanıcı: *"vinget efekti istemiyorum, daha bilimsel ve cool ultra premium bir şekilde skyline'a geçişleri yeniden tasarlamanı istiyorum; galaksi nokta çizgi hareketleri temalı olmalı ve skyline ortalı olmalı."* Üç ayrı iş: (1) iris/vinyet görünümünü kaldır, (2) geçişi galaksi nokta+çizgi diline taşı, (3) silüeti ortala.
+
+### R10.d — silüet neredeyse kırpılıyordu
+
+**Ölçüm (v137, 1024×768, panel 964×471).** `NobelSkyline.inst.anchor()` seçili yılın panel genişliğindeki yüzdesini verir. 2025 seçiliyken **%90.8** — yani yılın kulesi sağ kenara yapışmış, 2026 tamamen ekran dışında.
+
+**Kök neden.** Şehir `X0=-(N-1)*DX/2` ile x=0 çevresinde modelleniyor ve genişliği `N*DX + BW = 126*.16 + .118 = 20.12` birim. Eski `dist=18.6` kamera mesafesi, kule ön yüzünde (z=+0.25) yalnızca `(18.6*cos(.2) - .25)*tan(15°)*aspect ≈ 9.55` yarı-genişlik gösteriyordu — yani 19.10 birim. **Her iki uç yıl da her zaman kırpılıyordu**; ortalamak fiziksel olarak imkânsızdı.
+
+**Düzeltme 1 — mesafe (`DIST0=20.4`).** Görünür yarı-genişlik aspect 1.9855'te 10.50 (uç başına 0.44 birim pay), aspect 2.047'de 10.82 (0.76 pay). Panel en-boy oranı görünüm alanları arasında neredeyse sabit (yükseklik genişlikle ölçekleniyor), bu yüzden sabit `DIST0` güvenli. Üç yerde değişti: `dist`/`distT` başlangıcı ve sıfırlama düğmesi.
+
+**Düzeltme 2 — bakış noktası (`lookAt.x = 0`).** Eski kod `lookAt.x = lean + (railA.x-railT.x)*.3*LEAN` ile ray konumunu bakış noktasına taşıyordu; bu, seçili yıl değiştikçe tüm şehri yana kaydırıyordu. Artık kamera şehrin kendi eksenine (x=0) bakıyor, dolayısıyla x=0 her zaman tam %50'ye düşüyor. `LEAN=.18` yalnızca kamera **konumunda** (`camera.position.x = lean*.34 + ...`) paralaks üretiyor: kuleleri gördüğün açı değişiyor, şehir yana kaymıyor.
+
+**Doğrulama (tam simetri testi).** Yıl kaydırıcısı 1901 / 1963 / 2026:
+
+| yıl | `anchor()` | beklenen |
+|---|---|---|
+| 1901 | **%5.5** | sol uç, ~%5 pay |
+| 1963 | **%49.6** | orta |
+| 2026 | **%96.2** | sağ uç, ~%4 pay |
+
+Simetri ekseni ~%50.85; kalan %0.85 sapma `camera.x = lean*.34` ile `sway = sin(t*.35)*.045` teriminden geliyor ve kasıtlı (premium sürüklenme). Mürekkep ağırlık merkezi %50.5.
+
+> **Tuzak:** silüetin mürekkep ağırlık merkezini ölçmek yanıltıcı. Sağdaki yeni ve yüksek kuleler merkezi sağa çekiyor; %59.7 çıkan bir ölçüm şehrin kaydığını değil, sağ yarının daha yoğun olduğunu gösterir. Doğru araç `anchor()`.
+
+### R10.e — `filament`: iris yerine galaksi örgüsü
+
+**Belirti.** Kullanıcı "vinget" dedi. `transition.js` içinde beş mod vardı: `cut`, `iris`, `dive`, `materialize`, `chroma`. `iris` ve `dive` aynı radyal maskeyi kullanıyordu — merkezden dışa açılan daire. Görsel olarak vinyet gibi okunuyordu.
+
+**Düzeltme.** Yeni `filament` modu (`MODE.filament=5`, `DUR.filament=1000`). `nobel3d.js` `crossTo` artık iki yönde de aynı geçişi çalıştırıyor: `if(T.run('filament'))return true;`. `iris`/`dive` tabloda **ölü kod** olarak bırakıldı (`MODES` `info()`'nun parçası ve denetim araçları `materialize`'a açıkça başvuruyor), ama görünüm düğmesinden artık erişilemiyor.
+
+Shader'ın yaptığı (tek program, `uMode` dalı — program sayısı artmıyor):
+
+- En-boy düzeltmeli UV'de `uGrid=26` hücreli, titreşimli bir kafes. Her hücre **bir yıldız** sahiplenir; hash'ten ofsetini, yörünge fazını ve rengini alır.
+- Yıldızlar kendi merkezleri çevresinde **yay çizerek döner**: `orb = h*6.2832 + uT*2.4`, `drift = (cos orb, sin orb)*.20`. (İlk sürüm `*.22*uT` ile doğrusal öteleme yapıyordu — 1000 ms'de 0.8 piksel, yani görünmez. Yörüngeye çevrilince kiriş 0.37 hücre ≈ 6.7 piksel oluyor.)
+- Komşuya **çizgi**: yalnız sağ ve alt komşuya, `w = .010 + .016*(1-k)` kalınlığında, `min(k, k1)` ile kapılı — yani bir çizgi ancak iki ucu da yandığında görünür.
+- **Ateşleme cephesi** çapraz: `sweep = uv.x*.55 + (1-uv.y)*.45`, `t0 = h*.34 + sweep*.30`, `k = smoothstep(t0, t0+.42, uT)`. Radyal maske **yok**; `r` yalnızca `iris`/`dive` dallarında kullanılıyor.
+- Çıkış alfası `a = max(base, lattice)`, `base = 1-smoothstep(.10,.92,uT)`, `lattice = max(star, line*.9)*(1-smoothstep(.42,1,uT))`. `uT=0`'da `k=0` ve `line=0` olduğu için `a=1` ve `col` dondurulmuş kareye birebir eşit; `uT=1`'de `a=0`. Uçlar **ispatla** kesin, ölçümle değil.
+
+**Doğrulama (1024×768, `__bkCrossStill('filament', t)`).**
+
+| t | ortalama | std | yıldız pikseli (yüksek-geçiren > 28) | parlak > 200 |
+|---|---|---|---|---|
+| 0.30 | 104.1 | 76.2 | %2.80 | %19.74 |
+| 0.50 | 86.6 | 59.6 | **%5.07** | %5.07 |
+| 0.70 | 67.5 | 43.7 | %4.04 | %0.94 |
+
+Hareket ölçümü — normalize edilmiş yüksek-geçiren görüntülerin korelasyonu (düşük = desen gerçekten değişiyor):
+
+| çift | yüksek-geçiren korelasyon | ham korelasyon |
+|---|---|---|
+| eski doğrusal öteleme, t=.30→.50 | +0.312 | +0.884 |
+| **yeni yörünge, t=.30→.50** | **+0.134** | +0.882 |
+| yeni yörünge, t=.50→.70 | +0.215 | +0.793 |
+
+Ham korelasyon ~0.88'de kalıyor (kompozisyon ve sönüm kararlı), ince detay korelasyonu yarıya düşüyor — yani değişen şey gerçekten yıldızların konumu.
+
+Canlı geçiş: `skyline → galaxy` `{mode:'filament',dur:1000,frames:59,ms:1012,targets:1,programs:1}`, `galaxy → skyline` `{...frames:54,ms:1010...}`, ikisinden sonra `active:false` ve `.nc-cross` kaldırılmış.
+
+> **Tuzak:** geçiş karelerinde merkezde parlak, kenarlarda koyu bir radyal profil ölçülür (merkezden dışa 142→147→145→106→49.5→33.5). Bu **vinyet değil** — dondur-ve-geç derleyicisinin dondurulmuş karenin arkasına pişirdiği panelin kendi `radial-gradient` arka planı. Efekti shader'da aramak yerine `bgOf()`'a bak.
+
+### Panel ölçümleri (v138, `?sort=title&ui=tr`)
+
+| ölçüm | açık | koyu |
+|---|---|---|
+| ortalama / std | 216.6 / 36.7 | 57.4 / 39.8 |
+| siyah piksel (< 8) | **%0.00** | **%0.00** |
+| sayfadan ≥25 koyu | %14.84 | — |
+| sayfadan ≥15 parlak | — | %18.30 |
+
+**Kapılar.** Statik: `node --check site/*.js`, `validate_site` (2653 kayıt, 10 rota, 2015 Drive bağlantısı), `validate_i18n`, `validate_fonts`, `gl_audit`, `materials_audit`, `shaders_audit` (BKShaders 5150 bayt, 23 fonksiyon), `check_app` → hepsi geçti. Tarayıcı/görsel kapılar PR'da CI'da koşar.
+
+**Altın yenilemesi gerekiyor.** `timeline` yüzeyi silüet panelini kapsıyor (1440×900'de fark kutusu y 191–508, x 0–662); ortalama değişikliği silüeti yatayda kaydırdığı için `1440x900-{dark,light}__timeline.png` altınları yenilenmeli. `Update visual goldens` iş akışı **`-f ref=<dal>` olmadan çalıştırılmamalı** — `--ref` tek başına `inputs.ref`'i doldurmuyor ve `commit` işi `main`'i çekiyor.
+
+**Kural:** bir geçiş "vinyet gibi" okunuyorsa önce shader'da radyal maske ara (`smoothstep` içinde `length(uv-.5)`), sonra dondurulmuş karenin arka planında. İkincisi panelin normal arka planıdır ve düzeltilmemelidir. Ayrıca "hareket" iddia eden bir terim ölçülmeli: `*.22*uT` gibi doğrusal bir öteleme 1 saniyede pikselin altında kalır ve görünmez; yörünge (`cos/sin` içinde `uT`) aynı genlikte görünür bir yay üretir.

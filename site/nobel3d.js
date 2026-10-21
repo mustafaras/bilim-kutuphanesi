@@ -121,7 +121,9 @@
    if(to==='galaxy'&&api){api.wake();if(api.enter)api.enter()}
    if(to==='skyline'&&window.NobelSkyline.inst){const si=window.NobelSkyline.inst;si.sync();if(si.enter)si.enter()}
    morphing=true;chron.classList.add('nc-morphing');linkSvg.classList.remove('on');
-   if(T.run(from==='skyline'?'materialize':'iris'))return true;
+   /* R10.e: the radial vignette is gone — the user rejected that look. Both directions now run the same `filament` cross (galaxy dots
+      + glowing links), so skyline→galaxy and galaxy→skyline speak one visual language instead of two different ones. */
+   if(T.run('filament'))return true;
    morphing=false;chron.classList.remove('nc-morphing');toPanel.style.opacity='';toPanel.style.transition='';if(tc)tc.style.transition='';
    return false}
   /* audit hook: hold ONE transition frame at a fixed uT. tools/visual_audit.py captures the intermediate frames of the cross with it and
