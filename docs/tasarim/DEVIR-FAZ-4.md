@@ -742,3 +742,26 @@ PR #91'in ilk koşusunda **B21** kırmızı düştü: `the skyline stopped paint
 **Kural:** bir görünüm değişimi `morphing` gibi bir kapıyla korunuyorsa, denetim **sabit süre uyumaz**; kapının kapandığını (sınıf/tuval yokluğu) yoklayarak bekler. Aksi hâlde yavaş GPU'da tıklama sessizce yutulur ve hata, suçlu olmayan bir sonraki adımda patlar.
 
 **Kural:** bir geçiş `end()` geri çağrısıyla satır içi stil yazıyorsa (`opacity`, `transition`), **her iki yolu** da (başarı ve `false` dönüşü) eski değere döndürmek zorundadır; yarım bırakılan `transition:none` o panelin bütün sonraki geçişlerini öldürür.
+
+### §84.2 — Geçiş altınları CI'da üretildi (v135)
+
+`Update visual goldens` koşusu `39583634674` (main `d056f03`) altı yakalama işini de bitirdi ve `goldens/update` dalına beş yeni dosya yazdı: `1440x900-dark__transition-{000,025,050,075,100}.png`. PR #92 açıldı, 28/28 yeşil, squash birleşti (`0887710`); main deploy `39585405594` **yeşil**.
+
+**Denetim (yerel, PIL):**
+
+| kare | ortalama parlaklık | 000'e göre fark | en parlak satır | farklı renk |
+|---|---|---|---|---|
+| 000 | 37.1 | — | %58 (ufuk) | 29 123 |
+| 025 | 43.0 | %14.1 | %59 (ufuk) | 39 212 |
+| 050 | 47.7 | %52.0 | %57 (ufuk) | 40 627 |
+| 075 | 35.1 | %58.0 | %52 (çekirdek) | 23 806 |
+| 100 | 33.3 | %57.0 | %51 (çekirdek) | 20 036 |
+
+- Beş kare de boş değil; fark tek yönlü artıyor (14 → 52 → 58 → 57).
+- `t=1.00`, `1440x900-dark__nobel-galaxy.png` ile **%1.04** farkla örtüşüyor → geçiş doğru sahneye iniyor.
+- `t=0.00`, aynı galaksi altınından %57 farklı → başlangıç galaksi değil.
+- En parlak satır %58'den %51'e kayıyor: silüetin ufuk parlaması sönüyor, galaksinin çekirdeği devralıyor. `uT` ekseni gerçekten ilerliyor.
+
+Diğer 14 altın yalnız gürültü düzeyinde değişti (en büyük %0.52; `constellation` yüzeyinin kendi sınırı %3, `nobel-galaxy` %2). Yerelde `visual_audit --update` **çalıştırılmadı** — altınlar yalnız CI'da (Linux) üretildi (§81 kuralı).
+
+**Kural:** yeni bir görsel yüzey eklerken altın dosyası aynı PR'da doğmaz; `visual_audit` önce "altın yok" durumunda çalışır, altınlar ancak birleşmeden sonraki `Update visual goldens` koşusunda doğar. Bu yüzden yeni yüzey ekleyen PR'ın kapanış adımı **her zaman** bir altın koşusu + inceleme + ayrı PR'dır.
