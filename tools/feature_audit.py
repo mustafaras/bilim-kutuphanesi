@@ -729,18 +729,22 @@ def b21(b):
     anc = q.evaluate("(()=>{const i=window.NobelSkyline&&NobelSkyline.inst;return i&&i.anchor?i.anchor():null})()")
     pts = [(anc["x"], anc["y"] + dy) for dy in (8, 16, 24, 32, 40, 48, 56, 64, 72, 80)] if anc else []
     pts += [(box["x"] + box["w"] * fx, box["y"] + box["h"] * fy) for fy in (.62, .5, .4) for fx in (.5, .42, .58, .34, .66)]
-    lat = None
-    for px, py in pts:
-        q.evaluate("window.__hf=0")
-        q.mouse.move(px, py)
-        for _ in range(12):
-            q.wait_for_timeout(40)
-            r = q.evaluate("({id:BKSkyline.id(),f:window.__hf})")
-            if r["id"] >= 0: lat = r["f"]; break
-        if lat is not None: break
-    idraw = q.evaluate("BKSkyline.info().idRaw")
-    note(f"B21 hover latency: {lat} frames (anchor {anc}, idRaw {idraw})")
-    if lat is None: problems.append(f"B21 the identity buffer never named a tower under the pointer (hover is dead; anchor {anc}, idRaw {idraw})")
+    def sweep(ps):
+        # 1.2 s per point: CI runs the skyline at ~4 fps, so a two-frame readback needs ~500 ms and a 480 ms budget was a coin flip
+        for px, py in ps:
+            q.evaluate("window.__hf=0")
+            q.mouse.move(px, py)
+            for _ in range(20):
+                q.wait_for_timeout(60)
+                r = q.evaluate("({id:BKSkyline.id(),f:window.__hf})")
+                if r["id"] >= 0: return r["f"]
+        return None
+    lat = sweep(pts[:10]) if pts else None          # the anchor walk down the selected tower's face
+    if lat is None: lat = sweep(pts[10:])           # coarse grid fallback
+    inf = q.evaluate("BKSkyline.info()")
+    idraw, idpath = inf["idRaw"], inf.get("idPath")
+    note(f"B21 hover latency: {lat} frames (anchor {anc}, idRaw {idraw}, idPath {idpath})")
+    if lat is None: problems.append(f"B21 the identity buffer never named a tower under the pointer (hover is dead; anchor {anc}, idRaw {idraw}, idPath {idpath})")
     elif lat > 8: problems.append(f"B21 hover must land within 8 frames on software GL (spec: <= 2 on a real GPU), took {lat}")
     # R9.6 — the glass window is a contiguous +/-6-year slice and it hides those towers in the opaque city
     q.evaluate("(()=>{const b=document.querySelector('.nc-glass-btn');if(b)b.click()})()"); q.wait_for_timeout(1200)

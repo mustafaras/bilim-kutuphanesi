@@ -688,3 +688,26 @@ Her aşama: önce ölçülebilir kabul testi (kırıldığını göster) → yer
 - **B11 — gürültü, regresyon değil:** aynı commit'in ikinci CI turunda `B11 warm-up added long tasks in the first 5 s (8 with, 4 without)` kırmızı; ilk turda yeşildi. Ölçüm ilk 5 sn'deki `longtask` sayısını karşılaştırıyor, ama yazılımsal GL'de ilk 5 sn **sayfa açılışının** (silüet, atlas, madalya hepsi orada açılıyor) egemenliğinde: aynı yüklemede sayı birkaç görev oynuyor (gözlenen `on 8,12 · off 4,11`). Isınmanın kendisi zaten 5 sn'den **sonra** başlıyor ve bu **deterministik** olarak ayrıca iddia ediliyor (`start >= 5000`). Düzeltme: iki yerine **üç örnek** ve `min` yerine **medyan**, tolerans `off+2` yerine `off·2+3`. Yerel sonuç: `on 5,7,6 · off 7,6,5` → medyan 6/6, **OK**. Deterministik `start >= 5000` kapısı olduğu gibi duruyor; sayım kontrolü kaba bir akıl sağlığı sınırı.
 - **Kural:** tarayıcı denetimlerinde **görüntü alanı oranına sabitlenmiş işaretçi koordinatı kullanılmaz** — hedef nesnenin kendi çapasından (`anchor()`, `getBoundingClientRect()` iki ardışık okumada sabit) türetilir. Kaydırma sonrası dikdörtgen okunacaksa **oturmuş** olduğu doğrulanır.
 - **Kural:** yazılımsal GL'de ilk saniyeleri ölçen iddialar **medyan + geniş tolerans** kullanır; tek örnekli `min`/`max` karşılaştırması CI'da gürültü üretir.
+
+## §83 — v134: kimlik tamponu okuması (B21 `idRaw -1`) ölümcül kilitlenmeye karşı
+
+**Belirti.** B21 ikinci CI turunda farklı bir imzayla kırmızı: `B21 hover latency: None frames (anchor {'x': 683.37, 'y': 512.00}, idRaw -1)`. Aynı commit'in önceki turunda `hover latency: 2 frames (anchor {'x': 682.97, 'y': 496.33}, idRaw 481)` ile yeşildi. Yani işaretçi ıskalamıyordu — ıskalasa `idRaw 0` olurdu. `idRaw -1` demek `applyId()` **hiç çağrılmadı** demek: asenkron kimlik okuması çıkmaz sokağa giriyor.
+
+**Kök neden.** `idRender()` PBO'ya tek piksel okuyup `fenceSync` ile bekletiyor, `idPoll()` her karede `clientWaitSync` ile yokluyor. İki ölümcül yol vardı:
+
+1. `gl.fenceSync(...)` SwiftShader'da **`null`** dönebilir. Kod `idPending = true` yapıp `idSync = null` bırakıyordu; `idPoll()` ise `if(!idPending||!idSync)return` ile hemen çıkıyor → **kalıcı ölü hover**.
+2. `gl.clientWaitSync` `WAIT_FAILED` dönebilir (veya fırlatabilir). O zaman `idPending` hiç temizlenmiyor → aynı kalıcı ölü durum.
+
+Her iki yol da "tek seferlik yavaşlık" değil, **kendini onarmayan** bir kilitlenme: sürücü fence'i desteklemiyorsa hover bir daha asla çalışmaz.
+
+**Düzeltme (`site/skyline3d.js`).**
+- `idReadSync()` yardımcısı: çeyrek çözünürlüklü hedeften tek pikseli **senkron** okur (`readRenderTargetPixels`), `idPending`'i temizler, `idPath='sync'` işaretler. Yalnızca hover anında, yalnızca fence yolu kullanılamıyorsa çağrılır — maliyeti bir karede tek piksel.
+- `idRender()`: `fenceSync` **`null`** dönerse doğrudan `idReadSync()`.
+- `idPoll()`: `clientWaitSync` `try/catch` içinde; `WAIT_FAILED` **veya** 4 kareden uzun bekleyen fence → `idAsyncOk=false` (yapışkan), sync'i sil, `idPending`'i temizle, `idReadSync()`. Bir kez fence'in çalışmadığı anlaşılırsa bir daha denenmez.
+- `idPath` (`'async'` | `'sync'`) `info()`'ya eklendi: bir sonraki kırmızıda hangi yolun kullanıldığı doğrudan logdan okunur.
+
+**B21 tarafı.** Hover taramasının nokta başına bütçesi 12 × 40 ms = 480 ms idi; CI silüeti ~4 fps çalıştırdığı için iki karelik okuma ~500 ms sürüyor — **yazı tura**. Artık 20 × 60 ms = 1.2 s (nokta başına ~5 kare), çapa yürüyüşü ile ızgara yedeği ayrı ayrı taranıyor ve hata mesajı `idPath`'i de yazıyor.
+
+**Yerel doğrulama.** `B21 hover latency: 3 frames (anchor {'x': 687.65, 'y': 516.87}, idRaw 478, idPath async)` → **OK: B21**. `gpu_budget_audit --surfaces skyline` → 13 draws / 23 050 tris / 410 points / 10 programs / 4 targets / 13 textures, **OK**. `validate_site`, `validate_i18n`, `validate_fonts`, `shaders_audit`, `materials_audit`, `check_app` → hepsi OK.
+
+**Kural:** bir GPU okuması asenkron yapılıyorsa **fence'in var olduğu varsayılmaz**; `fenceSync` `null`, `clientWaitSync` `WAIT_FAILED` ve "hiç sinyallenmeyen fence" üçü de senkron yedeğe düşer. Bekleyen bir işaretin temizlenmemesi, o özelliği kalıcı olarak öldürür.

@@ -189,7 +189,9 @@ vec3 bkSkyPos(vec3 p,float id){if(uTexOn<.5)return p;
      gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(p,1.0);}`,
    fragmentShader:`varying float vId;void main(){float id=vId+1.0;gl_FragColor=vec4(mod(id,256.0)/255.0,mod(floor(id/256.0),256.0)/255.0,0.0,1.0);}`});
   const idTowers=new THREE.InstancedMesh(geo,idMat,K);idTowers.instanceMatrix=towers.instanceMatrix;idTowers.frustumCulled=false;idScene.add(idTowers);
-  let idDirty=false,idPending=false,idSync=null,idPBO=null;const idBuf=new Uint8Array(4);
+  let idDirty=false,idPending=false,idSync=null,idPBO=null,idPx=0,idPy=0,idWait=0,idAsyncOk=true,idPath='sync';const idBuf=new Uint8Array(4);
+  /* synchronous fallback: one pixel from a quarter-res target, only on hover, and only when the fence path is unusable */
+  function idReadSync(){renderer.readRenderTargetPixels(idRT,idPx,idPy,1,1,idBuf);idPending=false;idPath='sync';applyId(idBuf[0]+idBuf[1]*256-1)}
   function idRender(){
    if(!idRT||!idDirty)return;idDirty=false;
    idCam.position.copy(camera.position);idCam.quaternion.copy(camera.quaternion);
@@ -197,23 +199,29 @@ vec3 bkSkyPos(vec3 p,float id){if(uTexOn<.5)return p;
    idCam.matrixWorld.copy(camera.matrixWorld);idCam.matrixWorldInverse.copy(camera.matrixWorldInverse);
    renderer.setRenderTarget(idRT);renderer.render(idScene,idCam);
    const r=canvas.getBoundingClientRect();
-   const px=Math.max(0,Math.min(idRT.width-1,Math.floor((mouse.x-r.left)/Math.max(1,r.width)*idRT.width)));
-   const py=Math.max(0,Math.min(idRT.height-1,Math.floor((1-(mouse.y-r.top)/Math.max(1,r.height))*idRT.height)));
+   idPx=Math.max(0,Math.min(idRT.width-1,Math.floor((mouse.x-r.left)/Math.max(1,r.width)*idRT.width)));
+   idPy=Math.max(0,Math.min(idRT.height-1,Math.floor((1-(mouse.y-r.top)/Math.max(1,r.height))*idRT.height)));
    const gl=renderer.getContext();
-   if(gl&&gl.readPixels&&gl.fenceSync){
+   if(idAsyncOk&&gl&&gl.readPixels&&gl.fenceSync){
     if(!idPBO){idPBO=gl.createBuffer();gl.bindBuffer(gl.PIXEL_PACK_BUFFER,idPBO);gl.bufferData(gl.PIXEL_PACK_BUFFER,4,gl.STREAM_READ);gl.bindBuffer(gl.PIXEL_PACK_BUFFER,null)}
-    gl.bindBuffer(gl.PIXEL_PACK_BUFFER,idPBO);gl.readPixels(px,py,1,1,gl.RGBA,gl.UNSIGNED_BYTE,0);gl.bindBuffer(gl.PIXEL_PACK_BUFFER,null);
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER,idPBO);gl.readPixels(idPx,idPy,1,1,gl.RGBA,gl.UNSIGNED_BYTE,0);gl.bindBuffer(gl.PIXEL_PACK_BUFFER,null);
     if(idSync){gl.deleteSync(idSync);idSync=null}
-    idSync=gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE,0);gl.flush();idPending=true;
-   }else{renderer.readRenderTargetPixels(idRT,px,py,1,1,idBuf);idPending=false;applyId(idBuf[0]+idBuf[1]*256-1)}
+    idSync=gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE,0);
+    if(idSync){gl.flush();idPending=true;idWait=0;idPath='async'}else idReadSync()   /* no fence on this driver: read now, never leave idPending stuck */
+   }else idReadSync();
    renderer.setRenderTarget(null);
   }
   function idPoll(){
-   if(!idPending||!idSync)return;
-   const gl=renderer.getContext(),st=gl.clientWaitSync(idSync,0,0);
+   if(!idPending)return;
+   if(!idSync){idPending=false;return}
+   const gl=renderer.getContext();let st;
+   try{st=gl.clientWaitSync(idSync,0,0)}catch{st=gl.WAIT_FAILED}
    if(st===gl.ALREADY_SIGNALED||st===gl.CONDITION_SATISFIED){
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER,idPBO);gl.getBufferSubData(gl.PIXEL_PACK_BUFFER,0,idBuf);gl.bindBuffer(gl.PIXEL_PACK_BUFFER,null);
-    gl.deleteSync(idSync);idSync=null;idPending=false;applyId(idBuf[0]+idBuf[1]*256-1);
+    gl.deleteSync(idSync);idSync=null;idPending=false;idPath='async';applyId(idBuf[0]+idBuf[1]*256-1);
+   }else if(st===gl.WAIT_FAILED||++idWait>4){
+    /* SwiftShader can leave the fence unsignalled forever; a stuck fence must never mean a dead hover, so read synchronously from now on */
+    gl.deleteSync(idSync);idSync=null;idPending=false;idAsyncOk=false;idReadSync();
    }
   }
   function applyId(t){idRaw=t;const k=t>=0&&t<TEX?keyAt[t]:-1,i=k>=0?keys[k].i:-1,c=k>=0?keys[k].c:-1;
@@ -390,8 +398,8 @@ vec3 bkSkyPos(vec3 p,float id){if(uTexOn<.5)return p;
    return alpha}
   let anchorLocal=null;
   /* R9 test hook: ?diag + tools/feature_audit.py B21 read this */
-  const info={built:true,source:texOn?'texture':'uniform',spring:texOn?'gpu':'cpu',K,N,CAT,texels:TEX,picking:idRT?'id':'analytic',idSize:0,idRaw:-1,wave:0,confetti:0,bloom:0,rail:1,glass:0,targets:0,draws:0,frames:0,tier:0,vis:1};
-  window.BKSkyline={info(){info.idSize=idRT?idRT.width:0;info.idRaw=idRaw;info.wave=U.waveOn.value?1:0;info.confetti=conf.visible?CN:0;info.bloom=glow.count;info.glass=glassN;info.tier=lvl();info.vis=visible&&onscreen?1:0;
+  const info={built:true,source:texOn?'texture':'uniform',spring:texOn?'gpu':'cpu',K,N,CAT,texels:TEX,picking:idRT?'id':'analytic',idSize:0,idRaw:-1,idPath:'sync',wave:0,confetti:0,bloom:0,rail:1,glass:0,targets:0,draws:0,frames:0,tier:0,vis:1};
+  window.BKSkyline={info(){info.idSize=idRT?idRT.width:0;info.idRaw=idRaw;info.idPath=idPath;info.wave=U.waveOn.value?1:0;info.confetti=conf.visible?CN:0;info.bloom=glow.count;info.glass=glassN;info.tier=lvl();info.vis=visible&&onscreen?1:0;
     info.targets=(scene.environment?1:0)+(idRT?1:0)+(bloomRT?1:0);info.draws=renderer.info.render.calls;info.frames=renderer.info.render.frame;return info},
    /* the hero's frame-time governor owns the tier and would immediately undo a bare BKMotion.quality.set on software GL, so pin it */
    tier(n){try{if(window.BKMotion&&BKMotion.quality&&typeof BKMotion.quality.pin==='function')BKMotion.quality.pin(n);else if(window.BKMotion&&BKMotion.quality)BKMotion.quality.set(n)}catch{}size();syncGlass();syncGlow();wake();return lvl()},
