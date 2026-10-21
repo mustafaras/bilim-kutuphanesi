@@ -110,7 +110,7 @@ vec3 bkSkyPos(vec3 p,float id){if(uTexOn<.5)return p;
   const glassGeo=geo.clone(),glassTowers=new THREE.InstancedMesh(glassGeo,glassMat,K);
   glassTowers.frustumCulled=false;glassTowers.count=0;grp.add(glassTowers);
   const col=new THREE.Color(),base=CATC.map(h=>new THREE.Color(h)),M=new THREE.Matrix4(),Q=new THREE.Quaternion(),P=new THREE.Vector3(),S=new THREE.Vector3();
-  const colorsDirty={v:true};let hoverYear=-1,selYear=-1,cmpYear=-1,cmpOn=false,glassOn=false,glassN=0;
+  const colorsDirty={v:true};let hoverYear=-1,selYear=-1,cmpYear=-1,cmpOn=false,glassOn=false,glassN=0,idRaw=-1;
   const texOn=GL2;
   /* with the texture path the instance matrices are static: translate(x,0,0)·scale(BW,1,BD) — the shader supplies the height */
   function staticMatrices(){for(let k=0;k<K;k++){const x=X0+keys[k].i*DX;P.set(x,0,0);S.set(BW,1,BD);M.compose(P,Q,S);towers.setMatrixAt(k,M);refl.setMatrixAt(k,M)}
@@ -216,7 +216,7 @@ vec3 bkSkyPos(vec3 p,float id){if(uTexOn<.5)return p;
     gl.deleteSync(idSync);idSync=null;idPending=false;applyId(idBuf[0]+idBuf[1]*256-1);
    }
   }
-  function applyId(t){const k=t>=0&&t<TEX?keyAt[t]:-1,i=k>=0?keys[k].i:-1,c=k>=0?keys[k].c:-1;
+  function applyId(t){idRaw=t;const k=t>=0&&t<TEX?keyAt[t]:-1,i=k>=0?keys[k].i:-1,c=k>=0?keys[k].c:-1;
    if(i!==hoverYear){hoverYear=i;colorsDirty.v=true;showTip(i,c);document.dispatchEvent(new CustomEvent('nobel:hover',{detail:i>=0?Y0+i:0}))}else if(i>=0)placeTip();
    canvas.style.cursor=i>=0?'pointer':'grab'}
   /* R9.4 selective bloom: the selected year's towers on layer 1 → ¼-res target → 16-tap disc blur composited additively */
@@ -280,7 +280,7 @@ vec3 bkSkyPos(vec3 p,float id){if(uTexOn<.5)return p;
   glassBtn.addEventListener('click',()=>{glassOn=glassBtn.getAttribute('aria-pressed')!=='true';glassBtn.setAttribute('aria-pressed',String(glassOn));syncGlass();colorsDirty.v=true;wake()});
   tl.addEventListener('pointerdown',e=>e.stopPropagation());cmpCard.addEventListener('pointerdown',e=>e.stopPropagation());
   /* camera state + R9.5 rail */
-  let yaw=0,pitch=.2,dist=18.6,distT=18.6,vy=0,drag=null,mouse={x:0,y:0,in:false},visible=true,raf=0,time0=performance.now();
+  let yaw=0,pitch=.2,dist=18.6,distT=18.6,vy=0,drag=null,mouse={x:0,y:0,in:false},visible=true,onscreen=true,raf=0,time0=performance.now();
   const railPts=[];for(let d=Math.ceil(Y0/10)*10;d<=Y1;d+=10){const u=(d-Y0)/Math.max(1,N-1);railPts.push(new THREE.Vector3(X0+(d-Y0)*DX,1.15+Math.sin(u*6.2832)*.16,Math.sin(u*9.4248)*.4))}
   if(railPts.length<2)railPts.push(new THREE.Vector3(X0+(N-1)*DX,1.15,0));
   const rail=new THREE.CatmullRomCurve3(railPts,false,'catmullrom',.5),railT=new THREE.Vector3(),railA=new THREE.Vector3(),lookAt=new THREE.Vector3();
@@ -291,8 +291,9 @@ vec3 bkSkyPos(vec3 p,float id){if(uTexOn<.5)return p;
    if(idRT&&(idRT.width!==iw||idRT.height!==ih))idRT.setSize(iw,ih);
    if(bloomRT&&(bloomRT.width!==iw||bloomRT.height!==ih))bloomRT.setSize(iw,ih)}
   /* wake() re-derives visibility from the DOM instead of trusting the last IntersectionObserver entry: a view switch, a theme flip or a
-     hover can all arrive while the observer's cached state is stale, and a parked loop would then never repaint. */
-  const wake=()=>{if(!raf){visible=!panel.hidden&&panel.getClientRects().length>0;raf=requestAnimationFrame(frame)}};document.addEventListener('bk:quality',()=>{size();syncGlass();syncGlow();wake()});
+     hover can all arrive while the observer's cached state is stale, and a parked loop would then never repaint. It must re-derive on
+     every call — not only when no frame is pending — because a pending frame that returns early leaves raf=0 and nothing reschedules it. */
+  const wake=()=>{visible=!panel.hidden&&panel.getClientRects().length>0;if(!raf)raf=requestAnimationFrame(frame)};document.addEventListener('bk:quality',()=>{size();syncGlass();syncGlow();wake()});
   /* GPU context loss: the baked studio map is a render target whose pixels are gone; bake it again and repaint. */
   window.BKGL&&BKGL.watch(canvas,{name:'skyline',onRestore(){try{const r=BKMaterials.rebake(renderer,THREE,'city');if(r){env=r.fresh;scene.environment=env}}catch{}size();wake()}});
   function syncSel(){const y=typeof nobelYear!=='undefined'&&nobelYear?Number(nobelYear):-1,i=y>0?y-Y0:-1;
@@ -335,7 +336,7 @@ vec3 bkSkyPos(vec3 p,float id){if(uTexOn<.5)return p;
    hazeMat.color.setHex(light?0x2a3a46:0x9fc4ff);hazeMat.opacity=light?.16:.42;hazeMat.blending=light?THREE.NormalBlending:THREE.AdditiveBlending;hazeMat.needsUpdate=true;
    glowMat.uniforms.uColor.value.setHex(light?0x3a62a8:0xffe6b0);confMat.uniforms.uColor.value.setHex(light?0x3a62a8:0xffe6b0);
    colorsDirty.v=true;theme.l=light}
-  function frame(now){raf=0;if(!visible||document.hidden)return;const dt=Math.min(.05,(now-(frame.l||now))/1000||0);frame.l=now;if(!STLM)time+=dt;
+  function frame(now){raf=0;if(!visible||!onscreen||document.hidden)return;const dt=Math.min(.05,(now-(frame.l||now))/1000||0);frame.l=now;if(!STLM)time+=dt;
    if((root.dataset.theme==='light')!==theme.l)theme();syncSel();
    if(colorsDirty.v)recolor();
    U.time.value=time;
@@ -376,7 +377,7 @@ vec3 bkSkyPos(vec3 p,float id){if(uTexOn<.5)return p;
    const still=calm;/* the identity readback is one frame late (fenceSync), so a calm scene must keep ticking until the hover resolves */
    if(!still||moving||drag||idDirty||idPending||confT<1.2||Math.abs(vy)>1e-4||Math.abs(distT-dist)>.01||Math.abs(railOffT-railOff)>.01)raf=requestAnimationFrame(frame)}
   size();new ResizeObserver(()=>{size();wake()}).observe(panel);
-  if(typeof IntersectionObserver==='function')new IntersectionObserver(es=>{visible=es[0].isIntersecting;if(visible)wake()}).observe(panel);
+  if(typeof IntersectionObserver==='function')new IntersectionObserver(es=>{onscreen=es[0].isIntersecting;if(onscreen)wake()}).observe(panel);
   new MutationObserver(()=>{theme();wake()}).observe(root,{attributes:true,attributeFilter:['data-theme','class']});
   document.addEventListener('library:language',()=>{canvas.setAttribute('aria-label',t('nsLabel'))});
   staticMatrices();theme();syncSel();recolor();canvas.classList.add('on');wake();
@@ -389,8 +390,8 @@ vec3 bkSkyPos(vec3 p,float id){if(uTexOn<.5)return p;
    return alpha}
   let anchorLocal=null;
   /* R9 test hook: ?diag + tools/feature_audit.py B21 read this */
-  const info={built:true,source:texOn?'texture':'uniform',spring:texOn?'gpu':'cpu',K,N,CAT,texels:TEX,picking:idRT?'id':'analytic',idSize:0,wave:0,confetti:0,bloom:0,rail:1,glass:0,targets:0,draws:0,frames:0,tier:0,vis:1};
-  window.BKSkyline={info(){info.idSize=idRT?idRT.width:0;info.wave=U.waveOn.value?1:0;info.confetti=conf.visible?CN:0;info.bloom=glow.count;info.glass=glassN;info.tier=lvl();info.vis=visible?1:0;
+  const info={built:true,source:texOn?'texture':'uniform',spring:texOn?'gpu':'cpu',K,N,CAT,texels:TEX,picking:idRT?'id':'analytic',idSize:0,idRaw:-1,wave:0,confetti:0,bloom:0,rail:1,glass:0,targets:0,draws:0,frames:0,tier:0,vis:1};
+  window.BKSkyline={info(){info.idSize=idRT?idRT.width:0;info.idRaw=idRaw;info.wave=U.waveOn.value?1:0;info.confetti=conf.visible?CN:0;info.bloom=glow.count;info.glass=glassN;info.tier=lvl();info.vis=visible&&onscreen?1:0;
     info.targets=(scene.environment?1:0)+(idRT?1:0)+(bloomRT?1:0);info.draws=renderer.info.render.calls;info.frames=renderer.info.render.frame;return info},
    /* the hero's frame-time governor owns the tier and would immediately undo a bare BKMotion.quality.set on software GL, so pin it */
    tier(n){try{if(window.BKMotion&&BKMotion.quality&&typeof BKMotion.quality.pin==='function')BKMotion.quality.pin(n);else if(window.BKMotion&&BKMotion.quality)BKMotion.quality.set(n)}catch{}size();syncGlass();syncGlow();wake();return lvl()},

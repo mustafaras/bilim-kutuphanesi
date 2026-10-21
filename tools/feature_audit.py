@@ -547,10 +547,15 @@ def b19(b):
     lvl(0)
     q.evaluate("document.querySelectorAll('.atlas-tile')[7].scrollIntoView({block:'center'})"); q.wait_for_timeout(2500)
     def tile(i):
-        for _ in range(8):   # the page may still be settling (smooth scroll, entrance): scroll until the tile is really on screen
-            q.evaluate(f"document.querySelectorAll('.atlas-tile')[{i}].scrollIntoView({{block:'center'}})"); q.wait_for_timeout(800)
-            if q.evaluate(f"(()=>{{const r=document.querySelectorAll('.atlas-tile')[{i}].getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight}})()"): break
-        return q.evaluate(f"(()=>{{const r=document.querySelectorAll('.atlas-tile')[{i}].getBoundingClientRect();return[r.left,r.top,r.width,r.height]}})()")
+        # scroll until the tile is fully on screen AND its rect has stopped moving: a mid-smooth-scroll rect still satisfies the
+        # viewport test, and hovering a stale centre is exactly how the tile-0 transmission check used to fail on CI
+        prev = None
+        for _ in range(10):
+            q.evaluate(f"document.querySelectorAll('.atlas-tile')[{i}].scrollIntoView({{block:'center'}})"); q.wait_for_timeout(700)
+            r = q.evaluate(f"(()=>{{const r=document.querySelectorAll('.atlas-tile')[{i}].getBoundingClientRect();return[r.left,r.top,r.width,r.height]}})()")
+            if r[1] >= 0 and r[1] + r[3] <= 900 and prev == r: return r
+            prev = r
+        return prev
     m0 = q.evaluate("BKStage.medalInfo()"); note(f"B19 tier 0 {m0}")
     if not m0: problems.append("B19 no medal"); ctx.close(); return
     if not (m0["faces"] == 6 and m0["normal"] and not m0["bump"] and m0["height"] == 1024 and m0["pom"]["steps"] == 16 and m0["pom"]["on"] and m0["iri"] == "map"): problems.append(f"B19 tier 0 relief wrong (6 faces, 1024² height, POM 16, thickness map): {m0}")
@@ -585,7 +590,14 @@ def b19(b):
     # glass: one transmission tile at a time
     modes = {}
     for i in (0, 1, 2):
-        x, y, w, h = tile(i); q.mouse.move(x + w / 2, y + h / 2); wait(f"BKStage.glass().tiles.find(t=>t.i=={i}).mode=='trans'"); g = q.evaluate("BKStage.glass()"); modes[i] = g
+        g = None
+        for _ in range(4):   # re-read the rect and retry: the first hover after a long scroll can land on a stale centre
+            x, y, w, h = tile(i); q.mouse.move(x + w / 2, y + h / 2)
+            try: q.wait_for_function(f"BKStage.glass().tiles.find(t=>t.i=={i}).mode=='trans'", timeout=15000)
+            except Exception: pass
+            g = q.evaluate("BKStage.glass()")
+            if any(t["i"] == i and t["mode"] == "trans" for t in g["tiles"]): break
+        modes[i] = g
     note(f"B19 glass per hovered tile: {modes}")
     for i, g in modes.items():
         want = {t["i"]: t["mode"] for t in g["tiles"]}
@@ -701,21 +713,29 @@ def b21(b):
     if i1.get("bloom") and i1["bloom"] > 7: problems.append(f"B21 the bloom layer holds one glow per category (<= 7): {i1}")
     if not i1.get("confetti"): problems.append(f"B21 selecting a year must fire the confetti burst: {i1}")
     if i1.get("confetti") and i1["confetti"] > 150: problems.append(f"B21 the confetti burst is capped at 150 points: {i1}")
-    # R9.3 — hover latency: park the pointer over the city and count frames until the identity buffer names a tower
+    # R9.3 — hover latency: park the pointer over the city and count frames until the identity buffer names a tower.
+    # A fixed viewport fraction is not portable: which tower sits under it depends on the camera distance, which depends on the
+    # panel's scroll offset and on arrival() — and Linux reserves ~10px for the scrollbar where macOS uses an overlay. So aim at the
+    # selected year's tower top (the module already projects it for the chip anchor) and walk down its face, with a coarse grid as
+    # a fallback when the anchor is unavailable.
     box = q.evaluate("(()=>{const c=document.querySelector('.nc-sky canvas');const r=c.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height}})()")
     if box["y"] < 0 or box["y"] + box["h"] > 900: problems.append(f"B21 the skyline canvas must sit inside the 900px viewport before hovering: {box}")
     q.evaluate("window.__hf=0;(function l(){window.__hf++;requestAnimationFrame(l)})()")
+    anc = q.evaluate("(()=>{const i=window.NobelSkyline&&NobelSkyline.inst;return i&&i.anchor?i.anchor():null})()")
+    pts = [(anc["x"], anc["y"] + dy) for dy in (8, 16, 24, 32, 40, 48, 56, 64, 72, 80)] if anc else []
+    pts += [(box["x"] + box["w"] * fx, box["y"] + box["h"] * fy) for fy in (.62, .5, .4) for fx in (.5, .42, .58, .34, .66)]
     lat = None
-    for fx in (.5, .42, .58, .34, .66, .26, .74):
+    for px, py in pts:
         q.evaluate("window.__hf=0")
-        q.mouse.move(box["x"] + box["w"] * fx, box["y"] + box["h"] * .62)
-        for _ in range(30):
+        q.mouse.move(px, py)
+        for _ in range(12):
             q.wait_for_timeout(40)
             r = q.evaluate("({id:BKSkyline.id(),f:window.__hf})")
             if r["id"] >= 0: lat = r["f"]; break
         if lat is not None: break
-    note(f"B21 hover latency: {lat} frames")
-    if lat is None: problems.append("B21 the identity buffer never named a tower under the pointer (hover is dead)")
+    idraw = q.evaluate("BKSkyline.info().idRaw")
+    note(f"B21 hover latency: {lat} frames (anchor {anc}, idRaw {idraw})")
+    if lat is None: problems.append(f"B21 the identity buffer never named a tower under the pointer (hover is dead; anchor {anc}, idRaw {idraw})")
     elif lat > 8: problems.append(f"B21 hover must land within 8 frames on software GL (spec: <= 2 on a real GPU), took {lat}")
     # R9.6 — the glass window is a contiguous +/-6-year slice and it hides those towers in the opaque city
     q.evaluate("(()=>{const b=document.querySelector('.nc-glass-btn');if(b)b.click()})()"); q.wait_for_timeout(1200)
@@ -736,10 +756,12 @@ def b21(b):
     for v in ("chart", "galaxy", "skyline"):
         q.evaluate(f"(()=>{{const b=document.querySelector('[data-v={v}]');if(b)b.click()}})()"); q.wait_for_timeout(1600)
         if views() != 1: problems.append(f"B21 after switching to {v} exactly one view must be visible, saw {views()}")
-    # frames keep painting across a theme flip
+    # frames keep painting across a theme flip (re-scroll first: the view switches above can leave the panel off-screen, and parking
+    # an off-screen panel is correct behaviour, not a stall)
+    q.evaluate("document.querySelector('.nc-sky').scrollIntoView({block:'center'})"); q.wait_for_timeout(900)
     f0 = q.evaluate("BKSkyline.info().frames"); q.evaluate("document.documentElement.dataset.theme='light'"); q.wait_for_timeout(2000)
     f1 = q.evaluate("BKSkyline.info().frames")
-    if f1 <= f0: problems.append(f"B21 the skyline stopped painting after a theme flip ({f0} -> {f1})")
+    if f1 <= f0: problems.append(f"B21 the skyline stopped painting after a theme flip ({f0} -> {f1}, vis {q.evaluate('BKSkyline.info().vis')})")
     if errs21: problems.append(f"B21 page errors: {errs21[:3]}")
     ctx.close()
     # reduced motion: highlight only — no light wave, no confetti
