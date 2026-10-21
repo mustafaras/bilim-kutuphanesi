@@ -296,9 +296,11 @@ vec3 bkSkyPos(vec3 p,float id){if(uTexOn<.5)return p;
   tl.addEventListener('pointerdown',e=>e.stopPropagation());cmpCard.addEventListener('pointerdown',e=>e.stopPropagation());
   /* camera state + R9.5 rail */
   /* R10.d: the city is 20.12 units wide (N*DX + BW) but the old 18.6 distance only showed 19.79 of it, so the two end years were
-     always cropped. 20.4 frames the whole skyline with a ~2 tower margin at each end, which is what makes a centred composition
-     possible in the first place. */
-  const DIST0=20.4;
+     always cropped. 21.8 frames the whole skyline with a real margin at each end, which is what makes a centred composition
+     possible in the first place. 20.4 was the first attempt and it did centre the city, but it pushed the 2026 tower out to 99%
+     of the panel width, straight into the canvas edge mask (Package 49) — the newest, tallest tower was the one being faded out.
+     21.8 lands the city at 5.0%..95.0%, inside the mask's opaque zone with room for the sway. */
+  const DIST0=21.8;
   let yaw=0,pitch=.2,dist=DIST0,distT=DIST0,vy=0,drag=null,mouse={x:0,y:0,in:false},visible=true,onscreen=true,raf=0,time0=performance.now();
   /* R10.d: the skyline is modelled around x=0 (X0=-(N-1)*DX/2), so the camera looks at the city's own axis and the composition
      stays centred whichever year is selected. The rail only drives a small parallax on the camera POSITION, which changes the

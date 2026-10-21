@@ -1571,3 +1571,14 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
  background:radial-gradient(76% 84% at 50% 36%,#fffdf7 0%,#f9f1de 42%,#efe3c9 68%,rgba(238,226,200,0) 88%)}
 :root[data-theme=light] .nc-sky::after{content:"";position:absolute;left:4%;right:4%;bottom:0;height:30%;z-index:0;pointer-events:none;
  background:radial-gradient(58% 100% at 50% 100%,rgba(74,58,34,.18),rgba(74,58,34,.07) 46%,rgba(74,58,34,0) 76%)}
+
+/* Package 49 — R10.d follow-up: the skyline now fills the panel, so the canvas edge mask was eating the end years. Package 29's
+   mask (line 1326) fades the canvas out from 94% to 100%, and after the centring the 2026 tower sat at 99% of the width — the
+   tallest, newest tower was the one being faded to 15% opacity. The mask still has a job (it hides the canvas rectangle), so it
+   is not removed, only narrowed: opaque from 3% to 97% instead of 6% to 94%, which leaves a 29px soft edge on each side and puts
+   the whole city inside the opaque zone. The vertical half of the mask is untouched — the ground plane is meant to fade out. */
+.nc-sky canvas{
+ -webkit-mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent),linear-gradient(180deg,transparent,#000 10%,#000 80%,transparent);
+ -webkit-mask-composite:source-in;
+ mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent),linear-gradient(180deg,transparent,#000 10%,#000 80%,transparent);
+ mask-composite:intersect}
