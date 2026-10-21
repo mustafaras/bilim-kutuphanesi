@@ -930,3 +930,17 @@ Canlı geçiş: `skyline → galaxy` `{mode:'filament',dur:1000,frames:59,ms:101
 **Altın yenilemesi gerekiyor.** `timeline` yüzeyi silüet panelini kapsıyor (1440×900'de fark kutusu y 191–508, x 0–662); ortalama değişikliği silüeti yatayda kaydırdığı için `1440x900-{dark,light}__timeline.png` altınları yenilenmeli. `Update visual goldens` iş akışı **`-f ref=<dal>` olmadan çalıştırılmamalı** — `--ref` tek başına `inputs.ref`'i doldurmuyor ve `commit` işi `main`'i çekiyor.
 
 **Kural:** bir geçiş "vinyet gibi" okunuyorsa önce shader'da radyal maske ara (`smoothstep` içinde `length(uv-.5)`), sonra dondurulmuş karenin arka planında. İkincisi panelin normal arka planıdır ve düzeltilmemelidir. Ayrıca "hareket" iddia eden bir terim ölçülmeli: `*.22*uT` gibi doğrusal bir öteleme 1 saniyede pikselin altında kalır ve görünmez; yörünge (`cos/sin` içinde `uT`) aynı genlikte görünür bir yay üretir.
+
+### 84.6 R10.f — uç yıllar tuval kenar maskesinin içinde (v139)
+
+**Belirti.** v138 canlıya çıktıktan sonra silüet ortalanmış görünüyordu ama 2026 kulesi — en yeni, en yüksek, zaman çizelgesinin görsel doruk noktası — **soluk** duruyordu. Ölçüm: şehrin koyu kütlesi panel genişliğinin **%99.1**'ine kadar uzanıyordu.
+
+**Kök neden.** `.nc-sky canvas` (Package 29, `style.css`) yatayda `0→6%` ve `94→100%` aralığında maskeliyor. `DIST0=20.4` şehri ortaladı ama 2026 kulesini tam olarak maskenin geçiş bölgesine (94–100%) oturttu; kule %15–50 opaklıkta çiziliyordu. Yani ortalama düzeltmesi, kendi başına yeni bir kusur üretti: **kadrajı düzeltirken maskeyi hesaba katmamak.**
+
+**Düzeltme.**
+- `site/skyline3d.js`: `DIST0` 20.4 → **21.8**. Şehir artık %5.0–%95.0 aralığında, maskenin opak bölgesinin içinde ve salınım (sway) için pay var.
+- `site/style.css`: **Package 49** — maske `3%`/`97%`'ye daraltıldı (dikey yarı dokunulmadı; zemin düzleminin sönmesi kasıtlı). Maske kaldırılmadı, çünkü tuvalin dikdörtgen kenarını gizleme işi hâlâ gerekli; yalnızca her iki yanda ~29 px yumuşak kenar bırakacak şekilde daraltıldı.
+
+**Doğrulama (1024×768, açık, panel 964×471).** Hesaplanmış maske `3%`/`97%` doğrulandı. Panel ortalaması 215.3, std 34.3, gökyüzü 233.7. Koyu sütunlar **%4.1–%96.3** (v138'de %2.9–%99.1). 2%'lik bant profili kuyruğu: `92-94%: 686`, `94-96%: 542`, `96-98%: 72`, `98-100%: 0` — kule tamamen opak bölgede, sönme yok. 1901'de koyu sütunlar %4.1–%92.4 (merkez %48.3), 2026'da %4.1–%96.3 (merkez %50.2). Koyu tema: siyah piksel **%0.00**, ortalama 55.6, std 38.8; eşik taraması `+40` → %2.9–%97.0 (merkez %49.9), `+60` → %5.2–%96.4 (merkez %50.8) — 97–100% bandında yalnız bloom halesi var, katı kütle değil.
+
+**Kural (yeni).** Kadraj ölçerken `anchor()`'a güvenme: ray noktasını (z = ±0.4) izdüşürür, kule yüzünden (z = +0.25) ~%2 sapar ve perspektif yüzünden uçlarda asimetriktir. **Gerçekten çizilen kenarı ölç** — ekran görüntüsünde sütun profili çıkar, koyu/parlak sütunların ilk ve son endeksini al. Ayrıca `sway = sin(time*.35)*.045` yüzünden `anchor()` tam bir 18 sn'lik döngüde ±%1 oynar; yargı vermeden önce **19 sn** örnekle. Ve bir çerçeveleme değişikliğinden sonra **CSS maskesini** kontrol et: tuvalin görünür alanı geometriden dar olabilir.
