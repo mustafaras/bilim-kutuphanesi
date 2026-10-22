@@ -136,7 +136,7 @@ Karşılaştırma modu, cam kuleler (anahtar), zemin ışık sızıntısı, Gala
 # v95 — Gerçek veri morph'u, tam yansıma, küre yıldızlar
 Grafik ⇄ Silüet ⇄ Galaksi geçişinde 1.895 kaydın her biri aynı parçacık olarak yeni konumuna akar. Aşağıdaki kareler morph'un ortasından (durağan kare). Görüntüler `ekran/v95/`.
 
-> **Not (v144–v145, R10.h):** bu parçacık morph'u ve `.nc-enter` girişi kaldırıldı. Artık **tüm** geçişler tek `weave` efektini çalıştırır (noktalı örgü + kesik çizgi bağlantılar + kesik yaylar); ayrıntı `DEVIR-FAZ-4.md` §84.8. Aşağıdaki kareler o günün kaydı olarak duruyor, bugünkü davranışı göstermez.
+> **Not (v146, R10.i):** bu parçacık morph'u ve `.nc-enter` girişi kaldırıldı (v144–v145, R10.h) ve yerine konan `weave` örgüsü de kullanıcı tarafından "anlamsız süs" bulunup emekliye ayrıldı. Bugün **tüm** geçişler tek `handover` efektini çalıştırır: iki dondurulmuş karenin çapraz erimesi + 13 düğümlü yıl rayı + galaksinin kendi dizin sırasında **1.895 kayıt noktası** + tek ışık süpürmesi. Ayrıntı `DEVIR-FAZ-4.md` §84.9. Aşağıdaki kareler o günün kaydı olarak duruyor, bugünkü davranışı göstermez.
 
 | | |
 |---|---|

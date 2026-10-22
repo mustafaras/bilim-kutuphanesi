@@ -109,7 +109,12 @@ def capture(b, w, h, theme, tag, keep=False):
         # frozen frame carries the outgoing panel's own CSS gradient, so a light set would double the goldens for one extra background colour.
         if (w, h, theme) == (1440, 900, "dark") and q.evaluate("!!window.__bkCrossStill"):
             for t in (0, .25, .5, .75, 1):
-                q.evaluate(f"window.__bkCrossStill('weave',{t})"); q.wait_for_timeout(700)
+                # R10.i: the hook is async (it stands the outgoing panel up, waits for its layout, then measures) and a fresh
+                # WebGL context can be transiently refused under software GL after a burst of switches — retry once rather than
+                # capture the live panel and call it a composite frame.
+                for _ in (1, 2):
+                    q.evaluate(f"window.__bkCrossStill('handover',{t})"); q.wait_for_timeout(700)
+                    if q.evaluate("!!document.querySelector('canvas.nc-cross')"): break
                 shot("transition-%03d" % round(t * 100), ".nc-3d:not(.nc-sky)")
             q.evaluate("window.BKTransition&&BKTransition.end()")
     # record page: the 3D book closed and its three open spreads (same steps as feature_audit B5). Effects stay paused: in ?still the book lands exactly on every target
