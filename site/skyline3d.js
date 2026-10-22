@@ -422,7 +422,7 @@ vec3 bkSkyPos(vec3 p,float id){if(uTexOn<.5)return p;
    /* the hero's frame-time governor owns the tier and would immediately undo a bare BKMotion.quality.set on software GL, so pin it */
    tier(n){try{if(window.BKMotion&&BKMotion.quality&&typeof BKMotion.quality.pin==='function')BKMotion.quality.pin(n);else if(window.BKMotion&&BKMotion.quality)BKMotion.quality.set(n)}catch{}size();syncGlass();syncGlow();wake();return lvl()},
    sample(i,c){return heightAt(i,c,time)},rail(){return{u:railOff,sel:selYear}},id(){return hoverYear}};
-  inst={wake,projectRecords,get Y0(){return Y0},sync:()=>{syncSel();wake()},enter(){if(reduced.matches)return;dist=distT*1.34;pitch=Math.min(.95,pitch+.18);wake()},anchor(){if(selYear<0||!anchorLocal)return null;const r=canvas.getBoundingClientRect();return{x:r.left+anchorLocal.x,y:r.top+anchorLocal.y}},
+  inst={wake,projectRecords,get Y0(){return Y0},sync:()=>{syncSel();wake()},anchor(){if(selYear<0||!anchorLocal)return null;const r=canvas.getBoundingClientRect();return{x:r.left+anchorLocal.x,y:r.top+anchorLocal.y}},
    /* R10.a: render one frame synchronously and hand back the canvas, so BKTransition can freeze the last image inside the same task
       (a preserveDrawingBuffer:false canvas is blank once the task ends). The bloom target is one frame stale — a soft glow, invisible in a freeze. */
    snap(){if(!renderer||!scene||!camera)return null;
