@@ -51,8 +51,9 @@
   labelsOf();
   ui.ctl.setAttribute('aria-label',t('heroZoom'));[['in','heroZoomIn'],['out','heroZoomOut'],['reset','heroZoomReset']].forEach(([k,key])=>ui.ctl.querySelector(`[data-z=${k}]`).setAttribute('aria-label',t(key)));
   const setView=v=>{if(morphing)return;{const from=view;if(from!==v&&!reduced.matches&&!(window.BKGL&&BKGL.still)&&ready(from)&&ready(v)){if(crossTo(from,v))return}}view=v;chart.hidden=view!=='chart';panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';labelsOf();
-   const shown=view==='galaxy'?panel:view==='skyline'?sky:chart;if(!reduced.matches&&!(window.BKGL&&BKGL.still)){shown.classList.remove('nc-enter');void shown.offsetWidth;shown.classList.add('nc-enter');setTimeout(()=>shown.classList.remove('nc-enter'),900)}
-   /* no enter() camera push on top of nc-enter: one entrance effect per switch, not blur+dolly at once */
+   /* R10.h: no blur/scale entrance on top of the cross. The weave IS the switch, in every direction and both themes — a second
+      CSS animation on the plain path (blur 12px + translateY + scale) was the "unnecessary extra effect" the user kept seeing
+      when the cross could not run. A failed cross is a plain cut, not a different animation. */
    if(view==='galaxy'){if(!booted){booted=true;boot()}else if(api)api.wake()}
    if(view==='skyline'&&window.NobelSkyline){const si=window.NobelSkyline.inst;if(si)si.sync();else window.NobelSkyline.init(sky).then(r=>{if(!r){setView('chart')}})}
    linkKick()};
@@ -96,15 +97,35 @@
     return{a,b,center:c,radii:r}}
    const p=pageBg(el);return{a:p,b:p,center:[.5,.5],radii:[1,1]}};
   const crossSide=v=>v==='skyline'?(window.NobelSkyline&&window.NobelSkyline.inst)||null:v==='galaxy'?(api&&api.snap?api:null):null;
+  const panelOf=v=>v==='skyline'?sky:v==='galaxy'?panel:chart;
+  /* the chart is DOM, so it has no WebGL frame to freeze: paint its own dot constellation instead — one plotted point per 6 px
+     cell inside every category segment of every year bar. The weave then dissolves the chart into the very field that carries
+     the 3D switches, so all six directions speak one visual language. Drawn while the chart is still laid out (a hidden panel
+     has no rects), which is why crossTo builds the freeze before it switches the views. */
+  const INK=['#8a6a26','#2f6a58','#8b4551','#54467f','#33587f','#8a5330','#4c5c66'];
+  function chartDots(){
+   const r=chart.getBoundingClientRect();if(r.width<8||r.height<8)return null;
+   const cv=document.createElement('canvas');cv.width=Math.round(r.width);cv.height=Math.round(r.height);
+   const g=cv.getContext('2d');if(!g)return null;
+   const lite=root.dataset.theme==='light',step=6;
+   for(const seg of chart.querySelectorAll('.nc-stack i')){const b=seg.getBoundingClientRect();if(b.width<1||b.height<1)continue;
+    const m=/nc-c(\d)/.exec(seg.className),k=m?Math.min(6,Number(m[1])):6;g.fillStyle=lite?INK[k]:CATC[k];
+    for(let y=Math.max(b.top-r.top,0)+step*.5;y<b.bottom-r.top;y+=step)for(let x=Math.max(b.left-r.left,0)+step*.5;x<b.right-r.left;x+=step){g.beginPath();g.arc(x,y,1.15,0,6.2832);g.fill()}}
+   return cv}
+  const freezeOf=v=>{const s=crossSide(v);
+   /* render the outgoing frame NOW, while its panel is still visible and laid out: crossTo hides it before run(), and a
+      display:none canvas has no clientWidth for the scene's own label pass */
+   if(s&&typeof s.snap==='function'){const cv=s.snap();if(cv&&typeof cv.getContext==='function')return{render:()=>cv}}
+   const cs=v==='chart'?chartDots():null;return cs?{render:()=>cs}:null};
   function crossTo(from,to){
    const T=window.BKTransition;if(!T||!T.ready)return false;
-   const src=crossSide(from),dst=crossSide(to);
-   if(!src||!dst||typeof src.snap!=='function')return false;
-   const fromPanel=from==='skyline'?sky:panel,toPanel=to==='skyline'?sky:panel,tc=toPanel.querySelector('canvas');
-   T.bind({from:()=>({render:()=>src.snap()}),host:()=>toPanel,bg:()=>bgOf(fromPanel),
+   const fz=freezeOf(from);                         /* before the switch: the outgoing view has to still be laid out */
+   if(!fz)return false;
+   const toPanel=panelOf(to),tc=toPanel.querySelector('canvas');
+   T.bind({from:()=>fz,host:()=>toPanel,bg:()=>bgOf(toPanel),
     end:()=>{morphing=false;chron.classList.remove('nc-morphing');toPanel.style.opacity='';toPanel.style.transition='';if(tc)tc.style.transition='';linkKick()}});
    /* the incoming panel has to be on screen and its canvas opaque before the composite is built */
-   view=to;chart.hidden=true;panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';labelsOf();
+   view=to;chart.hidden=view!=='chart';panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';labelsOf();
    toPanel.style.transition='none';toPanel.style.opacity='1';
    if(tc){tc.style.transition='none';tc.classList.add('on')}
    /* the incoming scene stays still under the composite: no enter() zoom/spin on top of the cross, which made the scene
@@ -112,9 +133,9 @@
    if(to==='galaxy'&&api)api.wake();
    if(to==='skyline'&&window.NobelSkyline.inst)window.NobelSkyline.inst.sync();
    morphing=true;chron.classList.add('nc-morphing');linkSvg.classList.remove('on');
-   /* R10.e: the radial vignette is gone — the user rejected that look. Both directions now run the same `filament` cross (galaxy dots
-      + glowing links), so skyline→galaxy and galaxy→skyline speak one visual language instead of two different ones. */
-   if(T.run('filament'))return true;
+   /* R10.h: EVERY pair (galaxy ⇄ skyline ⇄ chart, both directions) runs the one `weave` cross — dotted nodes, dashed links,
+      three dashed arcs. The old mode table (iris / dive / materialize / chroma / filament) is gone: one effect, one language. */
+   if(T.run('weave'))return true;
    morphing=false;chron.classList.remove('nc-morphing');toPanel.style.opacity='';toPanel.style.transition='';if(tc)tc.style.transition='';
    return false}
   /* audit hook: hold ONE transition frame at a fixed uT. tools/visual_audit.py captures the intermediate frames of the cross with it and
@@ -123,7 +144,7 @@
    const T=window.BKTransition;if(!T||!T.ready)return null;
    const src=crossSide('skyline'),dst=crossSide('galaxy');
    if(!src||!dst)return null;
-   T.bind({from:()=>({render:()=>src.snap()}),host:()=>panel,bg:()=>bgOf(sky)});
+   T.bind({from:()=>({render:()=>src.snap()}),host:()=>panel,bg:()=>bgOf(panel)});
    view='galaxy';chart.hidden=true;panel.hidden=false;sky.hidden=true;labelsOf();
    const tc=panel.querySelector('canvas');if(tc){tc.style.transition='none';tc.classList.add('on')}
    if(api)api.wake();
