@@ -801,11 +801,12 @@ def b21(b):
     ctx2.close()
 
 def b22(b):
-    """B22 R10.a freeze-and-cross (transition.js): the outgoing view's last frame is frozen into ONE render target, the incoming view keeps
-    drawing live underneath, and ONE ShaderMaterial composites the two on a pointer-events:none canvas that is removed on exit. R10.h: uMode
-    picks ONE effect for every pair — weave (dotted nodes, dashed links, three dashed arcs) — plus cut, the <=120 ms software-GL fallback,
+    """B22 R10.a freeze-and-cross (transition.js): the outgoing view's last frame is baked into a plain bitmap, the incoming view keeps
+    drawing live underneath, and ONE ShaderMaterial composites the two on a pointer-events:none canvas that is removed on exit. R10.i: uMode
+    picks ONE effect for every pair — handover (a cross-dissolve between the two frozen frames, the 13-node year rail and one light sweep,
+    plus a 1895-point record cloud in the galaxy's own index order) — plus cut, the <=120 ms software-GL fallback,
     so the program count never grows with the transition table. Reduced motion builds nothing
-    (0 frames). A context loss mid-transition drops the frozen frame and cuts at once. The composite's target and program are released when
+    (0 frames). A context loss mid-transition drops the frozen frame and cuts at once. The composite's programs and textures are released when
     the transition ends, and the cross must not collide with record.js withMorph's view-transition-name."""
     ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q = ctx.new_page()
     q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
@@ -842,7 +843,11 @@ def b22(b):
     # the spec's 20 for a real GPU; the honest number is printed above and in the PR report.
     need = 2 if soft else 20
     if xf < need: problems.append(f"B22 the cross painted {xf} frames, the gate asks for >= {need} on {'software' if soft else 'real'} GL")
-    if not last or last.get("targets") != 1 or last.get("programs") != 1: problems.append(f"B22 the cross must use exactly ONE render target and ONE program: {last}")
+    # R10.i: NO render target (both frames are CanvasTextures) and exactly TWO programs (dissolve quad + record cloud). The cloud is one point
+    # per catalog record, so the count must equal the galaxy's star count — measured, not assumed — and it is what makes the flight meaningful.
+    if not last or last.get("targets") != 0 or last.get("programs") != 2: problems.append(f"B22 the cross must use ZERO render targets and TWO programs: {last}")
+    if last and last.get("points") not in (None, 0) and not (1800 <= last["points"] <= 2048): problems.append(f"B22 the record cloud must hold the catalog's ~1895 points: {last}")
+    if last and last.get("textures") not in (None, 0) and last["textures"] < 2: problems.append(f"B22 the cross must keep both frozen frames as textures: {last}")
     # ---- released on exit: no canvas, no target, no program
     i1 = q.evaluate("BKTransition.info()")
     if i1.get("active") or i1.get("targets") or i1.get("programs"): problems.append(f"B22 the composite was not released when the cross ended: {i1}")
