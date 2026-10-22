@@ -997,3 +997,54 @@ Hareket kanıtı: ardışık `t` kareleri arasında yüksek-geçiren korelasyon 
 **Kapılar.** Statik: `node --check site/*.js`, `validate_site` (2653 kayıt, 10 rota, 2015 Drive bağlantısı), `validate_i18n`, `validate_fonts`, `gl_audit`, `materials_audit`, `shaders_audit` (BKShaders 5150 bayt, 23 fonksiyon), `check_app` → hepsi geçti.
 
 **Kural (yeni).** Bir geçişte "efekt çirkin" şikâyeti geldiğinde önce **efektin ne zaman bittiğini** ölç: `smoothstep(a,b,uT)` içindeki `b` .9'a yakınsa efekt 1 saniyelik pencerenin çoğunda hâlâ yarı yoldadır ve kullanıcı onu "efekt" değil "eski görüntü" olarak görür. İkincisi: **toplamalı (`AdditiveBlending`) renk açık temada güvenilmez** — parlak bir tabanın üstüne eklenen açık renk doyar ve kaybolur; üst/alt yarı farkını ayrı ayrı ölçmeden "alan görünüyor" demeyin. Üçüncüsü: bir panelin arka planını sayfayla uyumlu yapmanın tek güvenilir yolu **arka planı kaldırmaktır**; sayfa `.ambient-light` yüzünden gradyanlıdır ve hiçbir düz dolgu onu taklit edemez. Dördüncüsü: bir CSS katmanını "levha" diye düşürmeden önce tuvalin saydam olup olmadığını doğrula (`alpha:true` + `setClearColor(0,0)`); saydam tuvalin üstüne konan her dolgu levhadır.
+
+### 84.8 R10.h — tek geçiş efekti: noktalı ve çizgili `weave` (v144–v145)
+
+**Belirti (kullanıcı, iki tur).** Önce: "hem dark hem light modda silüet ve galaksi geçiş animasyonları sorunlu, gereksiz fazla anlamsız geçiş efektlerini tespit et ve bunları kaldır." Sonra, temizlik yetmediği için: "tüm geçişlerde tek effect olsun ve noktalı ve çizgili ultra premium bir animasyon tercih, uygulamanın genel aurasıyla uyumlu olmalı."
+
+**Kök neden: tek bir geçişte dört bağımsız efekt üst üste biniyordu.** Kullanıcının "gereksiz fazla anlamsız" dediği şey tek tek efektler değil, **aynı 400–1000 ms penceresinde dördünün birden çalışmasıydı**:
+
+| # | efekt | nerede | ne yapıyordu | karar |
+|---|---|---|---|---|
+| 1 | 2B parçacık morph'u | `morphTo()` / `run()`, ayrı tuval | dondurulmuş kareyi parçacıklara bölüp yeniden dağıtıyordu | **silindi (v144)** |
+| 2 | kamera itişi | `api.enter()` / `inst.enter()` | gelen sahneyi 250 ms boyunca yakınlaştırıyordu | **silindi (v144)** |
+| 3 | CSS girişi | `.nc-enter` (`blur`+`scale`) | paneli bulanık-büyüyerek getiriyordu | **silindi (v145)** |
+| 4 | shader geçişi | `BKTransition`, **6 mod** | `iris` / `dive` / `materialize` / `chroma` / `filament` + `cut` | **tek moda indirildi (v145)** |
+
+1–3 gidince shader geçişi kaldı; ama altı mod altı ayrı görsel dil demekti ve panel çiftine göre farklı bir efekt seçiliyordu (`chart→galaxy` başka, `galaxy→skyline` başka). Üçüncü adımda altı mod **tek** efekte çöktü.
+
+**Tek efekt: `weave` — çizilmiş noktalar ve saç teli kesik çizgiler.**
+
+- Süre **1050 ms**, tek `ease`. Altı çiftin altısı da (galaxy / skyline / chart, iki yön) **aynı** efekti çalıştırır.
+- **Ateşleme cephesi çaprazdır**, radyal değil: `sweep=clamp(uv.x*.55+(1.-uv.y)*.45,0.,1.)`. Bir noktanın yanma anı `t0=sweep*.30+h*.14` — yani sol-üstten sağ-alta yayılan bir ön, merkezden patlama değil.
+- **12 hücrelik örgü**, hücre başına **tek** hash (`bk_hash12`) ofset + ateşleme anı + rengi birlikte sürer. Nokta `p0∈[.25,.75]` içinde kalır, hiçbiri hücresinden taşmaz.
+- Nokta **keskin çekirdek + saç teli hale**: `core=1.-smoothstep(.026,.055,dd)`, `ring` .040–.082. Ekranda "parlayan doku" değil, **çizilmiş ölçüm noktası** gibi okunur.
+- **Kesik çizgi bağlantıları:** her hücre **dört** komşusunun yarısını çizer; segment boyunca `fract(sp*3.2)` ile 3.2 periyot, yumuşak uçlarla. Düz bir çubuk değil, **cetvel çizgisi**.
+- **Üç kesik yay** merkezden açılır (`R=mix(.04,.58,uT)*(1.+i*.22)`, `atan` × 4.1379). Astronomik aura buradan gelir.
+- **Tema paleti:** gece lacivert üstünde azur + altın; parşömen üstünde mürekkep mavisi + pirinç. `uLight` seçer — koyu temada soluk kalmıyor, açık temada kâğıtta kaybolmuyor.
+- **Dondurulmuş kare ilk üçte birde biter:** `base=1.-smoothstep(0.,.34,uT)`. Geçişin ikinci yarısında giden görünümden hiçbir şey kalmaz, ekranda yalnızca alan vardır (§84.7'deki "efekt bitmiyor" hatasının tekrarı değil).
+- **Uçlar tam:** `uT=0` dokunulmamış dondurulmuş kare, `uT=1` tamamen saydam. `visual_audit` bu iki kareyi karşılaştırdığı için yarı aydınlanmış bir karede başlamak/kapanmak yok.
+- **Tek program:** `uMode` yalnız `weave` ile `cut` arasında seçer; program sayısı geçiş tablosuyla **büyümez**. `cut` (≤120 ms) kalite S3+ için duruyor.
+- Emekli isimler kaybolmadı: `ALIAS={iris,dive,materialize,chroma,filament → 'weave'}`, `modeOf()` üzerinden. `tools/visual_audit.py`, `gpu_budget_audit.py`, `feature_audit.py` içindeki `__bkCrossStill('materialize',t)` çağrıları hâlâ çalışır ve `weave` karesi üretir; bu üç aracın mod adları da `weave`'e güncellendi.
+
+**Grafik paneli aynı efekte katıldı.** `chart` görünümü DOM'dur, GL karesi yoktur — bu yüzden `chart→galaxy` eskiden efektin **dışında** kalıyordu ve tek dil iddiası yarım kalıyordu. Çözüm:
+
+- `chartDots()` her `.nc-stack i` segmentinin içine 6 px'lik hücre başına bir nokta boyar; renk `/nc-c(\d)/` sınıfından `CATC`/`INK` ile seçilir, tuval şeffaftır.
+- `freezeOf(v)` **giden kareyi panel hâlâ görünürken ve yerleşmişken** üretir. Bu şart: gizli panelin `getBoundingClientRect()`'i yoktur ve `display:none` bir tuvalin `clientWidth`'i **0**'dır. Bu yüzden 3B `snap()` de artık tembel değil, aynı senkron görevde çağrılır (`preserveDrawingBuffer:false` tuval görev bitince boşalır).
+- Kare yoksa **kesme yok**: `blank()` 1×1 doku + `uHasSrc=0` ile alan panelin kendi arka planı üstünde çalışır.
+- `.nc-cross` kuralı `.nc-3d canvas` yanında `.nc-chart canvas`'ı da kapsar (aynı `z-index:3`, aynı `pointer-events:none`), azaltılmış harekette aynı `display:none` eşi.
+
+**Ölçüm — kompozit tuvalin gerçek alfa alanı.** `gl.readPixels` ile `canvas.nc-cross` (1326×600), 24 dikey kova, **iki tema birebir aynı**:
+
+| `t` | `alphaMean` | kapsanan kova | kova başına alfa>40 piksel | `cmax` |
+|---|---|---|---|---|
+| .02 | 223 | 24/24 | ~31 790 | 252 (her kovada) |
+| .20 | 83 | 24/24 | ~30 910 | 195 → 86 (cephe soldan sağa) |
+| .50 | 9 | 24/24 (718 … 3 179) | seyrek | **255 — 24 kovanın hepsinde** |
+| .90 | 0 | 0/24 | 0 | 0 |
+
+Bu tablo bir yanlış teşhisi kapattı: ekran görüntüsünde **parlaklık** eşiğiyle bakıldığında alanın sol/sağ %12–25'inde nokta görünmüyordu ve "örgü tuvali kaplamıyor" sanıldı. Alfa okunduğunda `t=.50`'de **24 kovanın hepsinde `cmax=255`** çıktı — noktalar ve kesik çizgiler iki kenara da ulaşıyor. `alphaMean=9` düşük çünkü efekt **noktalı**: seyrek olması tasarım, kapsamaması değil. `t=.90`'da tam sıfır, yani sönme gerçekten bitiyor.
+
+**Doğrulama.** Altı çift × iki tema × `t=0/.25/.50/.75/1`, artı temizlik kontrolü: `canvas.nc-cross` kaldırılıyor, tek görünüm görünür kalıyor, `morphing`/`nc-morphing` sıfırlanıyor (kilitlenme yok). İlk `skyline` tıklaması ve ilk `skyline→galaxy` birer **kesme** olarak geçiyor; ikisi de bu turdan önce de aynıydı (ilkinde görünüm zaten `skyline`, ikincisinde galaksi sahnesi henüz `boot` etmemiş), yani yeni bir kusur değil. Kapılar: `node --check site/*.js`, `gl_audit`, `shaders_audit` (BKShaders 5150 bayt, 23 fonksiyon), `materials_audit`, `reduced_audit` (azaltılmış harekette 0 kare, 0 hata).
+
+**Kural (yeni).** Birinci: bir bölümdeki geçiş sayısı efekt sayısından fazlaysa kullanıcı bunu "gereksiz efekt" olarak okur — **geçiş başına tek efekt**; ikinci bir efekt eklemek için önce hangi efektin kaldırılacağını söyle. İkincisi: DOM paneli de aynı efekte katılır — GL karesi yoksa **arka planı dondurup alanı üstüne çalıştır**, panele ikinci bir CSS girişi (`blur`/`scale`) ekleme. Üçüncüsü: dondurma **görünürken** yapılmalı; gizli panelin dikdörtgeni, `display:none` tuvalin `clientWidth`'i yoktur. Dördüncüsü: saydam kompozit tuvalde kapsama **alfa** ile ölçülür, parlaklıkla değil — noktalı bir efektin seyrekliği kapsamama sanılır.

@@ -1374,16 +1374,17 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 :root[data-theme=light] .nc-cmp .hd .b{color:#3a62a8}:root[data-theme=light] .nc-cmp .tot{color:#566b75}:root[data-theme=light] .nc-cmp .v{color:#2c4252}:root[data-theme=light] .nc-cmp .bar{background:rgba(19,43,59,.1)}
 :root[data-theme=light] .nc-cmp .up,:root[data-theme=light] .nc-3d-tip .dlt.up{color:#1f7a63}:root[data-theme=light] .nc-cmp .dn,:root[data-theme=light] .nc-3d-tip .dlt.dn{color:#b04e1f}
 @media(max-width:760px){.nc-sky-time{flex-wrap:wrap;justify-content:center}.nc-sky-time input{order:5;flex:1 0 100%}.nc-cmp .r{grid-template-columns:62px 1fr 18px 40px 18px 1fr}}
-/* Package 30 — view transition choreography + year-dossier light line */
-.nc-enter{animation:nc-enter .8s cubic-bezier(.2,.8,.2,1) both}
-@keyframes nc-enter{0%{opacity:0;filter:blur(12px);transform:translateY(18px) scale(1.025)}60%{opacity:1}100%{opacity:1;filter:blur(0);transform:none}}
+/* Package 30 — view transition choreography + year-dossier light line
+   R10.h: the old `.nc-enter` entrance (blur 12px + translateY + scale, 0.8 s) is REMOVED. It was a second, different animation
+   layered under the cross — when the cross could not run you got the blur instead, and when it could the two stacked. The one
+   cross (BKTransition `weave`: dotted nodes, dashed links, dashed arcs) is now the only view transition in either theme. */
 .nc-link{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:2}
 .nc-link path{fill:none;stroke:url(#ncLinkGrad);stroke:var(--nc-brass,#e8c58a);stroke-width:1.25;stroke-linecap:round;stroke-opacity:.55;stroke-dasharray:3 7;filter:drop-shadow(0 0 4px var(--nc-brass,#e8c58a));opacity:0;transition:opacity .4s}
 .nc-link.on path{opacity:1;animation:nc-link-draw 1.1s ease-out both,nc-link-flow 2.2s linear infinite}
 @keyframes nc-link-draw{from{stroke-dasharray:1 2000;stroke-opacity:.9}to{stroke-dasharray:3 7}}
 @keyframes nc-link-flow{to{stroke-dashoffset:-20}}
 :root[data-theme=light] .nc-link path{filter:none;stroke-opacity:.6}
-@media(prefers-reduced-motion:reduce){.nc-enter{animation:none}.nc-link.on path{animation:none}}
+@media(prefers-reduced-motion:reduce){.nc-link.on path{animation:none}}
 /* Package 32 — C closure: chart view frameless + same stage height as the 3D views (no layout jump), controls locked during the view cross */
 .nobel-chronicle .nc-chart,:root[data-theme=light] .nobel-chronicle .nc-chart{background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0 0 12px;min-height:clamp(380px,54vw,600px);display:flex;flex-direction:column;justify-content:flex-end}
 .nobel-chronicle .nc-strip{height:clamp(260px,38vw,430px)}.nobel-chronicle .nc-gridlines{height:clamp(260px,38vw,430px)}
@@ -1547,9 +1548,11 @@ canvas,.living-art svg,.hero-ground{-webkit-user-drag:none;user-drag:none}
 @media(prefers-reduced-motion:reduce){.nc-sky .nc-3d-labels span{transition:none}}
 
 /* Package 46 — R10.a "dondur-ve-geç" (freeze-and-cross). The composite lives on its own canvas inside the incoming panel: it must be fully
-   opaque (the panel's own canvas rule sets opacity:0 until .on) and it must never eat a pointer event — the panel underneath stays live. */
-.nc-3d canvas.nc-cross{position:absolute;inset:0;width:100%;height:100%;opacity:1;transition:none;z-index:2;pointer-events:none}
-@media(prefers-reduced-motion:reduce){.nc-3d canvas.nc-cross{display:none}}
+   opaque (the panel's own canvas rule sets opacity:0 until .on) and it must never eat a pointer event — the panel underneath stays live.
+   R10.h: the chart is a host too (it is DOM, so nobel3d paints its dot constellation as the frozen frame); the abs-positioned canvas
+   is out of flow, so it does not disturb the chart's flex column. */
+.nc-3d canvas.nc-cross,.nc-chart canvas.nc-cross{position:absolute;inset:0;width:100%;height:100%;opacity:1;transition:none;z-index:3;pointer-events:none}
+@media(prefers-reduced-motion:reduce){.nc-3d canvas.nc-cross,.nc-chart canvas.nc-cross{display:none}}
 
 /* Package 47 — R10.b "sahne" (stage). Package 29 removed the card so the scene could dissolve into the page, but with nothing behind it
    the two themes read the same and the towers floated on bare paper. A soft radial pool — no border, no radius, no hard edge — gives

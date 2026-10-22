@@ -802,8 +802,9 @@ def b21(b):
 
 def b22(b):
     """B22 R10.a freeze-and-cross (transition.js): the outgoing view's last frame is frozen into ONE render target, the incoming view keeps
-    drawing live underneath, and ONE ShaderMaterial composites the two on a pointer-events:none canvas that is removed on exit. uMode picks
-    dive / materialize / iris / chromatic / cut, so the program count never grows with the transition table. Reduced motion builds nothing
+    drawing live underneath, and ONE ShaderMaterial composites the two on a pointer-events:none canvas that is removed on exit. R10.h: uMode
+    picks ONE effect for every pair — weave (dotted nodes, dashed links, three dashed arcs) — plus cut, the <=120 ms software-GL fallback,
+    so the program count never grows with the transition table. Reduced motion builds nothing
     (0 frames). A context loss mid-transition drops the frozen frame and cuts at once. The composite's target and program are released when
     the transition ends, and the cross must not collide with record.js withMorph's view-transition-name."""
     ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q = ctx.new_page()
