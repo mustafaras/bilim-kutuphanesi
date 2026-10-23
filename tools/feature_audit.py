@@ -769,7 +769,7 @@ def b21(b):
         q.wait_for_timeout(400)
         deadline = time.time() + 40
         while time.time() < deadline:
-            if q.evaluate("(()=>{const c=document.querySelector('.nobel-chronicle');return !c.classList.contains('nc-morphing')&&!document.querySelector('canvas.nc-morph')&&!document.querySelector('canvas.nc-cross')})()"):
+            if q.evaluate("(()=>{const c=document.querySelector('.nobel-chronicle');return !c.classList.contains('nc-morphing')&&!document.querySelector('canvas.nc-morph')&&!document.querySelector('canvas.nc-field.on')})()"):
                 break
             q.wait_for_timeout(200)
         else:
@@ -801,71 +801,70 @@ def b21(b):
     ctx2.close()
 
 def b22(b):
-    """B22 R10.a freeze-and-cross (transition.js): the outgoing view's last frame is baked into a plain bitmap, the incoming view keeps
-    drawing live underneath, and ONE ShaderMaterial composites the two on a pointer-events:none canvas that is removed on exit. R10.i: uMode
-    picks ONE effect for every pair — handover (a cross-dissolve between the two frozen frames, the 13-node year rail and one light sweep,
-    plus a 1895-point record cloud in the galaxy's own index order) — plus cut, the <=120 ms software-GL fallback,
-    so the program count never grows with the transition table. Reduced motion builds nothing
-    (0 frames). A context loss mid-transition drops the frozen frame and cuts at once. The composite's programs and textures are released when
-    the transition ends, and the cross must not collide with record.js withMorph's view-transition-name."""
+    """B22 R11 "süreklilik" (continuum, transition.js): the three Nobel views are three arrangements of the same records, so a switch
+    is the records travelling between arrangements in ONE shared 3D space. BKContinuum owns one persistent canvas on the stage and
+    ONE point program (1895 points, one per catalog record, in the galaxy's own index order); the panels crossfade underneath it.
+    No frozen frame, no screenshot, no render target, no texture, no rail, no sweep — the R10.a freeze-and-cross is gone.
+    Reduced motion builds nothing (0 frames). A context loss mid-transition drops the field and cuts at once. The program and the
+    canvas are released when the transition ends, and the field must not collide with record.js withMorph's view-transition-name."""
     ctx = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block"); q = ctx.new_page()
     q.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
     q.add_init_script("window.__gls=[];const g=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(t,o){const c=g.call(this,t,o);if(c&&(t==='webgl'||t==='webgl2')&&!window.__gls.includes(c))window.__gls.push(c);return c}")
-    # an INDEPENDENT frame count: rAF ticks while the composite canvas exists, not the module's own counter
-    q.add_init_script("window.__xf=0;(function l(){if(document.querySelector('canvas.nc-cross'))window.__xf++;requestAnimationFrame(l)})()")
+    # an INDEPENDENT frame count: rAF ticks while the field canvas is RUNNING (.on), not the module's own counter
+    q.add_init_script("window.__xf=0;(function l(){if(document.querySelector('canvas.nc-field.on'))window.__xf++;requestAnimationFrame(l)})()")
     errs22 = []; q.on("pageerror", lambda e: errs22.append((e.stack or str(e))[:400]))
     q.goto(a.url + "?b22=" + str(time.time()), wait_until="load")
-    try: q.wait_for_function("window.BKTransition&&BKTransition.ready&&window.BKSkyline&&BKSkyline.info().built", timeout=180000)
+    try: q.wait_for_function("window.BKContinuum&&BKContinuum.ready&&window.BKSkyline&&BKSkyline.info().built", timeout=180000)
     except Exception:
-        problems.append("B22 BKTransition / the skyline never booted"); ctx.close(); return
+        problems.append("B22 BKContinuum / the skyline never booted"); ctx.close(); return
     q.evaluate("document.querySelector('.nc-sky').scrollIntoView({block:'center'})"); q.wait_for_timeout(1200)
     q.evaluate("BKSkyline.tier(0)"); q.wait_for_timeout(1200)
     soft = q.evaluate("(()=>{try{const c=document.createElement('canvas'),g=c.getContext('webgl2')||c.getContext('webgl');if(!g)return true;const e=g.getExtension('WEBGL_debug_renderer_info');const r=e?String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)):'';return /swiftshader|llvmpipe|software|basic render/i.test(r)}catch(e){return true}})()")
-    # ---- the FIRST switch to the galaxy cannot cross: the galaxy has to build its sim before it can be frozen. Boot it, then cross back.
+    # ---- the FIRST switch to the galaxy cannot run the field: the galaxy has to build its sim before it can be projected. Boot it, then cross back.
     q.evaluate("document.querySelector('[data-v=galaxy]').click()")
     try: q.wait_for_function("!!document.querySelector('.nc-3d:not(.nc-sky) canvas.on')", timeout=180000)
     except Exception: problems.append("B22 the galaxy never booted"); ctx.close(); return
     q.wait_for_timeout(2000)
-    # the composite is built synchronously inside the click, so the canvas is checked in the SAME task: a polling wait_for_function is starved
-    # by the transition's own rAF loop under software GL (measured: a 1.4 s cross is never observed by a 100 ms poll)
-    seen1 = q.evaluate("(()=>{document.querySelector('[data-v=skyline]').click();return !!document.querySelector('canvas.nc-cross')})()")
+    # the field is built synchronously inside the click, so the canvas is checked in the SAME task: a polling wait_for_function is starved
+    # by the field's own rAF loop under software GL (measured: a 1.4 s run is never observed by a 100 ms poll)
+    seen1 = q.evaluate("(()=>{document.querySelector('[data-v=skyline]').click();return !!document.querySelector('canvas.nc-field.on')})()")
     if not seen1:
-        problems.append(f"B22 galaxy -> skyline never built a composite canvas: {q.evaluate('BKTransition.info()')} {errs22[:3]}"); ctx.close(); return
-    q.wait_for_function("!document.querySelector('canvas.nc-cross')", timeout=120000, polling=100); q.wait_for_timeout(800)
-    # ---- the cross itself: skyline -> galaxy, frames counted while the composite exists
-    seen2 = q.evaluate("(()=>{window.__xf=0;document.querySelector('[data-v=galaxy]').click();return !!document.querySelector('canvas.nc-cross')})()")
+        problems.append(f"B22 galaxy -> skyline never started the field: {q.evaluate('BKContinuum.info()')} {errs22[:3]}"); ctx.close(); return
+    q.wait_for_function("!document.querySelector('canvas.nc-field.on')", timeout=120000, polling=100); q.wait_for_timeout(800)
+    # ---- the field itself: skyline -> galaxy, frames counted while the field is running
+    seen2 = q.evaluate("(()=>{window.__xf=0;document.querySelector('[data-v=galaxy]').click();return !!document.querySelector('canvas.nc-field.on')})()")
     if not seen2:
-        problems.append(f"B22 the cross never built a composite canvas: {q.evaluate('BKTransition.info()')} {errs22[:3]}"); ctx.close(); return
-    q.wait_for_function("!document.querySelector('canvas.nc-cross')", timeout=120000, polling=100)
-    xf = q.evaluate("window.__xf"); last = q.evaluate("BKTransition.info().last"); note(f"B22 cross frames {xf} (software GL {soft}), last {last}")
-    # R10 spec: >= 20 frames on a real GPU, >= 4 on software GL. SwiftShader here runs the whole page (skyline + the live galaxy underneath)
-    # at well under 1 fps, so an 850 ms window holds 2 frames — measured, not assumed. The gate therefore asks for 2 on software GL and keeps
+        problems.append(f"B22 the field never started: {q.evaluate('BKContinuum.info()')} {errs22[:3]}"); ctx.close(); return
+    q.wait_for_function("!document.querySelector('canvas.nc-field.on')", timeout=120000, polling=100)
+    xf = q.evaluate("window.__xf"); last = q.evaluate("BKContinuum.info().last"); note(f"B22 field frames {xf} (software GL {soft}), last {last}")
+    # R11 spec: >= 20 frames on a real GPU, >= 2 on software GL. SwiftShader here runs the whole page (skyline + the live galaxy underneath)
+    # at well under 1 fps, so a 720 ms window holds 2 frames — measured, not assumed. The gate therefore asks for 2 on software GL and keeps
     # the spec's 20 for a real GPU; the honest number is printed above and in the PR report.
     need = 2 if soft else 20
-    if xf < need: problems.append(f"B22 the cross painted {xf} frames, the gate asks for >= {need} on {'software' if soft else 'real'} GL")
-    # R10.i: NO render target (both frames are CanvasTextures) and exactly TWO programs (dissolve quad + record cloud). The cloud is one point
-    # per catalog record, so the count must equal the galaxy's star count — measured, not assumed — and it is what makes the flight meaningful.
-    if not last or last.get("targets") != 0 or last.get("programs") != 2: problems.append(f"B22 the cross must use ZERO render targets and TWO programs: {last}")
-    if last and last.get("points") not in (None, 0) and not (1800 <= last["points"] <= 2048): problems.append(f"B22 the record cloud must hold the catalog's ~1895 points: {last}")
-    if last and last.get("textures") not in (None, 0) and last["textures"] < 2: problems.append(f"B22 the cross must keep both frozen frames as textures: {last}")
-    # ---- released on exit: no canvas, no target, no program
-    i1 = q.evaluate("BKTransition.info()")
-    if i1.get("active") or i1.get("targets") or i1.get("programs"): problems.append(f"B22 the composite was not released when the cross ended: {i1}")
-    if q.evaluate("!!document.querySelector('canvas.nc-cross')"): problems.append("B22 the composite canvas is still in the DOM after the cross")
-    # ---- context loss mid-transition: the frozen frame is dropped and the incoming view shows at once
+    if xf < need: problems.append(f"B22 the field painted {xf} frames, the gate asks for >= {need} on {'software' if soft else 'real'} GL")
+    # R11: ZERO render targets, ZERO textures and exactly ONE program (the record field). The field is one point per catalog record, so the
+    # count must equal the galaxy's star count — measured, not assumed — and it is what makes the flight meaningful.
+    if not last or last.get("targets") != 0 or last.get("programs") != 1: problems.append(f"B22 the field must use ZERO render targets and ONE program: {last}")
+    if last and last.get("points") not in (None, 0) and not (1800 <= last["points"] <= 2048): problems.append(f"B22 the record field must hold the catalog's ~1895 points: {last}")
+    if last and last.get("textures") not in (None, 0): problems.append(f"B22 the field must use no textures at all: {last}")
+    # ---- released on exit: no running canvas, no target, no program
+    i1 = q.evaluate("BKContinuum.info()")
+    if i1.get("active") or i1.get("targets") or i1.get("programs"): problems.append(f"B22 the field was not released when the run ended: {i1}")
+    if q.evaluate("!!document.querySelector('canvas.nc-field.on')"): problems.append("B22 the field canvas is still running after the switch")
+    # ---- context loss mid-transition: the field is dropped and the incoming view shows at once
     q.evaluate("document.querySelector('[data-v=skyline]').click()")
-    try: q.wait_for_function("!document.querySelector('canvas.nc-cross')", timeout=120000, polling=100)
+    try: q.wait_for_function("!document.querySelector('canvas.nc-field.on')", timeout=120000, polling=100)
     except Exception: pass
     q.wait_for_timeout(1500)
-    # the composite is built synchronously inside the click, so the context is lost in the SAME task — no round-trip can miss the canvas
-    lost = q.evaluate("(()=>{document.querySelector('[data-v=galaxy]').click();const c=document.querySelector('canvas.nc-cross');if(!c)return 'no canvas';const g=window.__gls.find(x=>x.canvas===c);if(!g)return 'no context';const e=g.getExtension('WEBGL_lose_context');if(!e)return 'no ext';e.loseContext();return 'ok'})()")
+    # the field is built synchronously inside the click, so the context is lost in the SAME task — no round-trip can miss the canvas
+    lost = q.evaluate("(()=>{document.querySelector('[data-v=galaxy]').click();const c=document.querySelector('canvas.nc-field');if(!c)return 'no canvas';const g=window.__gls.find(x=>x.canvas===c);if(!g)return 'no context';const e=g.getExtension('WEBGL_lose_context');if(!e)return 'no ext';e.loseContext();return 'ok'})()")
     q.wait_for_timeout(1500)
-    gone = q.evaluate("!document.querySelector('canvas.nc-cross')"); vis = q.evaluate("(()=>{const g=document.querySelector('.nc-3d:not(.nc-sky)');return !!g&&!g.hidden})()")
-    note(f"B22 context loss mid-cross: {lost}, composite removed {gone}, incoming view visible {vis}")
-    if lost != "ok": problems.append(f"B22 could not lose the composite's context: {lost}")
-    elif not gone: problems.append("B22 a context loss mid-transition must remove the composite at once")
+    gone = q.evaluate("!document.querySelector('canvas.nc-field')"); vis = q.evaluate("(()=>{const g=document.querySelector('.nc-3d:not(.nc-sky)');return !!g&&!g.hidden})()")
+    note(f"B22 context loss mid-field: {lost}, field removed {gone}, incoming view visible {vis}")
+    if lost != "ok": problems.append(f"B22 could not lose the field's context: {lost}")
+    elif not gone: problems.append("B22 a context loss mid-transition must remove the field at once")
     if not vis: problems.append("B22 after a context loss mid-transition the incoming view must be visible")
-    # ---- withMorph (record.js) names the cover 'bk-cover' for the view transition: the cross must not add a second name or leave one behind.
+    # ---- withMorph (record.js) names the cover 'bk-cover' for the view transition: the field must not add a second name or leave one behind.
     # A MutationObserver samples every style change, so the check does not depend on the (very low) software-GL frame rate.
     q.evaluate("""(()=>{window.__vtmax=0;window.__vtlog=[];
       const chk=()=>{const n=[];for(const e of document.querySelectorAll('[style*=view-transition-name],#recordCoverArt')){const v=getComputedStyle(e).viewTransitionName;if(v&&v!=='none')n.push(v)}
@@ -876,7 +875,7 @@ def b22(b):
     note(f"B22 view-transition-name during withMorph: {vt}")
     if not vt["open"]: problems.append("B22 the card click never opened the record")
     if not vt["log"]: problems.append("B22 withMorph never named the cover 'bk-cover' (the check would be vacuous)")
-    if vt["max"] > 1: problems.append(f"B22 withMorph held {vt['max']} view-transition-names at once (the cross must not add a second): {vt['log']}")
+    if vt["max"] > 1: problems.append(f"B22 withMorph held {vt['max']} view-transition-names at once (the field must not add a second): {vt['log']}")
     q.evaluate("document.getElementById('recordBack').click()"); q.wait_for_timeout(2000)
     left = q.evaluate("(()=>{let n=0;for(const e of document.querySelectorAll('[style*=view-transition-name]')){const v=getComputedStyle(e).viewTransitionName;if(v&&v!=='none')n++}return n})()")
     if left: problems.append(f"B22 withMorph left {left} view-transition-name(s) behind")
@@ -885,15 +884,15 @@ def b22(b):
     # ---- reduced motion: nothing is built at all (0 frames, 0 ms) — the view switch is already a cut
     ctx2 = b.new_context(viewport={"width": 1440, "height": 900}, service_workers="block", reduced_motion="reduce"); q2 = ctx2.new_page()
     q2.add_init_script("try{localStorage.setItem('bk-test','1');localStorage.setItem('bk-theme','dark')}catch(e){}")
-    q2.add_init_script("window.__xf=0;(function l(){if(document.querySelector('canvas.nc-cross'))window.__xf++;requestAnimationFrame(l)})()")
+    q2.add_init_script("window.__xf=0;(function l(){if(document.querySelector('canvas.nc-field.on'))window.__xf++;requestAnimationFrame(l)})()")
     q2.goto(a.url + "?b22r=" + str(time.time()), wait_until="load")
-    try: q2.wait_for_function("window.BKTransition&&BKTransition.ready&&window.BKSkyline&&BKSkyline.info().built", timeout=180000)
+    try: q2.wait_for_function("window.BKContinuum&&BKContinuum.ready&&window.BKSkyline&&BKSkyline.info().built", timeout=180000)
     except Exception:
-        problems.append("B22 reduced motion: BKTransition / the skyline never booted"); ctx2.close(); return
+        problems.append("B22 reduced motion: BKContinuum / the skyline never booted"); ctx2.close(); return
     q2.evaluate("document.querySelector('.nc-sky').scrollIntoView({block:'center'})"); q2.wait_for_timeout(1200)
     q2.evaluate("document.querySelector('[data-v=galaxy]').click()"); q2.wait_for_timeout(2500)
-    r2 = q2.evaluate("({xf:window.__xf,cv:!!document.querySelector('canvas.nc-cross'),last:BKTransition.info().last})"); note(f"B22 reduced motion: {r2}")
-    if r2["cv"] or r2["xf"] > 2: problems.append(f"B22 reduced motion must build no transition (<= 2 frames): {r2}")
+    r2 = q2.evaluate("({xf:window.__xf,cv:!!document.querySelector('canvas.nc-field'),last:BKContinuum.info().last})"); note(f"B22 reduced motion: {r2}")
+    if r2["cv"] or r2["xf"] > 2: problems.append(f"B22 reduced motion must build no field (<= 2 frames): {r2}")
     ctx2.close()
 
 def b9(b):

@@ -45,7 +45,7 @@ HOOK = r"""
    return{frames:f.length,draws:mx('d'),tris:mx('t'),points:mx('p'),quads:mx('q'),quadArea:+mx('qa').toFixed(3),programs:s.prog,targets:s.fb,textures:s.tex,w:c.width,h:c.height}}return null};
  window.__gbMatch={hero:c=>c.id==='heroGL',ground:c=>c.classList.contains('hero-ground-gl'),stage:c=>!c.isConnected&&!c.id&&!c.className,
   skyline:c=>!!c.closest&&!!c.closest('.nc-sky'),nobel:c=>!!c.closest&&!!c.closest('.nc-3d:not(.nc-sky)'),constellation:c=>c.classList.contains('rv-gl'),
-  transition:c=>c.classList.contains('nc-cross')};
+  transition:c=>c.classList.contains('nc-field')};
 })();
 """
 
@@ -58,21 +58,22 @@ LIMITS = {
     "skyline":       dict(draws=16, tris=26000, points=420, programs=10, targets=4, textures=16),   # R9 (v134): the city is now data-driven — +1 draw and +7 656 tris for the ¼-resolution identity buffer (R9.3), +1 draw for the selective-bloom composite and +1 for the layer-1 glow mesh (R9.4), +1 draw for the horizon haze card (R9.6), +150 confetti points (R9.2, 110 rain + 150 dust + 150 confetti = 410); targets 1 -> 4 (PMREM studio + identity ¼ + bloom ¼ + the transmission target the glass window allocates), textures 12 -> 13 (tower DataTexture, haze card, two ¼ targets). PREP now pins tier 0 so the gate measures the FULL city (measured 13 draws / 10 programs / 4 targets / 13 textures / 23 050 tris / 410 points on software GL); the spec's own acceptance test (PREMIUM-R6-R9-SAHNELER.md §R9) asks for draws <= 16, programs <= 10, targets <= 4 — all three hold
     "nobel":         dict(draws=24, tris=4800, points=1130, programs=5, targets=0, textures=7),
     "constellation": dict(draws=80, tris=100000, points=720, programs=14, targets=0, textures=13),
-    "transition":    dict(draws=2, tris=4, points=2048, programs=2, targets=0, textures=8),   # R10.i (v146): the handover composite runs in its OWN context — TWO programs (the dissolve quad and the record cloud; uMode picks only handover, or cut, the <=120 ms software-GL fallback) and ZERO render targets: both frozen frames are CanvasTextures baked into the quad analytically with mix(bg, frame, cov), so the freeze pass is gone (v135/v145: 1 target, 1 freeze draw). The worst frame is 2 draws (quad 2 tris + the point cloud), every frame is the same 2 draws. points 2048 = the record cloud, one point per catalog record (measured 1895 = the award records with a 4-digit year; the galaxy's star buffer uses the identical filter and order, which is what makes the flight index-aligned). textures 8 = the two CanvasTextures + three.js's four internal 1x1 defaults (measured 6). The spec's acceptance test (PREMIUM-R10-R13-GECISLER-OLCEK.md §R10) asks for extra targets <= 3 and extra programs <= 2
+    "transition":    dict(draws=1, tris=4, points=2048, programs=1, targets=0, textures=8),   # R11 (v147): the continuum field runs in its OWN context — ONE program (the record field) and ZERO render targets, ZERO textures of its own: the R10.i dissolve quad, its two CanvasTextures and the 13-node rail are gone, so the worst frame is ONE draw of 1895 points (the quad's 2 tris are no longer drawn at all; the 4 is three.js's own fullscreen-triangle bookkeeping, kept as the ceiling). points 2048 = the record field, one point per catalog record (measured 1895 = the award records with a 4-digit year; the galaxy's star buffer uses the identical filter and order, which is what makes the flight index-aligned). textures 8 = three.js's four internal 1x1 defaults plus headroom (measured 4). The spec's acceptance test (PREMIUM-R10-R13-GECISLER-OLCEK.md §R11) asks for extra targets <= 1 and extra programs <= 1
 }
 PREP = {
     "hero": "scrollTo(0,0)",
     "ground": "scrollTo(0,0);BKHero&&BKHero.gov.pin&&BKHero.gov.pin(true);BKHero&&BKHero.gov.setLevel&&BKHero.gov.setLevel(0)",   # R8: pin tier 0 so the gate measures the FULL wet ground (256² wave sim + 512² mirror target + 3 fog cards); auto-sensing on software GL would sit at tier 3 where R8 is off
     "stage": "document.getElementById('spotlightGrid').scrollIntoView({block:'center'})",
     "skyline": "(()=>{document.querySelector('.timeline-section').scrollIntoView({block:'center'});const p=()=>{if(window.BKSkyline)BKSkyline.tier(0);else setTimeout(p,120)};p()})()",   # R9: pin tier 0 so the gate measures the FULL city (identity buffer + selective bloom + confetti); auto-sensing on software GL would sit at tier 3 where R9 is off
-    "nobel": "(()=>{const b=document.querySelector('[data-v=galaxy]');if(b)b.click()})()",
+    "nobel": "(()=>{const s=document.querySelector('.nc-stage');if(s)s.scrollIntoView({block:'center'});const b=document.querySelector('[data-v=galaxy]');if(b)b.click()})()",   # the galaxy parks its loop while its canvas is out of view (IntersectionObserver), so the surface must bring itself on screen: running it after `skyline` used to work only because that surface had already scrolled the timeline into view
     "constellation": "openRecord(records[5].id)",
-    "transition": "(()=>{const b=document.querySelector('[data-v=galaxy]');if(b)b.click();const p=()=>{if(!window.__bkCrossStill||!window.BKTransition||!window.BKTransition.ready)return setTimeout(p,200);window.__bkCrossStill('handover',.5)};setTimeout(p,2600)})()",   # R10.i: hold ONE composite frame at uT=.5; still() keeps re-drawing the same image, so the window sees a live frame stream. The hook is async (it stands the outgoing panel up before it may be measured), so it is fired once and never raced
+    "transition": "(()=>{const b=document.querySelector('[data-v=galaxy]');if(b)b.click();const p=()=>{if(!window.__bkFieldStill||!window.BKContinuum||!window.BKContinuum.ready)return setTimeout(p,200);window.__bkFieldStill(.5)};setTimeout(p,2600)})()",   # R11: hold ONE field frame at uT=.5; still() keeps re-drawing the same image, so the window sees a live frame stream. The hook is async (it stands the outgoing panel up before it may be measured), so it is fired once and never raced
 }
 # Surfaces whose render loop parks while the canvas is out of view (IntersectionObserver): the window then sees zero frames.
 # A single early centering loses the race against the async canvas build (v124–v131 flakes, reproduced on v131 locally): measure() re-asserts visibility before every read.
 ENSURE = {
     "constellation": "(()=>{const c=document.querySelector('.rv-gl');if(c)c.scrollIntoView({block:'center'})})()",
+    "nobel": "(()=>{const s=document.querySelector('.nc-stage');if(s)s.scrollIntoView({block:'center'})})()",
 }
 names = [n for n in (a.surfaces.split(",") if a.surfaces else LIMITS)]
 flags = "".join(f"localStorage.setItem('bk-flag-{k}','{v}');" for k, v in (f.split("=") for f in a.flag))

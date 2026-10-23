@@ -37,7 +37,7 @@ TOL, STABLE, GOLDEN = 10, 0.001, 0.005
 SURFACES = {
     "constellation": dict(stable=0.02, golden=0.03),
     "nobel-galaxy": dict(stable=0.01, golden=0.02),
-    "transition": dict(stable=0.02, golden=0.03),   # R10.a: the frozen frame is the outgoing skyline (seeded in ?still) but the incoming galaxy shows through the composite's alpha, and its stray stars are not seeded
+    "transition": dict(stable=0.02, golden=0.03),   # R11: the field is seeded in ?still (BKGL.still pins the clock) but the panels underneath crossfade on their own CSS timing, so a held frame is not bit-identical
     "book-open": dict(tol=3),
 }
 def spec(name, key):
@@ -105,18 +105,18 @@ def capture(b, w, h, theme, tag, keep=False):
     if q.evaluate("!!document.querySelector('.timeline-section')"): shot("timeline", ".timeline-section")
     if q.evaluate("!!document.querySelector('.nc-view [data-v=galaxy],[data-v=galaxy]')"):
         q.evaluate("document.querySelector('[data-v=galaxy]').click()"); q.wait_for_timeout(3000); shot("nobel-galaxy", ".nc-3d:not(.nc-sky)")
-        # R10.a: the intermediate frames of the freeze-and-cross, each held at a fixed uT. Dark 1440x900 only — the shader is theme-independent but the
-        # frozen frame carries the outgoing panel's own CSS gradient, so a light set would double the goldens for one extra background colour.
-        if (w, h, theme) == (1440, 900, "dark") and q.evaluate("!!window.__bkCrossStill"):
+        # R11: the intermediate frames of the continuum field, each held at a fixed uT. Dark 1440x900 only — the field is theme-aware
+        # (additive in dark, normal blending in light), so a light set would double the goldens for one extra blending mode.
+        if (w, h, theme) == (1440, 900, "dark") and q.evaluate("!!window.__bkFieldStill"):
             for t in (0, .25, .5, .75, 1):
-                # R10.i: the hook is async (it stands the outgoing panel up, waits for its layout, then measures) and a fresh
+                # R11: the hook is async (it stands the outgoing panel up, waits for its layout, then measures) and a fresh
                 # WebGL context can be transiently refused under software GL after a burst of switches — retry once rather than
-                # capture the live panel and call it a composite frame.
+                # capture the live panel and call it a field frame.
                 for _ in (1, 2):
-                    q.evaluate(f"window.__bkCrossStill('handover',{t})"); q.wait_for_timeout(700)
-                    if q.evaluate("!!document.querySelector('canvas.nc-cross')"): break
-                shot("transition-%03d" % round(t * 100), ".nc-3d:not(.nc-sky)")
-            q.evaluate("window.BKTransition&&BKTransition.end()")
+                    q.evaluate(f"window.__bkFieldStill({t})"); q.wait_for_timeout(700)
+                    if q.evaluate("!!document.querySelector('canvas.nc-field.on')"): break
+                shot("transition-%03d" % round(t * 100), ".nc-stage")
+            q.evaluate("window.BKContinuum&&BKContinuum.end()")
     # record page: the 3D book closed and its three open spreads (same steps as feature_audit B5). Effects stay paused: in ?still the book lands exactly on every target
     q.evaluate("openRecord(records[5].id)"); q.wait_for_timeout(2500)
     if q.evaluate("!!document.querySelector('.rv-constellation')"): q.wait_for_timeout(2500); shot("constellation", ".rv-constellation")

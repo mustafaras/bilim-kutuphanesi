@@ -14,17 +14,21 @@
  let mounted=false;
  function mount(){
   if(mounted||!hasGL())return;const chart=section.querySelector('.nc-chart');if(!chart||typeof records==='undefined'||!records.length)return;mounted=true;
-  if(window.BKTransition)BKTransition.init();   /* R10.a: load three for the transition pass while the user is still reading the chart */
+  if(window.BKContinuum)BKContinuum.init();   /* R11: load three for the continuum pass while the user is still reading the chart */
   const sw=document.createElement('div');sw.className='nc-viewswitch';sw.setAttribute('role','group');
+  /* R11 "süreklilik": the three views are one stage. The chart, the skyline and the galaxy are absolutely stacked inside
+     `.nc-stage`, so a switch never reflows the page and the record field can travel between them without a layout jump. */
+  const stage=document.createElement('div');stage.className='nc-stage';
+  chart.parentNode.insertBefore(stage,chart);stage.appendChild(chart);
   const panel=document.createElement('div');panel.className='nc-3d';panel.hidden=true;
-  chart.parentNode.insertBefore(panel,chart.nextSibling);
+  stage.appendChild(panel);
   const chron=section.querySelector('.nobel-chronicle'),head=chron.querySelector('.nc-head');
   /* head = three big figures + view switch; the old meta line and the duplicate legend are retired */
   const years=[...(typeof nobelIndex!=='undefined'&&nobelIndex?nobelIndex.keys():[])].sort();
   const stats=document.createElement('div');stats.className='nc-stats';head.insertBefore(stats,head.firstChild);head.appendChild(sw);
   /* HUD = live readout + category chips (shared by all three views) */
   const hud=document.createElement('div');hud.className='nc-hud';hud.innerHTML='<div class="nc-read" aria-live="polite"><p class="nc-read-k"></p><p class="nc-read-y"></p><p class="nc-read-m"></p><i class="nc-read-bar"></i></div><div class="nc-chips" role="group"></div>';
-  chart.parentNode.insertBefore(hud,chart);const chips=hud.querySelector('.nc-chips');
+  stage.parentNode.insertBefore(hud,stage);const chips=hud.querySelector('.nc-chips');
   const CN=i=>typeof nobelCatLabel==='function'?nobelCatLabel(i):String(i);
   const tot=new Array(7).fill(0);if(typeof nobelIndex!=='undefined'&&nobelIndex)nobelIndex.forEach(e=>e.cats.forEach((c,i)=>tot[i]+=c));
   const drawChips=()=>{chips.innerHTML=CATC.slice(0,6).map((c,i)=>`<button type="button" data-c="${i}" aria-pressed="${NF.on[i]}" style="--c:${c}"><i></i><span>${esc(CN(i))}</span><small>${tot[i]}</small></button>`).join('');
@@ -41,7 +45,7 @@
   chart.addEventListener('pointerover',e=>{const b=e.target.closest?e.target.closest('.nc-year'):null;if(b&&!b.classList.contains('is-empty')){hoverY=Number(b.dataset.year);readout()}});chart.addEventListener('pointerleave',()=>{hoverY=0;readout()});
   const sky=document.createElement('div');sky.className='nc-3d nc-sky';sky.hidden=true;
   sky.innerHTML='<canvas></canvas><div class="nc-3d-labels" aria-hidden="true"></div><div class="nc-sky-chip" hidden aria-hidden="true"></div><div class="nc-3d-tip" aria-hidden="true" hidden></div><div class="nc-3d-ctl" role="group"><button type="button" data-z="in">+</button><button type="button" data-z="out">−</button><button type="button" data-z="reset">⌂</button></div>';
-  chart.parentNode.insertBefore(sky,chart);
+  stage.appendChild(sky);
   sky.querySelector('.nc-3d-ctl').setAttribute('aria-label',t('heroZoom'));
   const labelsOf=()=>{sw.setAttribute('aria-label',t('ncViewLabel'));sw.innerHTML=`${window.NobelSkyline?`<button type="button" data-v="skyline" aria-pressed="${view==='skyline'}">${esc(t('ncViewSky'))}</button>`:''}<button type="button" data-v="chart" aria-pressed="${view==='chart'}">${esc(t('ncViewChart'))}</button><button type="button" data-v="galaxy" aria-pressed="${view==='galaxy'}">${esc(t('ncViewGalaxy'))}</button>`;
    if(ui.hint)ui.hint.textContent=t('ncGalaxyHint');if(ui.note)ui.note.textContent=t('ncGalaxyNote')};
@@ -51,9 +55,9 @@
   labelsOf();
   ui.ctl.setAttribute('aria-label',t('heroZoom'));[['in','heroZoomIn'],['out','heroZoomOut'],['reset','heroZoomReset']].forEach(([k,key])=>ui.ctl.querySelector(`[data-z=${k}]`).setAttribute('aria-label',t(key)));
   const setView=v=>{if(morphing)return;{const from=view;if(from!==v&&!reduced.matches&&!(window.BKGL&&BKGL.still)&&ready(from)&&ready(v)){if(crossTo(from,v))return}}view=v;chart.hidden=view!=='chart';panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';labelsOf();
-   /* R10.h/R10.i: no blur/scale entrance on top of the cross. The handover IS the switch, in every direction and both themes — a second
+   /* R11: no blur/scale entrance on top of the field. The continuum IS the switch, in every direction and both themes — a second
       CSS animation on the plain path (blur 12px + translateY + scale) was the "unnecessary extra effect" the user kept seeing
-      when the cross could not run. A failed cross is a plain cut, not a different animation. */
+      when the field could not run. A failed field is a plain cut, not a different animation. */
    if(view==='galaxy'){if(!booted){booted=true;boot()}else if(api)api.wake()}
    if(view==='skyline'&&window.NobelSkyline){const si=window.NobelSkyline.inst;if(si)si.sync();else window.NobelSkyline.init(sky).then(r=>{if(!r){setView('chart')}})}
    linkKick()};
@@ -77,28 +81,13 @@
      cross, with its own theme-dependent blending) stacked on the view switch. A failed or unavailable cross is now a plain cut. */
   let morphing=false;
   const ready=v=>v==='chart'||(v==='skyline'&&window.NobelSkyline&&window.NobelSkyline.inst)||(v==='galaxy'&&booted&&api&&api.projectRecords);
-  /* ---- R10.a freeze-and-cross: the outgoing view's last frame is frozen into one render target, the incoming view keeps drawing live
-     underneath, and BKTransition composites the two on a pointer-events:none canvas that is removed when the transition ends.
-     The frozen frame carries the outgoing panel's own CSS radial-gradient, so the composite can hand the incoming scene back through its alpha. */
-  const splitTop=s=>{const out=[];let d=0,cur='';for(const ch of s){if(ch==='(')d++;else if(ch===')')d--;if(ch===','&&d===0){out.push(cur);cur=''}else cur+=ch}out.push(cur);return out};
-  /* R10.b: Package 29 makes the panels frameless (background:none!important), so getComputedStyle().backgroundImage is "none" and the
-     old dark-navy fallback baked a black rectangle behind the frozen frame in light mode. Read the panel's own gradient when it still
-     has one, otherwise walk up to the first opaque ancestor and bake THAT colour — the freeze then melts into the page instead of
-     drawing a card that no longer exists. */
-  const rgbOf=s=>{const n=(s||'').match(/[\d.]+/g);if(!n||n.length<3)return null;if(n.length>3&&(+n[3]||0)===0)return null;return[(+n[0]||0)/255,(+n[1]||0)/255,(+n[2]||0)/255]};
-  const pageBg=el=>{for(let n=el;n&&n.nodeType===1;n=n.parentElement){const c=rgbOf(getComputedStyle(n).backgroundColor);if(c)return c}
-   return rgbOf(getComputedStyle(document.body).backgroundColor)||(root.dataset.theme==='light'?[.973,.969,.953]:[.043,.063,.078])};
-  const bgOf=el=>{const bi=(el&&getComputedStyle(el).backgroundImage)||'',i=bi.indexOf('('),j=bi.lastIndexOf(')'),parts=i>=0&&j>i?splitTop(bi.slice(i+1,j)):[];
-   const a=parts[1]?rgbOf(parts[1]):null,b=parts[2]?rgbOf(parts[2]):null;
-   if(a&&b){let c=[.5,.5],r=[.8,.9];
-    if(parts[0]){const at=parts[0].split(' at '),sz=(at[0]||'').trim().split(/\s+/),ps=(at[1]||'').trim().split(/\s+/);
-     if(sz.length>=2)r=[(parseFloat(sz[0])||80)/100,(parseFloat(sz[1])||90)/100];
-     if(ps.length>=2)c=[(parseFloat(ps[0])||50)/100,(parseFloat(ps[1])||30)/100]}
-    return{a,b,center:c,radii:r}}
-   const p=pageBg(el);return{a:p,b:p,center:[.5,.5],radii:[1,1]}};
+  /* ---- R11 "süreklilik" (continuum): the three views are three arrangements of the same records, so a switch is the records
+     travelling between arrangements in one shared 3D space. BKContinuum owns one persistent canvas on the stage and one point
+     program; the panels crossfade underneath it. No frozen frame, no screenshot, no render target, no texture, no rail, no
+     sweep — the R10.a freeze-and-cross and its background baking are gone with the composite they existed to feed. */
   const crossSide=v=>v==='skyline'?(window.NobelSkyline&&window.NobelSkyline.inst)||null:v==='galaxy'?(api&&api.snap?api:null):null;
   const panelOf=v=>v==='skyline'?sky:v==='galaxy'?panel:chart;
-  /* ---- R10.i "veri el değişimi" (data handover) ----------------------------------------------------------------
+  /* ---- R11 "veri el değişimi" (data handover) ----------------------------------------------------------------
      The switch is not decoration laid over two screenshots: every record in the library is a plotted point, and on a switch
      those points travel from where the outgoing view put them to where the incoming view puts them. Same records, same
      colours, new arrangement — the effect *is* the data changing hands. Only the frame underneath cross-dissolves.
@@ -118,10 +107,8 @@
   const HN=HANDOVER.length;
   const YEAR0=HANDOVER.reduce((a,e)=>a<e.year?a:e.year,9999),YEAR1=HANDOVER.reduce((a,e)=>a>e.year?a:e.year,0);
   /* 13 sample years of the library's own timeline — the chart's axis, the skyline's floor, the galaxy's spiral arm */
-  const RAIL=(()=>{const a=[];for(let i=0;i<13;i++)a.push(Math.round(YEAR0+(YEAR1-YEAR0)*i/12));return a})();
-  const RAILQ=RAIL.map(y=>({year:y,c:0,n:1,l:0,jx:0,jz:0}));  /* a rail node is "this year, at its own height" */
   const PAL=CATC.map(h=>{const v=parseInt(h.slice(1),16);return[((v>>16)&255)/255,((v>>8)&255)/255,(v&255)/255]});
-  const SZ={skyline:2.8,galaxy:3,chart:2.4};
+  const SZ={skyline:3.2,galaxy:3.6,chart:2.8};
 
   /* the chart is DOM, so it is measured rather than projected: every record sits in its own year×category segment, ranked by
      `l` up from the bottom of the bar. Measured while the chart is still laid out (a hidden panel has no rects), which is why
@@ -136,7 +123,6 @@
     for(const seg of st.querySelectorAll('i')){const q=/nc-c(\d)/.exec(seg.className);if(!q)continue;
      const c=seg.getBoundingClientRect();if(c.width>.5&&c.height>.5)m.set(y*8+Number(q[1]),c)}}
    segAt=now;segCache={m,yr,r};return segCache}
-  function nearestYear(map,y){let best=null,bd=1e9;for(const [k,b] of map){const d=Math.abs(k-y);if(d<bd){bd=d;best=b}}return best}
   /* absolute page px, HANDOVER order */
   function chartPos(sg){
    sg=sg||chartSegments();if(!sg)return null;
@@ -145,46 +131,6 @@
     if(b){out[i*2]=b.left+b.width*.5+e.jx*Math.min(5,b.width*.4);out[i*2+1]=b.bottom-f*b.height}
     else{out[i*2]=sg.r.left+sg.r.width*(.5+e.jx*.08);out[i*2+1]=sg.r.top+sg.r.height*(.55+f*.4)}}
    return out}
-  /* absolute page px, RAIL order: the chart's own baseline, so the rail starts as a straight rule and bends into a spiral */
-  function chartRail(sg){
-   sg=sg||chartSegments();if(!sg)return null;
-   const out=new Float32Array(26);
-   for(let i=0;i<13;i++){const b=nearestYear(sg.yr,RAIL[i]);
-    out[i*2]=b?b.left+b.width*.5:sg.r.left+sg.r.width*i/12;
-    out[i*2+1]=b?b.bottom:sg.r.bottom}
-   return out}
-  /* the chart's frozen frame: its own bars, painted at their measured size, so the handover starts on the chart as the reader
-     left it instead of on a substitute drawing. Only the year labels are lost, and they come back with the live chart. */
-  function chartFrame(){
-   const sg=chartSegments();if(!sg)return null;
-   const dpr=Math.min(window.devicePixelRatio||1,2),w=sg.r.width,h=sg.r.height;
-   if(w<2||h<2)return null;
-   const cv=document.createElement('canvas');cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
-   const g=cv.getContext('2d');if(!g)return null;
-   g.scale(dpr,dpr);g.clearRect(0,0,w,h);
-   let base=0;
-   for(const [k,b] of sg.m){g.fillStyle=CATC[k%8]||CATC[6];g.globalAlpha=.94;
-    g.fillRect(b.left-sg.r.left-.25,b.top-sg.r.top,Math.max(.6,b.width-.5),Math.max(.6,b.height))}
-   for(const [,b] of sg.yr)base=Math.max(base,b.bottom-sg.r.top);
-   g.globalAlpha=.5;g.fillStyle='#9fb8c8';g.fillRect(0,Math.round(base)-.5,w,1);
-   g.globalAlpha=1;return cv}
-  const freezeOf=v=>{const s=crossSide(v);
-   /* render the outgoing frame NOW, while its panel is still visible and laid out: crossTo hides it before run(), and a
-      display:none canvas has no clientWidth for the scene's own label pass */
-   if(s&&typeof s.snap==='function'){const cv=s.snap();
-    if(cv&&typeof cv.getContext==='function'){
-     /* copy the GL frame into a plain bitmap inside the same task that rendered it: the scene canvas is
-        preserveDrawingBuffer:false, so its pixels only exist until the task ends, and hiding or resizing the panel (which is
-        exactly what crossTo does next) clears them. A live canvas therefore cannot be uploaded a second time — a repeated
-        still() would freeze whatever was left, not the frame the reader was looking at. The copy is a stable source. */
-     let out=cv;
-     try{
-      const w=cv.width|0,h=cv.height|0;
-      if(w>1&&h>1){const c2=document.createElement('canvas');c2.width=w;c2.height=h;
-       const g=c2.getContext('2d');if(g){g.drawImage(cv,0,0,w,h);out=c2}}
-     }catch{}
-     return{render:()=>out}}}
-   const cs=v==='chart'?chartFrame():null;return cs?{render:()=>cs}:null};
   /* absolute page px per record, HANDOVER order. The galaxy projects its own star buffer (identical filter, identical order);
      the skyline projects this very list through the same maths its blocks use. */
   function pointPos(v){
@@ -193,82 +139,91 @@
    const out=new Float32Array(HN*2);
    if(v==='skyline')s.projectRecords(HANDOVER,out);else s.projectRecords(out);
    return out}
-  function railPos(v){
-   if(v==='chart')return chartRail();
-   const s=crossSide(v);if(!s)return null;
-   const out=new Float32Array(26);
-   if(v==='skyline'&&typeof s.projectRecords==='function'){s.projectRecords(RAILQ,out);return out}
-   if(v==='galaxy'&&typeof s.yearPoints==='function'){s.yearPoints(RAIL,out);return out}
-   return null}
-  /* page px -> host uv, so the points sit on the composite canvas the composite actually fills */
-  function crossPoints(a,b,host,from,to){
-   if(!a||!b||!HN)return null;
+  /* page px -> world space on the stage. One camera, one unit: the field is a real 3D space, so a record keeps its identity
+     while its depth changes. The chart is the flat plane (z=0); the skyline puts taller towers nearer the camera; the galaxy
+     puts older records deeper, so the spiral reads as a corridor of time rather than a flat disc. */
+  function pointPos3(v,host){
+   const px=pointPos(v);if(!px)return null;
    const h=host.getBoundingClientRect();
    if(!h.width||!h.height)return null;
-   const span=Math.max(1,YEAR1-YEAR0);
-   const fromUv=new Float32Array(HN*2),toUv=new Float32Array(HN*2),col=new Float32Array(HN*3),size=new Float32Array(HN*2),curve=new Float32Array(HN),wave=new Float32Array(HN);
-   const sa=SZ[from]||2.6,sb=SZ[to]||2.6,pal=PAL;
-   const put=(src,dst,i)=>{
-    dst[i*2]=Math.max(-.25,Math.min(1.25,(src[i*2]-h.left)/h.width));
-    dst[i*2+1]=Math.max(-.25,Math.min(1.25,(src[i*2+1]-h.top)/h.height))};
+   const halfH=Math.tan(21*Math.PI/180)*2.4,halfW=halfH*(h.width/h.height);
+   const out=new Float32Array(HN*3),span=Math.max(1,YEAR1-YEAR0);
+   for(let i=0;i<HN;i++){
+    const nx=((px[i*2]-h.left)/h.width)*2-1,ny=1-((px[i*2+1]-h.top)/h.height)*2;
+    out[i*3]=nx*halfW;out[i*3+1]=ny*halfH;
+    out[i*3+2]=v==='chart'?0:v==='skyline'?(.5-((px[i*2+1]-h.top)/h.height))*.6:(((HANDOVER[i].year-YEAR0)/span)-.5)*.7}
+   return out}
+  /* the field: one record per point, from where the outgoing view put it to where the incoming view puts it. `a` is the
+     outgoing side, measured BEFORE the swap (a hidden panel has no rects); `b` is measured now, with the incoming view on
+     screen. Passing `a` in is what keeps the chart's DOM measurement valid — after the swap the chart is hidden. */
+  function fieldPoints(from,to,host,a){
+   a=a||pointPos3(from,host);
+   const b=pointPos3(to,host);
+   if(!a||!b)return null;
+   const col=new Float32Array(HN*3),size=new Float32Array(HN*2),delay=new Float32Array(HN),arc=new Float32Array(HN);
+   const sa=SZ[from]||2.8,sb=SZ[to]||2.8,pal=PAL,span=Math.max(1,YEAR1-YEAR0);
    for(let i=0;i<HN;i++){const e=HANDOVER[i],p=pal[e.c]||pal[6];
-    put(a,fromUv,i);put(b,toUv,i);
     col[i*3]=p[0];col[i*3+1]=p[1];col[i*3+2]=p[2];
     size[i*2]=sa;size[i*2+1]=sb;
-    curve[i]=hsh(i*3+11)*1.6;                     /* ±0.8: a shallow bow, so no two records take the same line */
-    wave[i]=(e.year-YEAR0)/span}                   /* the handover sweeps along the timeline, earliest data first */
-   return{n:HN,from:fromUv,to:toUv,col,size,curve,w:wave}}
+    delay[i]=(e.year-YEAR0)/span;      /* the handover sweeps along the timeline, earliest data first */
+    arc[i]=hsh(i*3+11)*1.6}             /* ±0.8: a shallow bow, so no two records take the same line */
+   return{n:HN,from:a,to:b,col,size,delay,arc}}
   function crossTo(from,to){
-   const T=window.BKTransition;if(!T||!T.ready)return false;
-   /* the whole outgoing side is taken before the switch: a hidden panel has no rects, `snap()` needs a laid-out canvas and
-      the record projection needs a laid-out panel. Everything belonging to the incoming side is deferred into the bind
-      getters, which BKTransition only calls once the views have swapped. */
-   const fz=freezeOf(from);
-   if(!fz)return false;
-   const fromPts=pointPos(from),fromRail=railPos(from),fromBox=panelOf(from).getBoundingClientRect();
-   const toPanel=panelOf(to),tc=toPanel.querySelector('canvas');
-   /* the handover direction is the axis the two views share: 3D ⇄ 3D unwinds the spiral down into the city (vertical),
-      and a chart in either seat hands over along the timeline axis it has in common with both (horizontal) */
-   const dir=(from==='chart'||to==='chart')?{x:1,y:0}:{x:0,y:1};
-   const end=()=>{morphing=false;chron.classList.remove('nc-morphing');toPanel.style.opacity='';toPanel.style.transition='';if(tc)tc.style.transition='';linkKick()};
-   T.bind({from:()=>fz,to:()=>freezeOf(to),panelFrom:()=>fromBox,host:()=>toPanel,bg:()=>bgOf(toPanel),dir,end,
-    rail:()=>{const b=railPos(to);return fromRail&&b?{from:fromRail,to:b}:null},
-    points:()=>{const b=pointPos(to);return fromPts&&b?crossPoints(fromPts,b,toPanel,from,to):null}});
-   /* the incoming panel has to be on screen and its canvas opaque before the composite is built */
-   view=to;chart.hidden=view!=='chart';panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';labelsOf();
-   toPanel.style.transition='none';toPanel.style.opacity='1';
+   const T=window.BKContinuum;if(!T||!T.can())return false;
+   /* the outgoing side is measured before the swap: a hidden panel has no rects and the record projection needs a laid-out
+      panel. The incoming side is deferred into the bind getters, which the field only calls once the views have swapped. */
+   const fromPos=pointPos3(from,stage);
+   if(!fromPos)return false;
+   const fromPanel=panelOf(from),toPanel=panelOf(to),tc=toPanel?toPanel.querySelector('canvas'):null;
+   /* the outgoing panel is not hidden on the swap: it fades out under the field while the incoming one fades in, so the
+      background never snaps while the records are still travelling. Both are absolutely stacked in `.nc-stage`, so the two
+      opacity transitions cost no layout. */
+   const end=()=>{morphing=false;chron.classList.remove('nc-morphing');
+    fromPanel.style.transition='';fromPanel.style.opacity='';
+    toPanel.style.transition='';toPanel.style.opacity='';
+    if(tc)tc.style.transition='';
+    chart.hidden=view!=='chart';panel.hidden=view!=='galaxy';sky.hidden=view!=='skyline';
+    linkKick()};
+   T.bind({host:()=>stage,points:()=>fieldPoints(from,to,stage,fromPos),end});
+   /* the incoming panel has to be on screen and its canvas opaque before the field is built */
+   view=to;labelsOf();
+   toPanel.hidden=false;
+   toPanel.style.transition='none';toPanel.style.opacity='0';
    if(tc){tc.style.transition='none';tc.classList.add('on')}
-   /* the incoming scene stays still under the composite: no enter() zoom/spin on top of the cross, which made the scene
-      drift while the frozen frame dissolved (the motion the user read as a broken transition in both themes) */
+   /* the incoming scene stays still under the field: no enter() zoom/spin on top of the flight, which made the scene drift
+      while the records travelled (the motion the user read as a broken transition in both themes) */
    if(to==='galaxy'&&api)api.wake();
    if(to==='skyline'&&window.NobelSkyline.inst)window.NobelSkyline.inst.sync();
    morphing=true;chron.classList.add('nc-morphing');linkSvg.classList.remove('on');
-   /* R10.i: EVERY pair (galaxy ⇄ skyline ⇄ chart, both directions) runs the one `handover` cross. The old mode table
-      (iris / dive / materialize / chroma / filament) is gone: one effect, one language, and it is the data itself. */
-   if(T.run('handover'))return true;
-   morphing=false;chron.classList.remove('nc-morphing');toPanel.style.opacity='';toPanel.style.transition='';if(tc)tc.style.transition='';
+   /* R11: EVERY pair (galaxy ⇄ skyline ⇄ chart, both directions) runs the one continuum. The old mode table
+      (iris / dive / materialize / chroma / filament) and the R10 frozen-frame handover are gone: one effect, one language,
+      and it is the data itself moving through one shared space. */
+   void stage.offsetWidth;   /* flush the two start opacities, so the crossfade below actually runs */
+   const fade='opacity '+T.dur+'ms linear';
+   fromPanel.style.transition=fade;toPanel.style.transition=fade;
+   fromPanel.style.opacity='0';toPanel.style.opacity='1';
+   if(T.run())return true;
+   T.end();
    return false}
-  /* audit hook: hold ONE transition frame at a fixed uT. tools/visual_audit.py captures the intermediate frames of the cross with it and
-     tools/gpu_budget_audit.py reads the composite's targets/programs from the same held frame. It only runs when a tool calls it.
+  /* audit hook: hold ONE field frame at a fixed uT. tools/visual_audit.py captures the intermediate frames with it and
+     tools/gpu_budget_audit.py reads the field's targets/programs from the same held frame. It only runs when a tool calls it.
      It is async because it has to stand the outgoing panel up and let it lay out before it may be measured. */
-  window.__bkCrossStill=async(mode,t)=>{
-   const T=window.BKTransition;if(!T||!T.ready)return null;
+  window.__bkFieldStill=async(t)=>{
+   const T=window.BKContinuum;if(!T||!T.ready)return null;
    /* the outgoing panel must be the laid-out one when it is measured: a hidden panel has a stale render size and a 0x0 rect,
-      which would composite the frozen frame into nothing. Two frames is what the scene's own resize observer needs. */
+      which would project every record into nothing. Two frames is what the scene's own resize observer needs. */
    view='skyline';chart.hidden=true;panel.hidden=true;sky.hidden=false;labelsOf();
    const tc0=sky.querySelector('canvas');if(tc0){tc0.style.transition='none';tc0.classList.add('on')}
-   const src=crossSide('skyline'),dst=crossSide('galaxy');
-   if(!src||!dst)return null;
+   if(!crossSide('skyline')||!crossSide('galaxy'))return null;
    for(let i=0;i<2;i++)await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
    if(window.NobelSkyline.inst)window.NobelSkyline.inst.sync();
-   const fz=freezeOf('skyline'),fromPts=pointPos('skyline'),fromRail=railPos('skyline'),fromBox=sky.getBoundingClientRect();
-   T.bind({from:()=>fz,to:()=>freezeOf('galaxy'),panelFrom:()=>fromBox,host:()=>panel,bg:()=>bgOf(panel),dir:{x:0,y:1},
-    rail:()=>{const b=railPos('galaxy');return fromRail&&b?{from:fromRail,to:b}:null},
-    points:()=>{const b=pointPos('galaxy');return fromPts&&b?crossPoints(fromPts,b,panel,'skyline','galaxy'):null}});
+   const fromPos=pointPos3('skyline',stage);
+   if(!fromPos)return null;
+   T.bind({host:()=>stage,points:()=>fieldPoints('skyline','galaxy',stage,fromPos),end:()=>{}});
    view='galaxy';chart.hidden=true;panel.hidden=false;sky.hidden=true;labelsOf();
    const tc=panel.querySelector('canvas');if(tc){tc.style.transition='none';tc.classList.add('on')}
    if(api)api.wake();
-   return T.still(mode,t)};
+   return T.still(t)};
   let api=null;
   async function boot(){
    let THREE;try{THREE=await import('./vendor/three.module.min.js')}catch{return}
@@ -368,10 +323,10 @@
    size();new ResizeObserver(()=>{size();wake()}).observe(panel);addEventListener('scroll',()=>{if(visible&&view==='galaxy')wake()},{passive:true});document.addEventListener('nobel:filter',wake);if(typeof IntersectionObserver==='function')new IntersectionObserver(es=>{visible=es[0].isIntersecting;if(visible)wake()}).observe(panel);
    new MutationObserver(wake).observe(root,{attributes:true,attributeFilter:['class','data-theme']});
    const projectRecords=out=>{const r=canvas.getBoundingClientRect();grp.updateMatrixWorld(true);camera.updateMatrixWorld();const vv=new THREE.Vector3();for(let i=0;i<N;i++){vv.set(pos[i*3],pos[i*3+1],pos[i*3+2]);grp.localToWorld(vv);vv.project(camera);out[i*2]=r.left+(vv.x*.5+.5)*r.width;out[i*2+1]=r.top+(-vv.y*.5+.5)*r.height}};
-   /* R10.i: the spiral arm itself, so the handover rail bends from the chart's straight rule into the galaxy's own curve */
+   /* R11: the spiral arm itself, projected to page px (the galaxy's own anchor, not a substitute curve) */
    const yearPoints=(list,out)=>{const r=canvas.getBoundingClientRect();grp.updateMatrixWorld(true);camera.updateMatrixWorld();const vv=new THREE.Vector3();for(let i=0;i<list.length;i++){vv.copy(anchor(Number(list[i])));vv.y=.05;grp.localToWorld(vv);vv.project(camera);out[i*2]=r.left+(vv.x*.5+.5)*r.width;out[i*2+1]=r.top+(-vv.y*.5+.5)*r.height}return out};
    api={wake,projectRecords,yearPoints,anchor(){if(!sel||!anchorLocal)return null;const r=canvas.getBoundingClientRect();return{x:r.left+anchorLocal.x,y:r.top+anchorLocal.y}},
-    /* R10.a: one synchronous frame with dt 0 (no drift), so BKTransition can freeze the galaxy inside the same task */
+    /* R11: one synchronous frame with dt 0 (no drift), so a still() capture is the frame the reader is looking at */
     snap(){draw(0);return canvas}};draw(.016);wake();canvas.classList.add('on')}
  }
  const go=()=>setTimeout(mount,400);document.addEventListener('library:ready',go);if(typeof records!=='undefined'&&records.length)go();

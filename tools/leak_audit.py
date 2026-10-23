@@ -40,23 +40,31 @@ try:
             pg.evaluate("document.getElementById('recordBack').click()")
             pg.wait_for_function("document.getElementById('recordView').hidden", timeout=60000); pg.wait_for_timeout(400)
         if a.cross:
-            # R10.a: every cross builds ONE render target + ONE program in its own context and must release both on exit. A leaked target or a
-            # leaked context shows up as a growing canvas count and a growing BKTransition.info().targets, so the same slope test applies.
+            # R11: every switch builds ONE program in the field's own context and must release it on exit. The canvas is persistent (it is
+            # created once and reused), so a leak shows up as a growing canvas count and a growing BKContinuum.info().programs, and the same
+            # slope test applies.
+            missed = []
             def cross(i):
                 pg.evaluate("(()=>{const b=document.querySelector('[data-v=%s]');if(b)b.click()})()" % ("galaxy" if i % 2 == 0 else "skyline"))
-                try: pg.wait_for_function("!!document.querySelector('canvas.nc-cross')", timeout=60000)
-                except Exception: pass
-                pg.wait_for_function("!document.querySelector('canvas.nc-cross')", timeout=120000); pg.wait_for_timeout(300)
+                try: pg.wait_for_function("!!document.querySelector('canvas.nc-field.on')", timeout=60000)
+                except Exception: missed.append(i)
+                pg.wait_for_function("!document.querySelector('canvas.nc-field.on')", timeout=120000); pg.wait_for_timeout(300)
+            # the continuum is off by design at tier 3, and the hero's governor drops to tier 3 within seconds on software GL: without this pin
+            # the gate would "pass" while never running a single field frame (it used to swallow the timeout and measure nothing).
+            pg.evaluate("window.BKHero&&BKHero.gov&&(BKHero.gov.pin(true),BKHero.gov.setLevel(0))")
             pg.evaluate("document.querySelector('.nc-sky').scrollIntoView({block:'center'})"); pg.wait_for_timeout(1500)
-            for i in range(2): cross(i)      # warm-up: the first cross loads three.js and builds the skyline
+            for i in range(2): cross(i)      # warm-up: the first switch loads three.js and builds the skyline
+            missed.clear()                   # switch 0 is a plain cut by design: three.js is still loading, so can() is false
             base = count(); snaps = []
             for i in range(a.rounds):
-                cross(i); snaps.append(pg.evaluate("({geometries:0,textures:0,targets:BKTransition.info().targets,programs:BKTransition.info().programs,canvases:document.querySelectorAll('canvas').length})"))
+                cross(i); snaps.append(pg.evaluate("({geometries:0,textures:0,targets:BKContinuum.info().targets,programs:BKContinuum.info().programs,canvases:document.querySelectorAll('canvas').length,exit:BKContinuum.info().exit,points:BKContinuum.info().last&&BKContinuum.info().last.points})"))
             end = count()
             print(f"canvases: baseline {base} -> end {end}")
-            print("transition after last cross", snaps[-1])
-            if end > base: problems.append(f"canvas count grew {base} -> {end} over {a.rounds} crosses")
-            if any(s_["targets"] or s_["programs"] for s_ in snaps): problems.append(f"a cross left its render target / program alive: {[s_ for s_ in snaps if s_['targets'] or s_['programs']][:3]}")
+            print("transition after last switch", snaps[-1])
+            if missed: problems.append(f"the field never ran on switch(es) {missed[:5]}: the gate would be measuring a plain cut")
+            if any(s_["exit"] != "done" or s_["points"] != 1895 for s_ in snaps): problems.append(f"a switch did not finish a full 1895-record field: {[s_ for s_ in snaps if s_['exit'] != 'done' or s_['points'] != 1895][:3]}")
+            if end > base: problems.append(f"canvas count grew {base} -> {end} over {a.rounds} switches")
+            if any(s_["targets"] or s_["programs"] for s_ in snaps): problems.append(f"a switch left its render target / program alive: {[s_ for s_ in snaps if s_['targets'] or s_['programs']][:3]}")
             if errs: problems.append(f"console errors: {errs[:3]}")
             b.close()
             if srv: srv.terminate()

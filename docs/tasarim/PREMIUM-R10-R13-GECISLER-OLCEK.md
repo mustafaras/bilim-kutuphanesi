@@ -1,7 +1,7 @@
 # Premium aşama ayrıntıları: R10 geçişler · R11 kütüphane duvarı · R12 erişilebilirlik · R13 worker/WebGPU kararı
 
 > Ana belge: `PREMIUM-GORSEL-VIZYON.md` (ilkeler, yetenek envanteri, A1–A6, seviyeler, bütçe, kural kitabı). Sahneler: `PREMIUM-R6-R9-SAHNELER.md`.
-> Durum: **tasarım; kodlanmadı.** Sayılar hedeftir, ölçülmemiştir.
+> Durum: **tasarım; kodlanmadı** — istisna: **R10.j (süreklilik geçişi) uygulandı ve yürürlükte.** Diğer sayılar hedeftir, ölçülmemiştir.
 > Gösterim: **[S0]** Sinema · **[S1]** Yüksek · **[S2]** Orta · **[S3]** Düşük (bkz. ana belge §5).
 
 ---
@@ -12,7 +12,7 @@
 Galaksiden bir kayda gitmek **bir kamera uçuşu**: yıldıza doğru dalış (ışık çizgileri uzar), yıldızın rengi **kitap kapağına dönüşür** (yıldızdan eriyip kapak dokusu belirir), kapak açılır ve kayıt sayfası oturur. Zaman çizelgesinden galaksiye dönüş **film yanığı/iris** ile. Her geçiş bir **neden** anlatır (yıldız → kitap; yıl → kule; kule → dosya); süs değil.
 
 ## Bugünkü durum
-Yıldıza dalış **DOM hayalet kapağı** (`.fly` ghost, `A2/A3/A4` testleri); `record.js` `withMorph` ve View Transitions ad çakışması testi; sahneler ayrı canvas/renderer'lar (hero, takımyıldızı, Nobel galaksi, silüet) ve paylaşılan `stage` renderer'ı (raf/kitap/madalya).
+**R10.j (süreklilik) uygulandı ve yürürlükte** — aşağıdaki R10.1–R10.4 tasarımı tarihsel kayıttır. Yıldıza dalış **DOM hayalet kapağı** (`.fly` ghost, `A2/A3/A4` testleri); `record.js` `withMorph` ve View Transitions ad çakışması testi; sahneler ayrı canvas/renderer'lar (hero, takımyıldızı, Nobel galaksi, silüet) ve paylaşılan `stage` renderer'ı (raf/kitap/madalya).
 
 ## Radikal fikirler ve teknik tasarım
 
@@ -40,6 +40,19 @@ Yıldıza dalış **DOM hayalet kapağı** (`.fly` ghost, `A2/A3/A4` testleri); 
 - View Transitions API (`document.startViewTransition`) DOM yarısını yönetir; 3B yarısı **aynı süre eğrisi** (cubic-bezier ortak). Ad çakışması: `view-transition-name` tek yerde tahsis edilir (A3/A4 testleri korunur, yeni: geçiş sırasında **tek** aktif ad).
 - Destek yoksa: yalnız 3B geçiş + DOM kesme.
 
+### R10.j "Süreklilik" (continuum) — **uygulanan geçiş** (R10.a–R10.i'nin yerine)
+R10.a–R10.i denendi ve reddedildi: dondurulmuş kare + üstüne binen yıl rayı + uçan noktalar + ışık süpürmesi **üç ayrı efektin üst üste binmesiydi**; "ultra premium" değil, kalabalıktı. R10.j tek bir fikre indirger:
+
+> **Üç görünüm, aynı 1 895 kaydın üç dizilişidir.** Geçiş, kayıtların bu dizilişler arasında **tek bir ortak 3B uzayda** yol almasıdır; paneller altta çapraz solarken.
+
+- **Tek sahne, tek kamera, tek program, tek çizim çağrısı.** `transition.js` → `BKContinuum`. Kalıcı `canvas.nc-field`, `.nc-stage` içinde panellerin **kardeşi** (panel değişse de canvas yaşar, panel kenarındaki maskeyle kırpılmaz).
+- **Sıfır render hedefi, sıfır doku.** Dondurulmuş kare yok; giden sahne ölçülür, konumları **dünya uzayına** çevrilir (`pointPos3`), sonra panel gizlenir. Ölçüm **swap'tan önce** yapılmalıdır: gizli panelin `getBoundingClientRect()`'i 0×0 döner ve geçiş sessizce düz kesmeye düşer.
+- **Morph GPU'da.** `position` (giden) ve `aTo` (gelen) öznitelikleri arasında `smoothstep`; `aDelay` ile kayıtlar sırayla değil **dalga hâlinde** kalkar; `aArc` her kayda farklı yay verir, böylece kütle tek blok hâlinde değil **akışkan** hareket eder.
+- **Kamera nefesi.** `z = 2.4 − 0.20·sin(πt)`, `rotation.z = 0.018·sin(πt)` — geçiş boyunca tek, yumuşak bir ileri-geri. Ekran sarsıntısı, blur, iris, kromatik ayrışma **yok**.
+- **Panel çapraz solması** `T.dur` (720 ms) boyunca `opacity` ile; `end()` `hidden` bayraklarını geri yükler.
+- **Tema.** Karanlıkta `AdditiveBlending`, aydınlıkta `NormalBlending` + `uLight=1` (renk 0.66×'e karartılır) — beyaz zeminde noktalar patlamaz.
+- **Düşüş yolları.** `can()` yok (THREE yok / `reduced-motion` / kalite 3) → düz kesme. Bağlam kaybı → `dead`, `end()`, `teardown()`; canvas DOM'dan kalkar.
+
 ## Seviye tablosu (R10)
 | Özellik | S0 | S1 | S2 | S3 |
 |---|---|---|---|---|
@@ -49,7 +62,7 @@ Yıldıza dalış **DOM hayalet kapağı** (`.fly` ghost, `A2/A3/A4` testleri); 
 | Dondur-ve-geç | HalfFloat RT | 8-bit RT | `ImageBitmap` | yok |
 
 ## Alt adımlar (PR)
-1. **R10.a** geçiş shader kitaplığı + dondur-ve-geç (silüet↔galaksi, düşük risk). 2. **R10.b** dalış + kamera uçuşu. 3. **R10.c** materyalizasyon + kapak. 4. **R10.d** View Transitions eşlemesi ve geri dönüş.
+1. **R10.a** geçiş shader kitaplığı + dondur-ve-geç (silüet↔galaksi, düşük risk). 2. **R10.b** dalış + kamera uçuşu. 3. **R10.c** materyalizasyon + kapak. 4. **R10.d** View Transitions eşlemesi. — Hepsi denendi; **R10.j** ile değiştirildi (tek süreklilik alanı, üç efekt üst üste binmiyor).
 
 ## Kabul testleri
 - Geçiş süresince **kare sayısı ≥ 20** (gerçek GPU'da; yazılımsal GL'de ≥ 4), `reduced-motion`'da kesme (kare sayacı ≤ 2).
@@ -57,8 +70,14 @@ Yıldıza dalış **DOM hayalet kapağı** (`.fly` ghost, `A2/A3/A4` testleri); 
 - `gpu_budget_audit`: geçiş sırasında ek render hedefi ≤ 3, ek program ≤ 2; geçiş bitince hedefler `dispose` (`leak_audit` eğim).
 - `visual_audit`: geçiş **ara kareleri** `?still` modunda sabit `uT` değerleriyle (0, 0.25, 0.5, 0.75, 1) altına alınır; yalnız geçiş yüzeyi.
 
+### R10.j kabul testleri (yürürlükteki sözleşme)
+- `feature_audit.py --only b22`: geçiş sırasında `canvas.nc-field.on` **var**, `BKContinuum.info()` → `targets == 0`, `programs == 1`, `textures == 0`, `points` 1 800–2 048; çıkışta `last.exit == 'done'` ve kaynaklar bırakılmış; bağlam kaybı canvas'ı DOM'dan kaldırır; `reduced-motion`'da canvas **hiç kurulmaz**.
+- `gpu_budget_audit.py`: geçiş yüzeyi bütçesi `draws=1, programs=1, targets=0` — R10.1'in "1 sahne + 1 birleştirme" hedefinden de ucuz.
+- `leak_audit.py --cross`: 24 tur geçiş sonrası `BKContinuum.info()` `active=false`, `bound=false`, canvas sayısı sabit.
+- `visual_audit.py`: `transition-*` altın kareleri `__bkFieldStill(t)` ile (0, .25, .5, .75, 1) yeniden üretilir; hedef `.nc-stage`.
+
 ## Riskler
-View Transitions tarayıcı farkları → özellik tespiti. İki sahnenin aynı anda canlı kalması → bilinçli reddedildi (dondur-ve-geç). **Dosyalar:** `transition.js` (yeni; `fx.js` uber'i kullanır), `record.js`, `hero3d.js`, `constellation3d.js`, `stage.js`.
+View Transitions tarayıcı farkları → özellik tespiti. İki sahnenin aynı anda canlı kalması → bilinçli reddedildi (dondur-ve-geç). **Dosyalar:** `transition.js` (`BKContinuum`; `fx.js` uber'i kullanır), `nobel3d.js` (`.nc-stage`, `pointPos3`, `fieldPoints`, `crossTo`), `style.css` (`.nc-stage`/`.nc-field`), `record.js`, `hero3d.js`, `constellation3d.js`, `stage.js`.
 
 ---
 
