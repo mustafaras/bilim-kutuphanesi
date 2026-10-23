@@ -958,6 +958,9 @@ with sync_playwright() as p:
     if not ok: problems.append(f"A3 governor hysteresis wrong: {r}")
     pg.evaluate("BKHero.gov.feed(.005, performance.now()+1e7)")  # keep state sane
     # ---- A1 atlas arrival
+    # hold tier 0: the dolly lives in the tile update loop, and on software GL the governor reaches tier 4 within seconds, where
+    # only the hovered tile is updated — the first row then never moves and the check measures a frozen camera (z stays at rest)
+    pg.evaluate("BKHero.gov.pin(true)"); pg.evaluate("BKHero.gov.setLevel(0)")
     top = pg.evaluate("document.getElementById('collectionGrid').getBoundingClientRect().top+scrollY")
     # tiles off-screen are never rendered (stale camera), so compare the first row just after it enters the viewport vs once it has settled
     first = lambda ts: [t for t in sorted(ts, key=lambda t: t["top"])][:3]
@@ -980,6 +983,7 @@ with sync_playwright() as p:
     if early != before: problems.append("A4 filter applied before the dive finished")
     if after == before or after is None: problems.append("A4 filter never applied after the dive")
     if clicks != 1: problems.append(f"A4 click reached the grid {clicks}x (expected exactly once)")
+    pg.evaluate("BKHero.gov.pin(false)")   # back to the real governor for the rest of the slice
     # ---- A2 return flight
     pg.evaluate("scrollTo(0,0)"); pg.wait_for_timeout(2500)
     pg.evaluate("BKHero.fly(37)"); pg.wait_for_function("!document.getElementById('recordView').hidden", timeout=60000); pg.wait_for_timeout(2500)
